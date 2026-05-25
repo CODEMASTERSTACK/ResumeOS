@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "907333622939",
+    "firebase_url": "https://smartresume-7601e-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "smartresume-7601e",
+    "storage_bucket": "smartresume-7601e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:907333622939:android:1125c914021097b8ce3a3e",
+        "android_client_info": {
+          "package_name": "com.aicareer.ai_career_os"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "907333622939-0ji8jr5nqdgv799mbvo8kuleo59aq282.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aicareer.ai_career_os",
+            "certificate_hash": "7139b4b03f7a71446d9c388f43656452880e8028"
+          }
+        },
+        {
+          "client_id": "907333622939-k270fg4mkn75ul9fk1rek8vrjbteclsu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAPgcVYbmY2FzfNyMMHf7eENaga8IU5_FQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "907333622939-k270fg4mkn75ul9fk1rek8vrjbteclsu.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "907333622939-g20qd3nmdb9n7kosatpmj50p1eg7n9nl.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.aicareer.aiCareerOs"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

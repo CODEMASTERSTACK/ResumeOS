@@ -1,0 +1,26 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "smartresume-7601e",
+          "appId": "1:907333622939:android:1125c914021097b8ce3a3e",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "smartresume-7601e",
+          "configurations": {
+            "android": "1:907333622939:android:1125c914021097b8ce3a3e",
+            "ios": "1:907333622939:ios:1c9b914479649e6fce3a3e",
+            "web": "1:907333622939:web:565a3cd36630b863ce3a3e"
+          }
+        }
+      }
+    }
+  }
+}
