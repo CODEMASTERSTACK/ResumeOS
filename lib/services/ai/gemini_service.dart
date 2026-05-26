@@ -128,6 +128,91 @@ Return ONLY valid JSON:
     return result['summary'] as String? ?? '';
   }
 
+  Future<String> generateAuthenticSummary({
+    required String name,
+    required String currentRole,
+    required List<String> skills,
+    required List<Map<String, dynamic>> experience,
+    required List<Map<String, dynamic>> education,
+    required List<Map<String, dynamic>> projects,
+    required List<Map<String, dynamic>> certifications,
+    required List<Map<String, dynamic>> achievements,
+    String? currentSummary,
+  }) async {
+    final expList = experience.map((e) {
+      final role = e['role'] ?? '';
+      final company = e['company'] ?? '';
+      final duration = e['duration'] ?? '';
+      final bullets = e['bullets'] is List ? (e['bullets'] as List).join('; ') : '';
+      return '- $role at $company ($duration): $bullets';
+    }).join('\n');
+
+    final projList = projects.map((p) {
+      final title = p['title'] ?? '';
+      final tech = p['technologies'] is List ? (p['technologies'] as List).join(', ') : '';
+      final bullets = p['bullets'] is List ? (p['bullets'] as List).join('; ') : '';
+      return '- $title (Tech: $tech): $bullets';
+    }).join('\n');
+
+    final eduList = education.map((e) {
+      final degree = e['degree'] ?? '';
+      final inst = e['institution'] ?? '';
+      final spec = e['specialisation'] ?? e['field'] ?? '';
+      final years = '${e['startYear'] ?? ''} - ${e['endYear'] ?? ''}';
+      final grade = e['cgpa'] ?? e['percentage'] ?? '';
+      return '- $degree in $spec from $inst ($years), Grade: $grade';
+    }).join('\n');
+
+    final certsList = certifications.map((c) => '- ${c['title'] ?? ''} from ${c['issuer'] ?? ''} (${c['date'] ?? ''})').join('\n');
+    final achsList = achievements.map((a) => '- ${a['title'] ?? ''}').join('\n');
+
+    final prompt = '''
+Write a highly professional, realistic, and authentic professional summary for a candidate's resume/profile.
+The summary must be strictly between 100 and 150 words in length.
+
+Candidate Background:
+- Name: $name
+- Headline / Target Role: $currentRole
+- Existing Summary (if any): ${currentSummary ?? ''}
+
+Key Skills:
+${skills.join(', ')}
+
+Work Experience:
+$expList
+
+Projects:
+$projList
+
+Education:
+$eduList
+
+Certifications:
+$certsList
+
+Achievements:
+$achsList
+
+Strict Rules for Generation:
+1. **Length Constraints**: The generated summary MUST be strictly between 100 and 150 words. Do not make it shorter than 100 words or longer than 150 words.
+2. **Authenticity & Tone**: It must sound authentic, straightforward, human, and professional. It must NOT sound like a typical AI-generated marketing brochure or generic corporate copy.
+3. **Forbid Clichés & Buzzwords**: Do NOT use corporate clichés like "seasoned," "dynamic," "visionary," "passionate," "detail-oriented," "results-driven," "proven track record," "highly motivated," "exceptional," "expert," "innovative," "creative," "go-getter," or "thought leader."
+4. **Strip Filler Adjectives**: Do not use vague or melodramatic filler adjectives. Instead, focus on hard technical tools, methodologies, and factual descriptors.
+5. **Rely on Hard Facts & Metrics**: Build the summary around concrete data points, specific metrics, achievements, and actual work philosophy extracted from the experience and projects list. (e.g. if they reduced latency by 30%, or built a pipeline handling 10k requests, mention it naturally). Do not invent or exaggerate any accomplishments, numbers, or tech stacks.
+6. **Varied, Natural Sentence Structure**: Use natural, varied sentence structures. Avoid repetitive grammatical patterns.
+7. **Implicit First-Person/Active Voice**: Write in the active professional voice (e.g. starting directly with the role or a direct statement like "Software engineer focused on..." or "Full-stack developer building..."). Do NOT use third-person pronouns ("he", "she", "they", "his", "her") which make it sound like a pretentious third-person biography.
+8. **The "Read Out Loud" / Coffee Test**: Self-correct your draft. If the summary would sound pretentious, bragging, or unnatural to say directly to a recruiter over a casual cup of coffee, simplify the language, drop the melodrama, and make it more direct.
+
+Return ONLY valid JSON:
+{
+  "summary": "Your generated authentic professional summary here."
+}
+''';
+
+    final result = await _generate(prompt);
+    return result['summary'] as String? ?? '';
+  }
+
   Future<Map<String, dynamic>> _generate(String prompt) async {
     try {
       final response = await _model.generateContent([Content.text(prompt)]);

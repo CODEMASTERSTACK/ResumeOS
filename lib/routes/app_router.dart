@@ -18,6 +18,8 @@ import '../features/resume_generator/presentation/screens/resume_preview_screen.
 import '../features/resume_generator/presentation/screens/resume_edit_screen.dart';
 import '../features/history/presentation/screens/history_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
+import '../features/profile/presentation/screens/profile_section_edit_screen.dart';
+import '../features/profile/presentation/screens/profile_skills_edit_screen.dart';
 import '../shared/widgets/app_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -203,6 +205,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               state,
               const ProfileScreen(),
             ),
+            routes: [
+              GoRoute(
+                path: 'edit/:section',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) {
+                  final section = state.pathParameters['section']!;
+                  final extra = state.extra as Map<String, dynamic>?;
+                  return _slideTransition(
+                    state,
+                    ProfileSectionEditScreen(
+                      section: section,
+                      editItem: extra,
+                    ),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'skills',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) {
+                  return _slideTransition(
+                    state,
+                    const ProfileSkillsEditScreen(),
+                  );
+                },
+              ),
+            ],
           ),
         ],
       ),

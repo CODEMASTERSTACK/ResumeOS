@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -8,6 +9,8 @@ import '../../../../features/dashboard/presentation/screens/dashboard_screen.dar
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
 import '../../../../shared/widgets/app_button.dart';
+import '../../../../services/ai/gemini_service.dart';
+import '../../../../shared/providers/firebase_providers.dart';
 
 
 class ProfileScreen extends ConsumerWidget {
@@ -227,7 +230,7 @@ class _ProfileHeader extends ConsumerWidget {
           ),
         ),
         IconButton(
-          onPressed: () => _showEditProfileDialog(context, user, ref),
+          onPressed: () => context.push('/profile/edit/personal_info', extra: user.toJson()),
           icon: Container(
             width: 36,
             height: 36,
@@ -239,93 +242,6 @@ class _ProfileHeader extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-
-  void _showEditProfileDialog(BuildContext ctx, UserModel user, WidgetRef ref) {
-    final nameCtrl = TextEditingController(text: user.name);
-    final roleCtrl = TextEditingController(text: user.currentRole);
-    final phoneCtrl = TextEditingController(text: user.phone);
-    final locationCtrl = TextEditingController(text: user.location);
-    final githubCtrl = TextEditingController(text: user.githubUrl);
-    final linkedinCtrl = TextEditingController(text: user.linkedinUrl);
-    final summaryCtrl = TextEditingController(text: user.summary);
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Edit Profile'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameCtrl,
-                decoration: const InputDecoration(labelText: 'Full Name'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: roleCtrl,
-                decoration: const InputDecoration(labelText: 'Current Role / Headline'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: phoneCtrl,
-                decoration: const InputDecoration(labelText: 'Phone'),
-                keyboardType: TextInputType.phone,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: locationCtrl,
-                decoration: const InputDecoration(labelText: 'Location'),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: githubCtrl,
-                decoration: const InputDecoration(labelText: 'GitHub URL'),
-                keyboardType: TextInputType.url,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: linkedinCtrl,
-                decoration: const InputDecoration(labelText: 'LinkedIn URL'),
-                keyboardType: TextInputType.url,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: summaryCtrl,
-                decoration: const InputDecoration(labelText: 'Professional Summary'),
-                maxLines: 3,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await ref
-                  .read(profileRepositoryProvider)
-                  .updateUser(user.uid, {
-                'name': nameCtrl.text.trim(),
-                'currentRole': roleCtrl.text.trim(),
-                'phone': phoneCtrl.text.trim(),
-                'location': locationCtrl.text.trim(),
-                'githubUrl': githubCtrl.text.trim(),
-                'linkedinUrl': linkedinCtrl.text.trim(),
-                'summary': summaryCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) {
-                Navigator.pop(dialogCtx);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -420,6 +336,7 @@ class _PersonalInfoContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _InfoRow(label: 'Name', value: user.name, icon: Icons.person_outline),
         _InfoRow(label: 'Email', value: user.email, icon: Icons.email_outlined),
@@ -427,6 +344,14 @@ class _PersonalInfoContent extends StatelessWidget {
         _InfoRow(label: 'Location', value: user.location, icon: Icons.location_on_outlined),
         _InfoRow(label: 'GitHub', value: user.githubUrl, icon: Icons.code),
         _InfoRow(label: 'LinkedIn', value: user.linkedinUrl, icon: Icons.link),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _EditButton(
+            label: 'Edit Personal Details',
+            onTap: () => context.push('/profile/edit/personal_info', extra: user.toJson()),
+          ),
+        ),
       ],
     );
   }
@@ -469,9 +394,37 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _SummaryContent extends StatelessWidget {
+class _SummaryContent extends ConsumerStatefulWidget {
   final UserModel user;
   const _SummaryContent({required this.user});
+
+  @override
+  ConsumerState<_SummaryContent> createState() => _SummaryContentState();
+}
+
+class _SummaryContentState extends ConsumerState<_SummaryContent> {
+  bool _enhancing = false;
+
+  Widget _buildStatusRow(String title, bool isFilled) {
+    return Row(
+      children: [
+        Icon(
+          isFilled ? Icons.check_circle_rounded : Icons.cancel_rounded,
+          color: isFilled ? AppColors.success : AppColors.error,
+          size: 18,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: TextStyle(
+            color: AppColors.textPrimary,
+            fontWeight: isFilled ? FontWeight.bold : FontWeight.normal,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -479,25 +432,170 @@ class _SummaryContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          user.summary.isNotEmpty
-              ? user.summary
+          widget.user.summary.isNotEmpty
+              ? widget.user.summary
               : 'Add a professional summary to improve AI resume quality.',
           style: AppTypography.bodyMedium.copyWith(
-            color: user.summary.isNotEmpty
+            color: widget.user.summary.isNotEmpty
                 ? AppColors.textPrimary
                 : AppColors.textMuted,
             height: 1.6,
           ),
         ),
         const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: () {},
-          icon: const Icon(Icons.auto_awesome_rounded,
-              size: 14, color: AppColors.accent),
-          label: Text(AppStrings.aiEnhance,
-              style: AppTypography.labelMedium.copyWith(
-                color: AppColors.accent,
-              )),
+        if (_enhancing)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0),
+            child: Row(
+              children: [
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: AppColors.accent,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'AI is polishing your professional summary...',
+                  style: AppTypography.labelMedium.copyWith(
+                    color: AppColors.accent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          )
+        else
+          TextButton.icon(
+            onPressed: () async {
+              final uid = widget.user.uid;
+              final repo = ref.read(profileRepositoryProvider);
+
+              setState(() => _enhancing = true);
+
+              try {
+                final education = await repo.watchEducation(uid).first;
+                final skills = await repo.watchSkills(uid).first;
+                final experience = await repo.watchExperience(uid).first;
+
+                if (education.isEmpty || skills.isEmpty || experience.isEmpty) {
+                  setState(() => _enhancing = false);
+                  if (!mounted) return;
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Row(
+                        children: [
+                          Icon(Icons.auto_awesome_rounded, color: AppColors.accent),
+                          SizedBox(width: 10),
+                          Text('Enhance with AI'),
+                        ],
+                      ),
+                      content: SingleChildScrollView(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'To generate a tailored, authentic career summary, please complete these essential profile sections first:',
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.4),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildStatusRow('Education', education.isNotEmpty),
+                            const SizedBox(height: 8),
+                            _buildStatusRow('Skills', skills.isNotEmpty),
+                            const SizedBox(height: 8),
+                            _buildStatusRow('Experience', experience.isNotEmpty),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Having these details filled allows the AI to rely on real metrics and factual achievements, avoiding generic clichés.',
+                              style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.4),
+                            ),
+                          ],
+                        ),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          child: const Text('Got it'),
+                        ),
+                      ],
+                    ),
+                  );
+                  return;
+                }
+
+                final certifications = await repo.watchCertifications(uid).first;
+                final achievements = await repo.watchAchievements(uid).first;
+
+                final projectsSnap = await ref
+                    .read(firestoreProvider)
+                    .collection('users')
+                    .doc(uid)
+                    .collection('projects')
+                    .get();
+                final projects = projectsSnap.docs.map((d) => d.data()).toList();
+
+                final skillsList = skills.map((s) => s['name'] as String).toList();
+
+                final newSummary = await ref
+                    .read(geminiServiceImplProvider)
+                    .generateAuthenticSummary(
+                      name: widget.user.name,
+                      currentRole: widget.user.currentRole.isNotEmpty
+                          ? widget.user.currentRole
+                          : 'Software Professional',
+                      skills: skillsList,
+                      experience: experience,
+                      education: education,
+                      projects: projects,
+                      certifications: certifications,
+                      achievements: achievements,
+                      currentSummary: widget.user.summary,
+                    );
+
+                if (newSummary.isNotEmpty) {
+                  await repo.updateUser(uid, {'summary': newSummary});
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Professional summary enhanced by AI successfully!'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to enhance summary: $e'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              } finally {
+                if (mounted) {
+                  setState(() => _enhancing = false);
+                }
+              }
+            },
+            icon: const Icon(Icons.auto_awesome_rounded,
+                size: 14, color: AppColors.accent),
+            label: Text(AppStrings.aiEnhance,
+                style: AppTypography.labelMedium.copyWith(
+                  color: AppColors.accent,
+                )),
+          ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _EditButton(
+            label: 'Edit Summary',
+            onTap: () => context.push('/profile/edit/personal_info', extra: widget.user.toJson()),
+          ),
         ),
       ],
     );
@@ -676,14 +774,11 @@ class _SkillCategoryRowState extends State<_SkillCategoryRow> {
                   ...skills.map((s) => _SkillChip(
                         name: s['name'] as String,
                         color: cat.color,
-                        onEdit: () => _showEditSkillDialog(
-                            context, s['id'] as String, s['name'] as String),
-                        onDelete: () => _confirmDelete(
-                            context, s['id'] as String, s['name'] as String),
+                        onTap: () => context.push('/profile/skills'),
                       )),
                   // "+ Add" chip
                   GestureDetector(
-                    onTap: () => _showAddDialog(context),
+                    onTap: () => context.push('/profile/skills'),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 5),
@@ -719,154 +814,23 @@ class _SkillCategoryRowState extends State<_SkillCategoryRow> {
       ),
     );
   }
-
-  void _showAddDialog(BuildContext ctx) {
-    final ctrl = TextEditingController();
-    showDialog(
-      context: ctx,
-      builder: (dCtx) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: widget.category.color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Icon(widget.category.icon,
-                  size: 15, color: widget.category.color),
-            ),
-            const SizedBox(width: 10),
-            Text('Add ${widget.category.name}'),
-          ],
-        ),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: InputDecoration(hintText: widget.category.hint),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dCtx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final text = ctrl.text.trim();
-              if (text.isNotEmpty) {
-                final navigator = Navigator.of(dCtx);
-                await widget.ref
-                    .read(profileRepositoryProvider)
-                    .addSkill(widget.uid, text, widget.category.name);
-                navigator.pop();
-              }
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditSkillDialog(
-      BuildContext ctx, String skillId, String currentName) {
-    final ctrl = TextEditingController(text: currentName);
-    showDialog(
-      context: ctx,
-      builder: (dCtx) => AlertDialog(
-        title: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              decoration: BoxDecoration(
-                color: widget.category.color.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(7),
-              ),
-              child: Icon(Icons.edit_outlined,
-                  size: 15, color: widget.category.color),
-            ),
-            const SizedBox(width: 10),
-            const Text('Edit Skill'),
-          ],
-        ),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(labelText: 'Skill name'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dCtx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              final text = ctrl.text.trim();
-              if (text.isNotEmpty && text != currentName) {
-                final navigator = Navigator.of(dCtx);
-                await widget.ref
-                    .read(profileRepositoryProvider)
-                    .updateSkill(widget.uid, skillId, text);
-                navigator.pop();
-              } else {
-                Navigator.pop(dCtx);
-              }
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _confirmDelete(BuildContext ctx, String skillId, String skillName) {
-    showDialog(
-      context: ctx,
-      builder: (dCtx) => AlertDialog(
-        title: const Text('Remove Skill'),
-        content: Text('Remove "$skillName"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dCtx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
-            onPressed: () async {
-              final navigator = Navigator.of(dCtx);
-              await widget.ref
-                  .read(profileRepositoryProvider)
-                  .deleteSkill(widget.uid, skillId);
-              navigator.pop();
-            },
-            child: const Text('Remove'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 class _SkillChip extends StatelessWidget {
   final String name;
   final Color color;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  final VoidCallback onTap;
 
   const _SkillChip({
     required this.name,
     required this.color,
-    required this.onEdit,
-    required this.onDelete,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () => _showMenu(context),
-      onLongPress: () => _showMenu(context),
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
         decoration: BoxDecoration(
@@ -874,62 +838,9 @@ class _SkillChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(name, style: AppTypography.labelSmall),
-            const SizedBox(width: 5),
-            Icon(Icons.more_horiz_rounded,
-                size: 13, color: AppColors.textDisabled),
-          ],
-        ),
+        child: Text(name, style: AppTypography.labelSmall),
       ),
     );
-  }
-
-  void _showMenu(BuildContext context) {
-    final RenderBox box = context.findRenderObject() as RenderBox;
-    final Offset offset = box.localToGlobal(Offset.zero);
-    final Size size = box.size;
-
-    showMenu<String>(
-      context: context,
-      position: RelativeRect.fromLTRB(
-        offset.dx,
-        offset.dy + size.height + 4,
-        offset.dx + size.width,
-        offset.dy + size.height + 4 + 100,
-      ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      items: [
-        PopupMenuItem(
-          value: 'edit',
-          child: Row(
-            children: [
-              Icon(Icons.edit_outlined, size: 16, color: color),
-              const SizedBox(width: 10),
-              const Text('Edit'),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(height: 1),
-        PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline_rounded,
-                  size: 16, color: AppColors.error),
-              const SizedBox(width: 10),
-              Text('Delete',
-                  style: TextStyle(color: AppColors.error)),
-            ],
-          ),
-        ),
-      ],
-    ).then((value) {
-      if (value == 'edit') onEdit();
-      if (value == 'delete') onDelete();
-    });
   }
 }
 
@@ -963,9 +874,7 @@ class _EducationContent extends StatelessWidget {
                 title: title,
                 subtitle: subtitle,
                 trailing: trailing,
-                onEdit: () => isSchool
-                    ? _showEditSchoolDialog(context, uid, e)
-                    : _showEditHigherEducationDialog(context, uid, e),
+                onEdit: () => context.push('/profile/edit/education', extra: e),
                 onDelete: () => _confirmDelete(context, uid, e['id'] as String, title),
               );
             }),
@@ -1001,107 +910,12 @@ class _EducationContent extends StatelessWidget {
     );
   }
 
-  void _showEditSchoolDialog(BuildContext ctx, String uid, Map<String, dynamic> e) {
-    final schoolCtrl = TextEditingController(text: e['institution'] as String? ?? '');
-    final boardCtrl = TextEditingController(text: e['board'] as String? ?? '');
-    final pctCtrl = TextEditingController(text: e['percentage'] as String? ?? '');
-    final yearCtrl = TextEditingController(text: e['endYear'] as String? ?? '');
-    final degree = e['degree'] as String;
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text('Edit $degree Details'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: schoolCtrl, decoration: const InputDecoration(hintText: 'School Name')),
-              const SizedBox(height: 8),
-              TextField(controller: boardCtrl, decoration: const InputDecoration(hintText: 'Board (e.g. CBSE)')),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(child: TextField(controller: pctCtrl, decoration: const InputDecoration(hintText: 'Percentage (%)'))),
-                const SizedBox(width: 8),
-                Expanded(child: TextField(controller: yearCtrl, decoration: const InputDecoration(hintText: 'Passing Year'), keyboardType: TextInputType.number)),
-              ]),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).updateEducation(uid, e['id'] as String, {
-                'institution': schoolCtrl.text.trim(),
-                'board': boardCtrl.text.trim(),
-                'percentage': pctCtrl.text.trim(),
-                'endYear': yearCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditHigherEducationDialog(BuildContext ctx, String uid, Map<String, dynamic> e) {
-    final institutionCtrl = TextEditingController(text: e['institution'] as String? ?? '');
-    final degreeCtrl = TextEditingController(text: e['degree'] as String? ?? '');
-    final fieldCtrl = TextEditingController(text: e['field'] as String? ?? '');
-    final startYearCtrl = TextEditingController(text: e['startYear'] as String? ?? '');
-    final endYearCtrl = TextEditingController(text: e['endYear'] as String? ?? '');
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Edit Higher Education'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: institutionCtrl, decoration: const InputDecoration(hintText: 'Institution / College')),
-              const SizedBox(height: 8),
-              TextField(controller: degreeCtrl, decoration: const InputDecoration(hintText: 'Degree (e.g. B.Tech)')),
-              const SizedBox(height: 8),
-              TextField(controller: fieldCtrl, decoration: const InputDecoration(hintText: 'Field of Study')),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(child: TextField(controller: startYearCtrl, decoration: const InputDecoration(hintText: 'Start Year'), keyboardType: TextInputType.number)),
-                const SizedBox(width: 8),
-                Expanded(child: TextField(controller: endYearCtrl, decoration: const InputDecoration(hintText: 'End Year'), keyboardType: TextInputType.number)),
-              ]),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).updateEducation(uid, e['id'] as String, {
-                'institution': institutionCtrl.text.trim(),
-                'degree': degreeCtrl.text.trim(),
-                'field': fieldCtrl.text.trim(),
-                'startYear': startYearCtrl.text.trim(),
-                'endYear': endYearCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showAddDialog(BuildContext ctx, String uid, WidgetRef ref, List<Map<String, dynamic>> items) {
     final has10th = items.any((e) => e['degree'] == '10th Standard');
     final has12th = items.any((e) => e['degree'] == '12th Standard');
 
     if (has10th && has12th) {
-      _showAddHigherEducationDialog(ctx, uid, ref);
+      ctx.push('/profile/edit/education', extra: {'degree': 'Higher Education'});
     } else {
       showDialog(
         context: ctx,
@@ -1117,7 +931,7 @@ class _EducationContent extends StatelessWidget {
                   label: const Text('Add 10th Standard'),
                   onPressed: () {
                     Navigator.pop(dialogCtx);
-                    _showAddSchoolDialog(ctx, uid, ref, '10th Standard');
+                    ctx.push('/profile/edit/education', extra: {'degree': '10th Standard'});
                   },
                 ),
                 const SizedBox(height: 10),
@@ -1128,7 +942,7 @@ class _EducationContent extends StatelessWidget {
                   label: const Text('Add 12th Standard'),
                   onPressed: () {
                     Navigator.pop(dialogCtx);
-                    _showAddSchoolDialog(ctx, uid, ref, '12th Standard');
+                    ctx.push('/profile/edit/education', extra: {'degree': '12th Standard'});
                   },
                 ),
                 const SizedBox(height: 10),
@@ -1138,7 +952,7 @@ class _EducationContent extends StatelessWidget {
                 label: const Text('Add Higher Education'),
                 onPressed: () {
                   Navigator.pop(dialogCtx);
-                  _showAddHigherEducationDialog(ctx, uid, ref);
+                  ctx.push('/profile/edit/education', extra: {'degree': 'Higher Education'});
                 },
               ),
             ],
@@ -1152,101 +966,6 @@ class _EducationContent extends StatelessWidget {
         ),
       );
     }
-  }
-
-  void _showAddSchoolDialog(BuildContext ctx, String uid, WidgetRef ref, String degree) {
-    final schoolCtrl = TextEditingController();
-    final boardCtrl = TextEditingController();
-    final pctCtrl = TextEditingController();
-    final yearCtrl = TextEditingController();
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text('Add $degree Details'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: schoolCtrl, decoration: const InputDecoration(hintText: 'School Name')),
-              const SizedBox(height: 8),
-              TextField(controller: boardCtrl, decoration: const InputDecoration(hintText: 'Board (e.g. CBSE, State Board)')),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(child: TextField(controller: pctCtrl, decoration: const InputDecoration(hintText: 'Percentage (%)'))),
-                const SizedBox(width: 8),
-                Expanded(child: TextField(controller: yearCtrl, decoration: const InputDecoration(hintText: 'Passing Year'), keyboardType: TextInputType.number)),
-              ]),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).addEducation(uid, {
-                'degree': degree,
-                'institution': schoolCtrl.text.trim(),
-                'board': boardCtrl.text.trim(),
-                'percentage': pctCtrl.text.trim(),
-                'endYear': yearCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddHigherEducationDialog(BuildContext ctx, String uid, WidgetRef ref) {
-    final institutionCtrl = TextEditingController();
-    final degreeCtrl = TextEditingController();
-    final fieldCtrl = TextEditingController();
-    final startYearCtrl = TextEditingController();
-    final endYearCtrl = TextEditingController();
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Add Higher Education'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(controller: institutionCtrl, decoration: const InputDecoration(hintText: 'Institution / College')),
-              const SizedBox(height: 8),
-              TextField(controller: degreeCtrl, decoration: const InputDecoration(hintText: 'Degree (e.g. B.Tech, MBA)')),
-              const SizedBox(height: 8),
-              TextField(controller: fieldCtrl, decoration: const InputDecoration(hintText: 'Field of Study (e.g. Computer Science)')),
-              const SizedBox(height: 8),
-              Row(children: [
-                Expanded(child: TextField(controller: startYearCtrl, decoration: const InputDecoration(hintText: 'Start Year'), keyboardType: TextInputType.number)),
-                const SizedBox(width: 8),
-                Expanded(child: TextField(controller: endYearCtrl, decoration: const InputDecoration(hintText: 'End Year'), keyboardType: TextInputType.number)),
-              ]),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).addEducation(uid, {
-                'institution': institutionCtrl.text.trim(),
-                'degree': degreeCtrl.text.trim(),
-                'field': fieldCtrl.text.trim(),
-                'startYear': startYearCtrl.text.trim(),
-                'endYear': endYearCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
   }
 }
 
@@ -1269,12 +988,12 @@ class _ExperienceContent extends StatelessWidget {
                   title: e['role'] as String? ?? '',
                   subtitle: e['company'] as String? ?? '',
                   trailing: e['duration'] as String? ?? '',
-                  onEdit: () => _showEditDialog(context, uid, e),
+                  onEdit: () => context.push('/profile/edit/experience', extra: e),
                   onDelete: () => _confirmDelete(context, uid, e['id'] as String, e['role'] as String? ?? 'this entry'),
                 )),
             _AddButton(
               label: AppStrings.addExperience,
-              onTap: () => _showAddDialog(context, uid, ref),
+              onTap: () => context.push('/profile/edit/experience'),
             ),
           ],
         );
@@ -1303,81 +1022,6 @@ class _ExperienceContent extends StatelessWidget {
       ),
     );
   }
-
-  void _showEditDialog(BuildContext ctx, String uid, Map<String, dynamic> e) {
-    final roleCtrl = TextEditingController(text: e['role'] as String? ?? '');
-    final companyCtrl = TextEditingController(text: e['company'] as String? ?? '');
-    final durationCtrl = TextEditingController(text: e['duration'] as String? ?? '');
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Edit Experience'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: roleCtrl, decoration: const InputDecoration(hintText: 'Role / Job Title')),
-            const SizedBox(height: 8),
-            TextField(controller: companyCtrl, decoration: const InputDecoration(hintText: 'Company')),
-            const SizedBox(height: 8),
-            TextField(controller: durationCtrl, decoration: const InputDecoration(hintText: 'Duration (e.g. 2024 - Present)')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).updateExperience(uid, e['id'] as String, {
-                'role': roleCtrl.text.trim(),
-                'company': companyCtrl.text.trim(),
-                'duration': durationCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddDialog(BuildContext ctx, String uid, WidgetRef ref) {
-    final roleCtrl = TextEditingController();
-    final companyCtrl = TextEditingController();
-    final durationCtrl = TextEditingController();
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Add Experience'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: roleCtrl, decoration: const InputDecoration(hintText: 'Role / Job Title')),
-            const SizedBox(height: 8),
-            TextField(controller: companyCtrl, decoration: const InputDecoration(hintText: 'Company')),
-            const SizedBox(height: 8),
-            TextField(controller: durationCtrl, decoration: const InputDecoration(hintText: 'Duration (e.g. 2024 - Present)')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).addExperience(uid, {
-                'role': roleCtrl.text.trim(),
-                'company': companyCtrl.text.trim(),
-                'duration': durationCtrl.text.trim(),
-                'startDate': DateTime.now(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ── Certifications ────────────────────────────────────────
@@ -1399,12 +1043,12 @@ class _CertificationsContent extends StatelessWidget {
                   title: c['title'] as String? ?? '',
                   subtitle: c['issuer'] as String? ?? '',
                   trailing: c['date'] as String? ?? '',
-                  onEdit: () => _showEditDialog(context, uid, c),
+                  onEdit: () => context.push('/profile/edit/certifications', extra: c),
                   onDelete: () => _confirmDelete(context, uid, c['id'] as String, c['title'] as String? ?? 'this entry'),
                 )),
             _AddButton(
               label: AppStrings.addCertification,
-              onTap: () => _showAddDialog(context, uid, ref),
+              onTap: () => context.push('/profile/edit/certifications'),
             ),
           ],
         );
@@ -1433,80 +1077,6 @@ class _CertificationsContent extends StatelessWidget {
       ),
     );
   }
-
-  void _showEditDialog(BuildContext ctx, String uid, Map<String, dynamic> c) {
-    final titleCtrl = TextEditingController(text: c['title'] as String? ?? '');
-    final issuerCtrl = TextEditingController(text: c['issuer'] as String? ?? '');
-    final dateCtrl = TextEditingController(text: c['date'] as String? ?? '');
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Edit Certification'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleCtrl, decoration: const InputDecoration(hintText: 'Certification Name')),
-            const SizedBox(height: 8),
-            TextField(controller: issuerCtrl, decoration: const InputDecoration(hintText: 'Issuer')),
-            const SizedBox(height: 8),
-            TextField(controller: dateCtrl, decoration: const InputDecoration(hintText: 'Date (e.g. May 2026)')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).updateCertification(uid, c['id'] as String, {
-                'title': titleCtrl.text.trim(),
-                'issuer': issuerCtrl.text.trim(),
-                'date': dateCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddDialog(BuildContext ctx, String uid, WidgetRef ref) {
-    final titleCtrl = TextEditingController();
-    final issuerCtrl = TextEditingController();
-    final dateCtrl = TextEditingController();
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Add Certification'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: titleCtrl, decoration: const InputDecoration(hintText: 'Certification Name')),
-            const SizedBox(height: 8),
-            TextField(controller: issuerCtrl, decoration: const InputDecoration(hintText: 'Issuer')),
-            const SizedBox(height: 8),
-            TextField(controller: dateCtrl, decoration: const InputDecoration(hintText: 'Date (e.g. May 2026)')),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).addCertification(uid, {
-                'title': titleCtrl.text.trim(),
-                'issuer': issuerCtrl.text.trim(),
-                'date': dateCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Add'),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ── Achievements ──────────────────────────────────────────
@@ -1526,12 +1096,12 @@ class _AchievementsContent extends StatelessWidget {
           children: [
             ...items.map((a) => _EditableAchievementItem(
                   title: a['title'] as String? ?? '',
-                  onEdit: () => _showEditDialog(context, uid, a),
+                  onEdit: () => context.push('/profile/edit/achievements', extra: a),
                   onDelete: () => _confirmDelete(context, uid, a['id'] as String, a['title'] as String? ?? 'this entry'),
                 )),
             _AddButton(
               label: AppStrings.addAchievement,
-              onTap: () => _showAddDialog(context, uid, ref),
+              onTap: () => context.push('/profile/edit/achievements'),
             ),
           ],
         );
@@ -1555,62 +1125,6 @@ class _AchievementsContent extends StatelessWidget {
               navigator.pop();
             },
             child: const Text('Delete'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showEditDialog(BuildContext ctx, String uid, Map<String, dynamic> a) {
-    final titleCtrl = TextEditingController(text: a['title'] as String? ?? '');
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Edit Achievement'),
-        content: TextField(
-          controller: titleCtrl,
-          decoration: const InputDecoration(hintText: 'e.g. First place in Google Hackathon'),
-          maxLines: 2,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).updateAchievement(uid, a['id'] as String, {
-                'title': titleCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAddDialog(BuildContext ctx, String uid, WidgetRef ref) {
-    final titleCtrl = TextEditingController();
-
-    showDialog(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Add Achievement'),
-        content: TextField(
-          controller: titleCtrl,
-          decoration: const InputDecoration(hintText: 'e.g. First place in Google Hackathon'),
-          maxLines: 2,
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
-          ElevatedButton(
-            onPressed: () async {
-              await ref.read(profileRepositoryProvider).addAchievement(uid, {
-                'title': titleCtrl.text.trim(),
-              });
-              if (dialogCtx.mounted) Navigator.pop(dialogCtx);
-            },
-            child: const Text('Add'),
           ),
         ],
       ),
@@ -1808,6 +1322,38 @@ class _AddButton extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.add_rounded,
+                size: 14, color: AppColors.textSecondary),
+            const SizedBox(width: 6),
+            Text(label, style: AppTypography.labelMedium),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EditButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _EditButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.edit_outlined,
                 size: 14, color: AppColors.textSecondary),
             const SizedBox(width: 6),
             Text(label, style: AppTypography.labelMedium),

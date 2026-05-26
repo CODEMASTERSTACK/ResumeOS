@@ -487,26 +487,30 @@ class _SkillsGrid extends StatelessWidget {
           padding:
               const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.08),
+            color: color.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withOpacity(0.3)),
+            border: Border.all(color: color.withValues(alpha: 0.3)),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                isRequired
-                    ? Icons.star_rounded
-                    : Icons.add_circle_outline_rounded,
-                size: 12,
-                color: color,
-              ),
-              const SizedBox(width: 4),
-              Text(
-                skill,
-                style: AppTypography.labelMedium.copyWith(color: color),
-              ),
-            ],
+          child: Text.rich(
+            TextSpan(
+              children: [
+                WidgetSpan(
+                  alignment: PlaceholderAlignment.middle,
+                  child: Icon(
+                    isRequired
+                        ? Icons.star_rounded
+                        : Icons.add_circle_outline_rounded,
+                    size: 12,
+                    color: color,
+                  ),
+                ),
+                const WidgetSpan(child: SizedBox(width: 4)),
+                TextSpan(
+                  text: skill,
+                  style: AppTypography.labelMedium.copyWith(color: color),
+                ),
+              ],
+            ),
           ),
         );
       }).toList(),
