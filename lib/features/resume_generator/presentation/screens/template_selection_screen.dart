@@ -143,11 +143,16 @@ class _TemplateSelectionScreenState
         
         // Format duration nicely
         String dur = "";
-        if (startMonth.isNotEmpty || startYear.isNotEmpty) {
+        final hasStart = startMonth.isNotEmpty || startYear.isNotEmpty;
+        final hasEnd = endMonth.isNotEmpty || endYear.isNotEmpty;
+        if (hasStart && hasEnd) {
+          final startPart = "$startMonth $startYear".trim();
+          final endPart = "$endMonth $endYear".trim();
+          dur = "$startPart - $endPart";
+        } else if (hasStart) {
           dur = "$startMonth $startYear".trim();
-          if (endMonth.isNotEmpty || endYear.isNotEmpty) {
-            dur += " – $endMonth $endYear".trim();
-          }
+        } else if (hasEnd) {
+          dur = "$endMonth $endYear".trim();
         }
         
         String inst = m['institution'] as String? ?? '';
@@ -182,9 +187,9 @@ class _TemplateSelectionScreenState
         if (startMonth.isNotEmpty || startYear.isNotEmpty) {
           dur = "$startMonth $startYear".trim();
           if (endMonth.isNotEmpty || endYear.isNotEmpty) {
-            dur += " – $endMonth $endYear".trim();
+            dur += " - $endMonth $endYear".trim();
           } else {
-            dur += " – Present";
+            dur += " - Present";
           }
         }
         

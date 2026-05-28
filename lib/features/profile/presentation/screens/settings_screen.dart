@@ -1,0 +1,778 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_colors.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
+
+class SettingsScreen extends ConsumerWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: const Icon(
+                Icons.chevron_left_rounded,
+                color: Colors.black,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+        title: const Text(
+          'Settings',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 12),
+              child: Text(
+                'LEGAL & COMPLIANCE',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.grey,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+            
+            // Settings menu card
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.015),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _buildSettingTile(
+                    context: context,
+                    icon: Icons.shield_outlined,
+                    iconColor: const Color(0xFF3F51B5), // Premium Indigo
+                    title: 'Privacy Policy',
+                    subtitle: 'Data collection, purposes, and sharing policies',
+                    topic: 'privacy',
+                  ),
+                  _buildDivider(),
+                  _buildSettingTile(
+                    context: context,
+                    icon: Icons.key_outlined,
+                    iconColor: const Color(0xFF009688), // Modern Mint
+                    title: 'Authentication Disclosure',
+                    subtitle: 'Google & GitHub OAuth scope compliance',
+                    topic: 'oauth',
+                  ),
+                  _buildDivider(),
+                  _buildSettingTile(
+                    context: context,
+                    icon: Icons.auto_awesome_outlined,
+                    iconColor: const Color(0xFF673AB7), // Sleek Royal Purple
+                    title: 'AI Data Usage & Disclaimers',
+                    subtitle: 'Terms of Service and AI liability releases',
+                    topic: 'ai_legal',
+                  ),
+                  _buildDivider(),
+                  _buildSettingTile(
+                    context: context,
+                    icon: Icons.verified_user_outlined,
+                    iconColor: const Color(0xFFFF9800), // Premium Amber Gold
+                    title: 'Data Security & Age Limits',
+                    subtitle: 'User rights, security measures, and workforce limits',
+                    topic: 'security',
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 12, top: 8),
+              child: Text(
+                'ACCOUNT SESSION',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.grey,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+            
+            // Sign out card
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.015),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.logout_rounded, color: Colors.red.shade600, size: 20),
+                ),
+                title: const Text(
+                  'Sign Out',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.red,
+                  ),
+                ),
+                subtitle: Text(
+                  'Securely disconnect your account and session',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+                trailing: Icon(Icons.chevron_right_rounded, color: Colors.red.shade200),
+                onTap: () {
+                  _showSignOutDialog(context, ref);
+                },
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 12, top: 8),
+              child: Text(
+                'DANGER ZONE',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.redAccent,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+            
+            // Delete account card
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.red.shade100, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.red.withValues(alpha: 0.005),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(Icons.delete_forever_outlined, color: Colors.red.shade700, size: 20),
+                ),
+                title: const Text(
+                  'Delete Account',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.red,
+                  ),
+                ),
+                subtitle: Text(
+                  'Permanently destroy your profile and all resumes',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+                trailing: Icon(Icons.chevron_right_rounded, color: Colors.red.shade200),
+                onTap: () {
+                  _showDeleteAccountDialog(context, ref);
+                },
+              ),
+            ),
+            
+            const SizedBox(height: 32),
+            Center(
+              child: Column(
+                children: [
+                  const Text(
+                    'AI Career OS',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Version 1.0.0 (Production Build)',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(height: 1, color: Colors.grey.shade100),
+    );
+  }
+
+  Widget _buildSettingTile({
+    required BuildContext context,
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required String topic,
+  }) {
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: iconColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, color: iconColor, size: 20),
+      ),
+      title: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+          color: Colors.black87,
+        ),
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 2),
+        child: Text(
+          subtitle,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => SettingsDetailScreen(topic: topic),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSignOutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Sign Out',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: const Text('Are you sure you want to sign out of your account?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Pop Settings screen
+              ref.read(authNotifierProvider.notifier).signOut();
+            },
+            child: const Text(
+              'Sign Out',
+              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+            SizedBox(width: 8),
+            Text(
+              'Delete Account',
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+            ),
+          ],
+        ),
+        content: const Text(
+          'All the data including your details, resume and logs will be permanently deleted from our database and they won\'t be recoverable.',
+          style: TextStyle(fontSize: 14, height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              _showProcessingDialog(context); // Show deleting... spinner
+              await _performAccountDeletion(context, ref);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text(
+              'Confirm Delete',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showProcessingDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const PopScope(
+        canPop: false,
+        child: AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(color: Colors.red),
+              SizedBox(width: 20),
+              Text(
+                'Permanently deleting account...',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _performAccountDeletion(BuildContext context, WidgetRef ref) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // 1. Delete all Firestore data
+        await _deleteUserFirestoreData(user.uid);
+        
+        // 2. Delete Auth User account
+        await user.delete();
+        
+        // Close the processing spinner
+        if (context.mounted) {
+          Navigator.pop(context); // Close spinner
+        }
+
+        // Show toast and pop back
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Account permanently deleted.'),
+              backgroundColor: Colors.black87,
+            ),
+          );
+          Navigator.pop(context); // Pop Settings screen
+        }
+      } else {
+        // If user is somehow null, close spinner
+        if (context.mounted) {
+          Navigator.pop(context);
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      // Close spinner
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+      
+      if (e.code == 'requires-recent-login') {
+        if (context.mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: const Text('Re-authentication Required'),
+              content: const Text(
+                'For security reasons, deleting your account requires recent sign-in. '
+                'Please sign out, sign back in, and try deleting your account again.'
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${e.message}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Close spinner
+      if (context.mounted) {
+        Navigator.pop(context);
+      }
+      
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete account: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteUserFirestoreData(String uid) async {
+    final db = FirebaseFirestore.instance;
+    final batch = db.batch();
+
+    final subcollections = [
+      'skills',
+      'education',
+      'experience',
+      'certifications',
+      'achievements',
+      'resumes',
+      'projects',
+    ];
+
+    for (final sub in subcollections) {
+      final snap = await db.collection('users').doc(uid).collection(sub).get();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+    }
+
+    // Delete primary user document
+    batch.delete(db.collection('users').doc(uid));
+
+    await batch.commit();
+  }
+}
+
+class SettingsDetailScreen extends StatelessWidget {
+  final String topic;
+  const SettingsDetailScreen({super.key, required this.topic});
+
+  @override
+  Widget build(BuildContext context) {
+    String title = '';
+    List<Widget> content = [];
+
+    switch (topic) {
+      case 'privacy':
+        title = 'Privacy Policy';
+        content = _buildPrivacyContent();
+        break;
+      case 'oauth':
+        title = 'Authentication Disclosure';
+        content = _buildOauthContent();
+        break;
+      case 'ai_legal':
+        title = 'AI Terms & Liability';
+        content = _buildAiContent();
+        break;
+      case 'security':
+        title = 'Security & Age Limits';
+        content = _buildSecurityContent();
+        break;
+    }
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: const Icon(
+                Icons.chevron_left_rounded,
+                color: Colors.black,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20.0),
+        child: Container(
+          padding: const EdgeInsets.all(20.0),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: content,
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildPrivacyContent() {
+    return [
+      _sectionHeader('1. Data We Collect & Scope'),
+      _bodyText('We collect the minimum amount of personal and professional information necessary to construct and host your professional resume portfolio:'),
+      _bulletPoint('Identity Info', 'Full Name, Profile Photo/Avatar, Email Address, and Phone Number.'),
+      _bulletPoint('Professional Profile', 'Education records (Degree, field of study, Board, GPA/Percentage), work/internship details, skills, certifications, and project lists.'),
+      _bulletPoint('OAuth Identifiers', 'Unique profile tokens retrieved via secure Google and GitHub OAuth services.'),
+      
+      const SizedBox(height: 16),
+      _sectionHeader('2. Purpose of Collection'),
+      _bodyText('Every piece of data gathered is used strictly for core app features:'),
+      _bulletPoint('Profile Synthesis', 'Formatting and populating ATS-compliant resume pages.'),
+      _bulletPoint('GitHub Integration', 'Reading and synchronizing repository portfolios in real-time.'),
+      
+      const SizedBox(height: 16),
+      _sectionHeader('3. Third-Party Sharing'),
+      _bodyText('Because AI Career OS relies on Generative Artificial Intelligence, selected professional highlights (skills, role titles, company names, and project details) are transmitted securely to leading AI APIs (including Gemini, OpenAI, or OpenRouter) strictly for text enhancement. No third-party AI provider receives permanent rights to store or train on your identity. We do not sell or lease candidate details to third-party databases, brokers, or advertisers.'),
+      
+      const SizedBox(height: 16),
+      _sectionHeader('4. Your Rights'),
+      _bodyText('Candidates hold absolute legal authority over their private data. You retain rights to access your details at any time, edit/correct them via the Profile Tab, and permanently delete your profile along with all generated resume documents instantly from our databases.'),
+    ];
+  }
+
+  List<Widget> _buildOauthContent() {
+    return [
+      _sectionHeader('1. OAuth Data Minimization'),
+      _bodyText('In compliance with strict Google and GitHub OAuth API developer rules, we adhere to absolute Data Minimization (Scoping). We strictly request access to basic email and read-only profile scopes (e.g. email, openid, profile, read:user). We will NEVER request permissions to access, view, or modify your personal emails, calendar events, contacts, or source code repositories.'),
+      
+      const SizedBox(height: 16),
+      _sectionHeader('2. Domain & Policy Verification'),
+      _bodyText('As dictated by Google developer verification compliance, this official privacy policy is strictly hosted on a verified, owned domain. We do not use Google Docs, plain pastes, or generic URLs, assuring absolute authority and legal safety for OAuth authentication services.'),
+      
+      const SizedBox(height: 16),
+      _sectionHeader('3. Environment Segregation'),
+      _bodyText('To prevent developer testing operations from impacting client databases, we maintain fully segregated projects and environments for development (sandboxed, separate OAuth credentials) and production (verified production keys and SSL/TLS protection), ensuring complete account isolation.'),
+    ];
+  }
+
+  List<Widget> _buildAiContent() {
+    return [
+      _sectionHeader('1. Real-Time AI Processing'),
+      _bodyText('Our AI summary enhancer processes resume parameters in real-time. We explicitly guarantee that candidate resume details are processed in sandboxed sessions and are NEVER used to train the base foundation models of OpenAI, Gemini, or OpenRouter.'),
+      
+      const SizedBox(height: 16),
+      _sectionHeader('2. AI Hallucination & Liability Release'),
+      _warningBanner('AI is known to occasionally "hallucinate" or fabricate dates, accomplishments, and skills. The candidate is 100% legally responsible for thoroughly reviewing, editing, and verifying the absolute accuracy of their resume before applying for jobs. The application, developers, and parent companies hold zero liability for job rejections, application cancellations, or career setbacks arising from unverified AI-generated content.'),
+      
+      const SizedBox(height: 16),
+      _sectionHeader('3. Intellectual Property (IP)'),
+      _bodyText('Candidates retain 100% intellectual property ownership of the final generated PDF resumes produced by this app. You are free to publish, sell, share, or submit them. AI Career OS retains all proprietary rights to the underlying source code, database structures, graphic assets, layout designs, and generative text algorithms.'),
+    ];
+  }
+
+  List<Widget> _buildSecurityContent() {
+    return [
+      _sectionHeader('1. Data Security Measures'),
+      _bodyText('We implement multiple security safeguards to protect your personal information from unauthorized access, breach, or theft:'),
+      _bulletPoint('Encryption', 'All data transferred between your device and the cloud is fully protected using standard SSL/TLS protocol encryption.'),
+      _bulletPoint('Cloud Protection', 'We utilize Google Firebase Firestore built-in security rules to strictly authorize read/write operations to authenticated account owners only.'),
+      
+      const SizedBox(height: 16),
+      _sectionHeader('2. Age Restrictions (18+)'),
+      _bodyText('Our resume builder and career enhancement suite is designed exclusively for the adult workforce. In strict alignment with Google Sign-In and developer age-limit guidelines, individuals under the age of 18 (or 16 in select jurisdictions) are prohibited from creating accounts, accessing OAuth authentication, or using our resume enhancement services.'),
+      
+      const SizedBox(height: 16),
+      _sectionHeader('3. Contact Legal Support'),
+      _bodyText('If you have any questions regarding these compliance terms, security disclosures, or wish to execute your data deletion rights, please contact our legal desk at compliance@aicareeros.com.'),
+    ];
+  }
+
+  Widget _sectionHeader(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF1E1E2F),
+        ),
+      ),
+    );
+  }
+
+  Widget _bodyText(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 11.5,
+          height: 1.4,
+          color: Colors.grey.shade700,
+        ),
+      ),
+    );
+  }
+
+  Widget _bulletPoint(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '• ',
+            style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+          ),
+          Expanded(
+            child: RichText(
+              text: TextSpan(
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.4),
+                children: [
+                  TextSpan(
+                    text: '$label: ',
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  TextSpan(text: value),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _warningBanner(String text) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50.withValues(alpha: 0.5),
+        border: Border.all(color: Colors.orange.shade200),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800, size: 16),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 10.5,
+                height: 1.4,
+                color: Colors.orange.shade900,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

@@ -4,7 +4,6 @@ import 'package:printing/printing.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
-import '../../../../core/constants/app_typography.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/resume_generator/domain/entities/resume_model.dart';
 import '../../../../services/pdf/pdf_service.dart';
@@ -92,28 +91,90 @@ class _ResumePreviewScreenState
     }
   }
 
+  void _showFullScreenResume() {
+    if (_resume?.generatedResumeData == null) return;
+    
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.white,
+          appBar: AppBar(
+            backgroundColor: Colors.white,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.close_rounded, color: Colors.black),
+              onPressed: () => Navigator.pop(context),
+            ),
+            title: Text(
+              '${_resume!.generatedResumeData!.name}\'s Resume',
+              style: const TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            centerTitle: true,
+          ),
+          body: InteractiveViewer(
+            minScale: 1.0,
+            maxScale: 4.0,
+            child: PdfPreview(
+              build: (format) => PdfService().generatePdf(
+                _resume!.generatedResumeData!,
+                _resume!.templateUsed,
+              ),
+              allowPrinting: true,
+              allowSharing: true,
+              canChangePageFormat: false,
+              canChangeOrientation: false,
+              canDebug: false,
+              loadingWidget: const Center(
+                child: CircularProgressIndicator(color: AppColors.accent),
+              ),
+              pdfFileName: '${_resume!.generatedResumeData!.name.replaceAll(' ', '_')}_Resume.pdf',
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.background,
-        title: const Text(AppStrings.resumePreview),
         elevation: 0,
-        actions: [
-          if (_resume != null) ...[
-            IconButton(
-              icon: const Icon(Icons.edit_note_rounded, color: AppColors.accent, size: 28),
-              onPressed: _navigateToEditScreen,
-              tooltip: 'Edit Resume',
+        centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: const Icon(
+                Icons.chevron_left_rounded,
+                color: Colors.black,
+                size: 24,
+              ),
             ),
-            const SizedBox(width: 8),
-            Padding(
-              padding: const EdgeInsets.only(right: 16, top: 12, bottom: 12),
-              child: _AtsScoreBadge(score: _resume!.atsScore),
-            ),
-          ]
-        ],
+          ),
+        ),
+        title: const Text(
+          'Resume Preview',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
@@ -121,36 +182,151 @@ class _ResumePreviewScreenState
               ? const Center(child: Text('Resume not found'))
               : Column(
                   children: [
-                    // ATS Score + Missing Keywords
+                    // ATS Score + Missing Keywords Insights Card
                     if (_resume!.atsScore > 0)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                         child: _AtsInsightCard(resume: _resume!),
                       ),
-                    // High-fidelity PDF Preview
+                    
+                    // High-fidelity PDF Preview inside custom Card
                     Expanded(
-                      child: Container(
-                        color: AppColors.background,
-                        padding: const EdgeInsets.all(12),
-                        child: PdfPreview(
-                          build: (format) => PdfService().generatePdf(
-                            _resume!.generatedResumeData!,
-                            _resume!.templateUsed,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.grey.shade200, width: 1),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.015),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
-                          allowPrinting: false,
-                          allowSharing: false,
-                          canChangePageFormat: false,
-                          canChangeOrientation: false,
-                          canDebug: false,
-                          loadingWidget: const Center(
-                            child: CircularProgressIndicator(color: AppColors.accent),
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              // Custom PDF Header Row
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.accent.withValues(alpha: 0.08),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(
+                                          Icons.description_outlined,
+                                          color: AppColors.accent,
+                                          size: 16,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Text(
+                                        'Resume Preview',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF1E1E2F),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade50,
+                                          borderRadius: BorderRadius.circular(20),
+                                          border: Border.all(color: Colors.grey.shade200),
+                                        ),
+                                        child: const Text(
+                                          '1 / 1',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      PopupMenuButton<String>(
+                                        icon: const Icon(Icons.more_vert_rounded, color: Colors.grey, size: 20),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onSelected: (value) {
+                                          if (value == 'fullscreen') {
+                                            _showFullScreenResume();
+                                          }
+                                        },
+                                        itemBuilder: (context) => [
+                                          const PopupMenuItem(
+                                            value: 'fullscreen',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.fullscreen_rounded, color: Colors.black, size: 18),
+                                                SizedBox(width: 8),
+                                                Text(
+                                                  'Full Screen Preview',
+                                                  style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              
+                              // Actual PDF Preview Widget
+                              Expanded(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.grey.shade200),
+                                  ),
+                                  clipBehavior: Clip.antiAlias,
+                                  child: InteractiveViewer(
+                                    minScale: 1.0,
+                                    maxScale: 3.0,
+                                    child: PdfPreview(
+                                      build: (format) => PdfService().generatePdf(
+                                        _resume!.generatedResumeData!,
+                                        _resume!.templateUsed,
+                                      ),
+                                      allowPrinting: false,
+                                      allowSharing: false,
+                                      canChangePageFormat: false,
+                                      canChangeOrientation: false,
+                                      canDebug: false,
+                                      loadingWidget: const Center(
+                                        child: CircularProgressIndicator(color: AppColors.accent),
+                                      ),
+                                      pdfFileName: '${_resume!.generatedResumeData!.name.replaceAll(' ', '_')}_Resume.pdf',
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                          pdfFileName: '${_resume!.generatedResumeData!.name.replaceAll(' ', '_')}_Resume.pdf',
                         ),
                       ),
                     ),
 
-                    // Bottom actions
+                    // Premium bottom actions row matching Reference Image
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -161,7 +337,7 @@ class _ResumePreviewScreenState
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: Colors.black.withValues(alpha: 0.04),
                             blurRadius: 16,
                             offset: const Offset(0, -4),
                           ),
@@ -169,49 +345,111 @@ class _ResumePreviewScreenState
                       ),
                       child: Row(
                         children: [
+                          // Regenerate Button
                           Expanded(
-                            child: OutlinedButton.icon(
+                            child: OutlinedButton(
                               onPressed: () => Navigator.pop(context),
-                              icon: const Icon(Icons.refresh_rounded,
-                                  size: 16),
-                              label: const Text(AppStrings.regenerate),
                               style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 14),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                backgroundColor: AppColors.accent.withValues(alpha: 0.05),
+                                side: BorderSide(color: AppColors.accent.withValues(alpha: 0.2)),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.refresh_rounded, color: AppColors.accent, size: 16),
+                                    const SizedBox(width: 6),
+                                    const Text(
+                                      'Regenerate',
+                                      style: TextStyle(
+                                        color: AppColors.accent,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
+                          
+                          // Download Button
                           Expanded(
-                            flex: 2,
-                            child: ElevatedButton.icon(
-                              onPressed:
-                                  _isDownloading ? null : _downloadPdf,
-                              icon: _isDownloading
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Icon(
-                                      Icons.download_rounded, size: 16),
-                              label: Text(
-                                _isDownloading
-                                    ? 'Preparing...'
-                                    : AppStrings.downloadPdf,
-                              ),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppColors.accent,
-                                padding: const EdgeInsets.symmetric(
-                                    vertical: 14),
+                            child: OutlinedButton(
+                              onPressed: _isDownloading ? null : _downloadPdf,
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                backgroundColor: Colors.green.withValues(alpha: 0.05),
+                                side: BorderSide(color: Colors.green.withValues(alpha: 0.2)),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    _isDownloading
+                                        ? const SizedBox(
+                                            width: 14,
+                                            height: 14,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.green,
+                                            ),
+                                          )
+                                        : const Icon(Icons.file_download_outlined, color: Colors.green, size: 16),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      _isDownloading ? '...' : 'Download',
+                                      style: const TextStyle(
+                                        color: Colors.green,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          
+                          // Edit Resume Button
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: _navigateToEditScreen,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppColors.accent,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                elevation: 0,
+                              ),
+                              child: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.edit_rounded, size: 16),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Edit Resume',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -221,51 +459,6 @@ class _ResumePreviewScreenState
                     ),
                   ],
                 ),
-      floatingActionButton: _resume == null || _loading
-          ? null
-          : FloatingActionButton.extended(
-              onPressed: _navigateToEditScreen,
-              label: const Text('Edit Resume', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              icon: const Icon(Icons.edit_rounded, color: Colors.white),
-              backgroundColor: AppColors.accent,
-            ),
-    );
-  }
-}
-
-class _AtsScoreBadge extends StatelessWidget {
-  final int score;
-  const _AtsScoreBadge({required this.score});
-
-  Color get _color {
-    if (score >= 80) return AppColors.success;
-    if (score >= 60) return AppColors.warning;
-    return AppColors.error;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: _color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.verified_rounded, size: 14, color: _color),
-          const SizedBox(width: 4),
-          Text(
-            'ATS $score%',
-            style: AppTypography.labelMedium.copyWith(
-              color: _color,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -274,79 +467,260 @@ class _AtsInsightCard extends StatelessWidget {
   final ResumeModel resume;
   const _AtsInsightCard({required this.resume});
 
+  Color get _scoreColor {
+    if (resume.atsScore >= 80) return Colors.green.shade600;
+    if (resume.atsScore >= 60) return Colors.amber.shade700;
+    return Colors.red.shade600;
+  }
+
+  String get _ratingLabel {
+    if (resume.atsScore >= 80) return 'Good';
+    if (resume.atsScore >= 60) return 'Average';
+    return 'Needs Work';
+  }
+
+  String get _ratingDesc {
+    if (resume.atsScore >= 80) return 'Your resume is well-optimized but can be further improved.';
+    if (resume.atsScore >= 60) return 'Your resume is decent but missing key elements to pass ATS.';
+    return 'Your resume needs significant improvements to pass standard ATS filters.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final missing = resume.missingKeywords;
-    final color = resume.atsScore >= 80
-        ? AppColors.success
-        : resume.atsScore >= 60
-            ? AppColors.warning
-            : AppColors.error;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final useVerticalLayout = screenWidth < 420;
+
+    final leftGauge = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 80,
+          height: 80,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 74,
+                height: 74,
+                child: CircularProgressIndicator(
+                  value: resume.atsScore / 100.0,
+                  strokeWidth: 7,
+                  backgroundColor: Colors.grey.shade100,
+                  color: _scoreColor,
+                  strokeCap: StrokeCap.round,
+                ),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '${resume.atsScore}',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: _scoreColor,
+                    ),
+                  ),
+                  Text(
+                    '/100',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _ratingLabel,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.bold,
+            color: _scoreColor,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _ratingDesc,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: 9,
+            color: Colors.grey.shade600,
+            height: 1.3,
+          ),
+        ),
+      ],
+    );
+
+    final rightKeywords = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Missing Keywords',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.info_outline_rounded,
+              color: Colors.grey.shade400,
+              size: 13,
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Add these keywords to improve your ATS score and visibility.',
+          style: TextStyle(
+            fontSize: 9,
+            color: Colors.grey.shade500,
+            height: 1.3,
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (missing.isNotEmpty)
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: missing.map((kw) {
+              return Container(
+                constraints: BoxConstraints(maxWidth: screenWidth * 0.45),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                    color: Colors.red.shade100.withValues(alpha: 0.6),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.close_rounded,
+                      color: Colors.red.shade400,
+                      size: 10,
+                    ),
+                    const SizedBox(width: 2),
+                    Flexible(
+                      child: Text(
+                        kw,
+                        style: TextStyle(
+                          color: Colors.red.shade800,
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Text(
+              'No missing keywords! Your resume matches perfectly.',
+              style: TextStyle(
+                fontSize: 9,
+                fontStyle: FontStyle.italic,
+                color: Colors.green.shade700,
+              ),
+            ),
+          ),
+      ],
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withOpacity(0.2)),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200, width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.02),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Card Header
           Row(
             children: [
-              Icon(Icons.analytics_outlined, color: color, size: 18),
-              const SizedBox(width: 8),
-              Text(
-                'ATS Analysis',
-                style: AppTypography.titleMedium.copyWith(color: color),
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.accent.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.analytics_outlined,
+                  color: AppColors.accent,
+                  size: 16,
+                ),
               ),
-              const Spacer(),
-              Text(
-                '${resume.atsScore}/100',
-                style: AppTypography.headlineMedium.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
+              const SizedBox(width: 8),
+              const Text(
+                'ATS Analysis',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1E1E2F),
                 ),
               ),
             ],
           ),
-          if (missing.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text(
-              AppStrings.missingKeywords,
-              style: AppTypography.labelMedium.copyWith(
-                color: AppColors.textSecondary,
-              ),
+          const SizedBox(height: 16),
+          
+          if (useVerticalLayout) ...[
+            Center(child: leftGauge),
+            Container(
+              margin: const EdgeInsets.symmetric(vertical: 16),
+              height: 1,
+              color: Colors.grey.shade200,
             ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: missing.map((kw) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.errorLight,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                        color: AppColors.error.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    kw,
-                    style: AppTypography.labelSmall.copyWith(
-                      color: AppColors.error,
-                    ),
-                  ),
-                );
-              }).toList(),
+            rightKeywords,
+          ] else
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: leftGauge,
+                ),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  width: 1,
+                  height: 130,
+                  color: Colors.grey.shade200,
+                ),
+                Expanded(
+                  flex: 5,
+                  child: rightKeywords,
+                ),
+              ],
             ),
-          ],
         ],
       ),
     );
   }
 }
-
-

@@ -20,6 +20,8 @@ import '../features/history/presentation/screens/history_screen.dart';
 import '../features/profile/presentation/screens/profile_screen.dart';
 import '../features/profile/presentation/screens/profile_section_edit_screen.dart';
 import '../features/profile/presentation/screens/profile_skills_edit_screen.dart';
+import '../features/profile/presentation/screens/profile_summary_ai_enhance_screen.dart';
+import '../features/profile/presentation/screens/settings_screen.dart';
 import '../shared/widgets/app_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -228,6 +230,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   return _slideTransition(
                     state,
                     const ProfileSkillsEditScreen(),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'summary-enhance',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) {
+                  return _slideTransition(
+                    state,
+                    const ProfileSummaryAiEnhanceScreen(),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'settings',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) {
+                  return _slideTransition(
+                    state,
+                    const SettingsScreen(),
                   );
                 },
               ),

@@ -1,9 +1,16 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:http/http.dart' as http;
 import 'ai_service.dart';
 
 const _geminiApiKey = String.fromEnvironment(
   'GEMINI_API_KEY',
+  defaultValue: '',
+);
+
+const _openRouterApiKey = String.fromEnvironment(
+  'OPENROUTER_API_KEY',
   defaultValue: '',
 );
 
@@ -195,13 +202,13 @@ $achsList
 
 Strict Rules for Generation:
 1. **Length Constraints**: The generated summary MUST be strictly between 100 and 150 words. Do not make it shorter than 100 words or longer than 150 words.
-2. **Authenticity & Tone**: It must sound authentic, straightforward, human, and professional. It must NOT sound like a typical AI-generated marketing brochure or generic corporate copy.
-3. **Forbid Clichés & Buzzwords**: Do NOT use corporate clichés like "seasoned," "dynamic," "visionary," "passionate," "detail-oriented," "results-driven," "proven track record," "highly motivated," "exceptional," "expert," "innovative," "creative," "go-getter," or "thought leader."
-4. **Strip Filler Adjectives**: Do not use vague or melodramatic filler adjectives. Instead, focus on hard technical tools, methodologies, and factual descriptors.
-5. **Rely on Hard Facts & Metrics**: Build the summary around concrete data points, specific metrics, achievements, and actual work philosophy extracted from the experience and projects list. (e.g. if they reduced latency by 30%, or built a pipeline handling 10k requests, mention it naturally). Do not invent or exaggerate any accomplishments, numbers, or tech stacks.
-6. **Varied, Natural Sentence Structure**: Use natural, varied sentence structures. Avoid repetitive grammatical patterns.
-7. **Implicit First-Person/Active Voice**: Write in the active professional voice (e.g. starting directly with the role or a direct statement like "Software engineer focused on..." or "Full-stack developer building..."). Do NOT use third-person pronouns ("he", "she", "they", "his", "her") which make it sound like a pretentious third-person biography.
-8. **The "Read Out Loud" / Coffee Test**: Self-correct your draft. If the summary would sound pretentious, bragging, or unnatural to say directly to a recruiter over a casual cup of coffee, simplify the language, drop the melodrama, and make it more direct.
+2. **Authenticity & Tone**: Keep the professional summary authentic and human-sounding. Do NOT make it sound like a typical corporate AI brochure or generic marketing fluff.
+3. **Forbid Clichés**: Avoid buzzword clichés like "seasoned," "dynamic," "visionary," "passionate," "detail-oriented," "results-driven," "highly motivated," "thought leader," or "expert."
+4. **Strip Filler Adjectives**: Strip out generic filler adjectives in favor of varied, natural sentence structures.
+5. **Rely on Hard Facts & Metrics**: Instead of inventing melodramatic fluff or generic job titles, rely strictly on hard facts, specific metrics, measurable achievements, and actual work philosophy from the provided user data (experience, education, and projects). Do not exaggerate or fabricate numbers or experiences.
+6. **Varied, Natural Sentence Structure**: Use clean, straightforward, varied sentence structures. Avoid repetitive paragraph patterns.
+7. **Implicit First-Person/Active Voice**: Write in the active professional voice (e.g., starting with the role name, like "Software engineer building..." or "Backend developer focusing on..."). Do not use third-person biography pronouns ("he", "she", "they").
+8. **The "Read Out Loud" / Coffee Test**: Always apply the "read out loud" test to self-correct the draft. If the candidate would feel pretentious saying the summary directly to a recruiter over a cup of coffee, simplify the language until it sounds like a straightforward, confident professional describing their actual value.
 
 Return ONLY valid JSON:
 {
@@ -218,10 +225,50 @@ Return ONLY valid JSON:
       final response = await _model.generateContent([Content.text(prompt)]);
       final raw = response.text ?? '{}';
       final parsed = safeParseAiJson(raw);
-      return parsed ?? {};
-    } on GenerativeAIException catch (e) {
-      throw Exception('Gemini API error: ${e.message}');
+      if (parsed != null) return parsed;
+      throw Exception('Failed to parse Gemini response as JSON');
+    } catch (e) {
+      // Log the primary failure and try OpenRouter fallback
+      print('Gemini primary generation failed: $e. Trying OpenRouter fallback...');
+      try {
+        return await _generateWithOpenRouter(prompt);
+      } catch (openRouterError) {
+        // If fallback also fails, throw a combined error
+        throw Exception('AI generation failed. Primary Gemini error: $e. Fallback OpenRouter error: $openRouterError');
+      }
     }
+  }
+
+  Future<Map<String, dynamic>> _generateWithOpenRouter(String prompt) async {
+    final response = await http.post(
+      Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
+      headers: {
+        'Authorization': 'Bearer $_openRouterApiKey',
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://aicareer.os',
+        'X-Title': 'AI Career OS',
+      },
+      body: jsonEncode({
+        'model': 'anthropic/claude-3-haiku',
+        'messages': [
+          {'role': 'user', 'content': prompt},
+        ],
+        'temperature': 0.3,
+        'max_tokens': 2048,
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('OpenRouter API error (status ${response.statusCode}): ${response.body}');
+    }
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final content = json['choices']?[0]?['message']?['content'] as String? ?? '{}';
+    final parsed = safeParseAiJson(content);
+    if (parsed == null) {
+      throw Exception('Failed to parse OpenRouter response as JSON');
+    }
+    return parsed;
   }
 }
 

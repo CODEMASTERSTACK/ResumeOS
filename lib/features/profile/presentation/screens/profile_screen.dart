@@ -4,13 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_typography.dart';
-import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/dashboard/presentation/screens/dashboard_screen.dart'; // for userProfileProvider
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
 import '../../../../shared/widgets/app_button.dart';
-import '../../../../services/ai/gemini_service.dart';
-import '../../../../shared/providers/firebase_providers.dart';
 
 
 class ProfileScreen extends ConsumerWidget {
@@ -28,16 +25,12 @@ class ProfileScreen extends ConsumerWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
         actions: [
-          TextButton.icon(
-            onPressed: () =>
-                ref.read(authNotifierProvider.notifier).signOut(),
-            icon: const Icon(Icons.logout_rounded, size: 16,
-                color: AppColors.textMuted),
-            label: Text(AppStrings.signOut,
-                style: AppTypography.labelMedium.copyWith(
-                  color: AppColors.textMuted,
-                )),
+          IconButton(
+            onPressed: () => context.push('/profile/settings'),
+            icon: const Icon(Icons.settings_rounded, color: AppColors.textMuted, size: 22),
+            tooltip: 'Settings',
           ),
+          const SizedBox(width: 12),
         ],
       ),
       body: userAsync.when(
@@ -344,14 +337,6 @@ class _PersonalInfoContent extends StatelessWidget {
         _InfoRow(label: 'Location', value: user.location, icon: Icons.location_on_outlined),
         _InfoRow(label: 'GitHub', value: user.githubUrl, icon: Icons.code),
         _InfoRow(label: 'LinkedIn', value: user.linkedinUrl, icon: Icons.link),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: _EditButton(
-            label: 'Edit Personal Details',
-            onTap: () => context.push('/profile/edit/personal_info', extra: user.toJson()),
-          ),
-        ),
       ],
     );
   }
@@ -403,29 +388,6 @@ class _SummaryContent extends ConsumerStatefulWidget {
 }
 
 class _SummaryContentState extends ConsumerState<_SummaryContent> {
-  bool _enhancing = false;
-
-  Widget _buildStatusRow(String title, bool isFilled) {
-    return Row(
-      children: [
-        Icon(
-          isFilled ? Icons.check_circle_rounded : Icons.cancel_rounded,
-          color: isFilled ? AppColors.success : AppColors.error,
-          size: 18,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontWeight: isFilled ? FontWeight.bold : FontWeight.normal,
-            fontSize: 14,
-          ),
-        ),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -443,152 +405,15 @@ class _SummaryContentState extends ConsumerState<_SummaryContent> {
           ),
         ),
         const SizedBox(height: 8),
-        if (_enhancing)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: Row(
-              children: [
-                const SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: AppColors.accent,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'AI is polishing your professional summary...',
-                  style: AppTypography.labelMedium.copyWith(
-                    color: AppColors.accent,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          )
-        else
-          TextButton.icon(
-            onPressed: () async {
-              final uid = widget.user.uid;
-              final repo = ref.read(profileRepositoryProvider);
-
-              setState(() => _enhancing = true);
-
-              try {
-                final education = await repo.watchEducation(uid).first;
-                final skills = await repo.watchSkills(uid).first;
-                final experience = await repo.watchExperience(uid).first;
-
-                if (education.isEmpty || skills.isEmpty || experience.isEmpty) {
-                  setState(() => _enhancing = false);
-                  if (!mounted) return;
-                  showDialog(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Row(
-                        children: [
-                          Icon(Icons.auto_awesome_rounded, color: AppColors.accent),
-                          SizedBox(width: 10),
-                          Text('Enhance with AI'),
-                        ],
-                      ),
-                      content: SingleChildScrollView(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'To generate a tailored, authentic career summary, please complete these essential profile sections first:',
-                              style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.4),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildStatusRow('Education', education.isNotEmpty),
-                            const SizedBox(height: 8),
-                            _buildStatusRow('Skills', skills.isNotEmpty),
-                            const SizedBox(height: 8),
-                            _buildStatusRow('Experience', experience.isNotEmpty),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Having these details filled allows the AI to rely on real metrics and factual achievements, avoiding generic clichés.',
-                              style: TextStyle(color: AppColors.textMuted, fontSize: 12, height: 1.4),
-                            ),
-                          ],
-                        ),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx),
-                          child: const Text('Got it'),
-                        ),
-                      ],
-                    ),
-                  );
-                  return;
-                }
-
-                final certifications = await repo.watchCertifications(uid).first;
-                final achievements = await repo.watchAchievements(uid).first;
-
-                final projectsSnap = await ref
-                    .read(firestoreProvider)
-                    .collection('users')
-                    .doc(uid)
-                    .collection('projects')
-                    .get();
-                final projects = projectsSnap.docs.map((d) => d.data()).toList();
-
-                final skillsList = skills.map((s) => s['name'] as String).toList();
-
-                final newSummary = await ref
-                    .read(geminiServiceImplProvider)
-                    .generateAuthenticSummary(
-                      name: widget.user.name,
-                      currentRole: widget.user.currentRole.isNotEmpty
-                          ? widget.user.currentRole
-                          : 'Software Professional',
-                      skills: skillsList,
-                      experience: experience,
-                      education: education,
-                      projects: projects,
-                      certifications: certifications,
-                      achievements: achievements,
-                      currentSummary: widget.user.summary,
-                    );
-
-                if (newSummary.isNotEmpty) {
-                  await repo.updateUser(uid, {'summary': newSummary});
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Professional summary enhanced by AI successfully!'),
-                        backgroundColor: AppColors.success,
-                      ),
-                    );
-                  }
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to enhance summary: $e'),
-                      backgroundColor: AppColors.error,
-                    ),
-                  );
-                }
-              } finally {
-                if (mounted) {
-                  setState(() => _enhancing = false);
-                }
-              }
-            },
-            icon: const Icon(Icons.auto_awesome_rounded,
-                size: 14, color: AppColors.accent),
-            label: Text(AppStrings.aiEnhance,
-                style: AppTypography.labelMedium.copyWith(
-                  color: AppColors.accent,
-                )),
-          ),
+        TextButton.icon(
+          onPressed: () => context.push('/profile/summary-enhance'),
+          icon: const Icon(Icons.auto_awesome_rounded,
+              size: 14, color: AppColors.accent),
+          label: Text(AppStrings.aiEnhance,
+              style: AppTypography.labelMedium.copyWith(
+                color: AppColors.accent,
+              )),
+        ),
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerLeft,
