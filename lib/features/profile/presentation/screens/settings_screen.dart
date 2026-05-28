@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 
@@ -112,6 +113,15 @@ class SettingsScreen extends ConsumerWidget {
                     title: 'Data Security & Age Limits',
                     subtitle: 'User rights, security measures, and workforce limits',
                     topic: 'security',
+                  ),
+                  _buildDivider(),
+                  _buildSettingTile(
+                    context: context,
+                    icon: Icons.token_outlined,
+                    iconColor: const Color(0xFFE91E63), // Exclusive Rose
+                    title: 'Owner of Will',
+                    subtitle: 'BYOK Freemium: Configure custom Gemini & OpenRouter keys',
+                    topic: 'byok',
                   ),
                 ],
               ),
@@ -313,12 +323,21 @@ class SettingsScreen extends ConsumerWidget {
       ),
       trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => SettingsDetailScreen(topic: topic),
-          ),
-        );
+        if (topic == 'byok') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const OwnerOfWillScreen(),
+            ),
+          );
+        } else {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SettingsDetailScreen(topic: topic),
+            ),
+          );
+        }
       },
     );
   }
@@ -770,6 +789,299 @@ class SettingsDetailScreen extends StatelessWidget {
                 fontWeight: FontWeight.w500,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class OwnerOfWillScreen extends StatefulWidget {
+  const OwnerOfWillScreen({super.key});
+
+  @override
+  State<OwnerOfWillScreen> createState() => _OwnerOfWillScreenState();
+}
+
+class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
+  final _geminiKeyController = TextEditingController();
+  final _openRouterKeyController = TextEditingController();
+  bool _obscureGemini = true;
+  bool _obscureOpenRouter = true;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadKeys();
+  }
+
+  Future<void> _loadKeys() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _geminiKeyController.text = prefs.getString('custom_gemini_api_key') ?? '';
+      _openRouterKeyController.text = prefs.getString('custom_openrouter_api_key') ?? '';
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _saveKeys() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('custom_gemini_api_key', _geminiKeyController.text.trim());
+    await prefs.setString('custom_openrouter_api_key', _openRouterKeyController.text.trim());
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('API Keys saved successfully!'),
+          backgroundColor: Colors.black87,
+        ),
+      );
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _clearKeys() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('custom_gemini_api_key');
+    await prefs.remove('custom_openrouter_api_key');
+    
+    setState(() {
+      _geminiKeyController.clear();
+      _openRouterKeyController.clear();
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('API Keys reset to defaults.'),
+          backgroundColor: Colors.black87,
+        ),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _geminiKeyController.dispose();
+    _openRouterKeyController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFF8F9FC),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFFF8F9FC),
+        elevation: 0,
+        centerTitle: true,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: const Icon(
+                Icons.chevron_left_rounded,
+                color: Colors.black,
+                size: 24,
+              ),
+            ),
+          ),
+        ),
+        title: const Text(
+          'Owner of Will',
+          style: TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFE91E63)))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Info Card
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF0F5), // Light Lavender Pink
+                      border: Border.all(color: const Color(0xFFFFB6C1)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.stars_rounded, color: Color(0xFFE91E63), size: 24),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'BYOK Freemium Active',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Color(0xFFC71585),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                'Provide your own personal Gemini and OpenRouter API credentials to bypass developer platform boundaries. If left empty, the app will gracefully run using high-speed default developer billing keys.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  color: Colors.grey.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Gemini Card
+                  _buildKeyCard(
+                    title: 'Gemini AI API Key',
+                    subtitle: 'Used for primary resume generation & summary analysis',
+                    controller: _geminiKeyController,
+                    obscure: _obscureGemini,
+                    onToggleObscure: () => setState(() => _obscureGemini = !_obscureGemini),
+                    hint: 'AIzaSy...',
+                  ),
+                  const SizedBox(height: 20),
+
+                  // OpenRouter Card
+                  _buildKeyCard(
+                    title: 'OpenRouter API Key',
+                    subtitle: 'Used as an automatic secondary failover/fallback provider',
+                    controller: _openRouterKeyController,
+                    obscure: _obscureOpenRouter,
+                    onToggleObscure: () => setState(() => _obscureOpenRouter = !_obscureOpenRouter),
+                    hint: 'sk-or-v1-...',
+                  ),
+                  const SizedBox(height: 32),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _clearKeys,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: const Text('Reset Defaults'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.grey.shade700,
+                            side: BorderSide(color: Colors.grey.shade300),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: _saveKeys,
+                          icon: const Icon(Icons.save_rounded, size: 18),
+                          label: const Text('Save Keys'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFE91E63),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildKeyCard({
+    required String title,
+    required String subtitle,
+    required TextEditingController controller,
+    required bool obscure,
+    required VoidCallback onToggleObscure,
+    required String hint,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.015),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey.shade500,
+            ),
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: controller,
+            obscureText: obscure,
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              filled: true,
+              fillColor: const Color(0xFFF8F9FC),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE91E63), width: 1.5),
+              ),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: Colors.grey.shade500,
+                  size: 20,
+                ),
+                onPressed: onToggleObscure,
+              ),
+            ),
+            style: const TextStyle(fontSize: 13, fontFamily: 'monospace', letterSpacing: 1.2),
           ),
         ],
       ),

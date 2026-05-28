@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'ai_service.dart';
 
 const _geminiApiKey = String.fromEnvironment(
@@ -16,12 +17,12 @@ const _openRouterApiKey = String.fromEnvironment(
 
 /// Gemini Flash primary AI service
 class GeminiService implements AIService {
-  late final GenerativeModel _model;
+  GeminiService();
 
-  GeminiService() {
-    _model = GenerativeModel(
+  GenerativeModel _getModel(String apiKey) {
+    return GenerativeModel(
       model: 'gemini-1.5-flash',
-      apiKey: _geminiApiKey,
+      apiKey: apiKey,
       generationConfig: GenerationConfig(
         temperature: 0.3,
         topK: 40,
@@ -222,7 +223,12 @@ Return ONLY valid JSON:
 
   Future<Map<String, dynamic>> _generate(String prompt) async {
     try {
-      final response = await _model.generateContent([Content.text(prompt)]);
+      final prefs = await SharedPreferences.getInstance();
+      final customKey = prefs.getString('custom_gemini_api_key') ?? '';
+      final activeKey = customKey.isNotEmpty ? customKey : _geminiApiKey;
+
+      final model = _getModel(activeKey);
+      final response = await model.generateContent([Content.text(prompt)]);
       final raw = response.text ?? '{}';
       final parsed = safeParseAiJson(raw);
       if (parsed != null) return parsed;
@@ -240,10 +246,14 @@ Return ONLY valid JSON:
   }
 
   Future<Map<String, dynamic>> _generateWithOpenRouter(String prompt) async {
+    final prefs = await SharedPreferences.getInstance();
+    final customKey = prefs.getString('custom_openrouter_api_key') ?? '';
+    final activeKey = customKey.isNotEmpty ? customKey : _openRouterApiKey;
+
     final response = await http.post(
       Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
       headers: {
-        'Authorization': 'Bearer $_openRouterApiKey',
+        'Authorization': 'Bearer $activeKey',
         'Content-Type': 'application/json',
         'HTTP-Referer': 'https://aicareer.os',
         'X-Title': 'AI Career OS',

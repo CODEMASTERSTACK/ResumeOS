@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'ai_service.dart';
 
 const _openRouterApiKey = String.fromEnvironment(
@@ -77,10 +78,14 @@ Job Description: $jobDescription''';
   Future<Map<String, dynamic>> _call(
       String systemPrompt, String userPrompt) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final customKey = prefs.getString('custom_openrouter_api_key') ?? '';
+      final activeKey = customKey.isNotEmpty ? customKey : _openRouterApiKey;
+
       final response = await _client.post(
         Uri.parse(_endpoint),
         headers: {
-          'Authorization': 'Bearer $_openRouterApiKey',
+          'Authorization': 'Bearer $activeKey',
           'Content-Type': 'application/json',
           'HTTP-Referer': 'https://aicareer.os',
           'X-Title': 'AI Career OS',
