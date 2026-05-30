@@ -1,0 +1,12 @@
+{
+  "name": "ai-career-os-backend",
+  "version": "1.0.0",
+  "description": "Secure Edge API Gateway for AI Career OS",
+  "main": "index.js",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.86.0"
+  }
+}

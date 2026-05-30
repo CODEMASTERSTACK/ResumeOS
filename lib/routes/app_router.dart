@@ -5,6 +5,8 @@ import 'route_names.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
+import '../features/auth/presentation/screens/otp_verification_screen.dart';
+import '../features/auth/presentation/screens/account_deleted_screen.dart';
 import '../features/onboarding/presentation/screens/onboarding_wrapper.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/projects/presentation/screens/projects_screen.dart';
@@ -34,6 +36,9 @@ class RouterTransitionNotifier extends ChangeNotifier {
     _ref.listen(authStateProvider, (_, __) {
       notifyListeners();
     });
+    _ref.listen(userProfileProvider, (_, __) {
+      notifyListeners();
+    });
   }
 }
 
@@ -56,12 +61,39 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       final isOnSplash = location == RouteNames.splash;
       final isOnAuth = location == RouteNames.login ||
-          location == RouteNames.signup;
+          location == RouteNames.signup ||
+          location == RouteNames.accountDeleted;
 
       if (isOnSplash) return null; // Splash handles its own redirect
 
       if (!isAuthenticated && !isOnAuth) {
         return RouteNames.login;
+      }
+
+      if (isAuthenticated) {
+        final profileAsync = ref.read(userProfileProvider);
+        final profile = profileAsync.valueOrNull;
+        if (profile != null) {
+          final isUnverified = !profile.isEmailVerified;
+          final isOnOtpVerify = location == RouteNames.otpVerify;
+          if (isUnverified) {
+            if (!isOnOtpVerify) {
+              return RouteNames.otpVerify;
+            }
+          } else {
+            if (isOnOtpVerify) {
+              return profile.onboardingComplete
+                  ? RouteNames.dashboard
+                  : RouteNames.onboarding;
+            }
+
+            final isOnOnboarding = location == RouteNames.onboarding ||
+                location.startsWith('/onboarding');
+            if (!profile.onboardingComplete && !isOnOnboarding) {
+              return RouteNames.onboarding;
+            }
+          }
+        }
       }
 
       // Let post-auth screens or splash handle the landing page redirect (dashboard vs onboarding)
@@ -80,6 +112,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadeTransition(
           state,
           const LoginScreen(),
+        ),
+      ),
+
+      // ── OTP Verification ─────────────────────────────────
+      GoRoute(
+        path: RouteNames.otpVerify,
+         pageBuilder: (context, state) => _fadeTransition(
+          state,
+          const OtpVerificationScreen(),
+        ),
+      ),
+
+      // ── Account Deleted ──────────────────────────────────
+      GoRoute(
+        path: RouteNames.accountDeleted,
+        pageBuilder: (context, state) => _fadeTransition(
+          state,
+          const AccountDeletedScreen(),
         ),
       ),
 

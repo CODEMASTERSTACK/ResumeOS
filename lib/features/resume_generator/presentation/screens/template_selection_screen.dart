@@ -7,7 +7,6 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../features/resume_generator/domain/entities/resume_model.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../services/ai/gemini_service.dart';
-import '../../../../services/ai/openrouter_service.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/projects/data/repositories/project_repository.dart';
@@ -52,10 +51,7 @@ class _TemplateSelectionScreenState
 
       if (analysis == null) throw Exception('No analysis available');
 
-      final ai = ResilientAIService(
-        ref.read(geminiServiceImplProvider),
-        ref.read(openRouterServiceProvider),
-      );
+      final ai = ref.read(geminiServiceImplProvider);
 
       // Fetch user profile
       final user =

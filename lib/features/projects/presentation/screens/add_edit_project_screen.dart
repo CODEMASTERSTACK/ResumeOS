@@ -8,7 +8,6 @@ import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/projects/data/repositories/project_repository.dart';
 import '../../../../features/projects/domain/entities/project_model.dart';
 import '../../../../services/ai/gemini_service.dart';
-import '../../../../services/ai/openrouter_service.dart';
 import '../../../../services/github/github_service.dart';
 import '../../../../shared/widgets/app_button.dart';
 import 'package:uuid/uuid.dart';
@@ -79,10 +78,7 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
     }
     setState(() => _isGeneratingAI = true);
     try {
-      final ai = ResilientAIService(
-        ref.read(geminiServiceImplProvider),
-        ref.read(openRouterServiceProvider),
-      );
+      final ai = ref.read(geminiServiceImplProvider);
       final result = await ai.rewriteProjectBullets(
         projectTitle: _titleCtrl.text,
         projectDescription: _descCtrl.text,

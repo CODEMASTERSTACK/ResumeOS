@@ -10,7 +10,6 @@ import '../../../../features/projects/domain/entities/project_model.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../services/ai/ai_service.dart';
 import '../../../../services/ai/gemini_service.dart';
-import '../../../../services/ai/openrouter_service.dart';
 import 'generate_screen.dart';
 
 // ── Providers ─────────────────────────────────────────────
@@ -19,10 +18,7 @@ final jdAnalysisProvider = FutureProvider<JdAnalysisResult?>((ref) async {
   final jd = ref.watch(jobDescriptionProvider);
   if (jd.isEmpty) return null;
 
-  final ai = ResilientAIService(
-    ref.read(geminiServiceImplProvider),
-    ref.read(openRouterServiceProvider),
-  );
+  final ai = ref.read(geminiServiceImplProvider);
 
   final result = await ai.analyzeJobDescription(jd);
   return JdAnalysisResult.fromJson(result);

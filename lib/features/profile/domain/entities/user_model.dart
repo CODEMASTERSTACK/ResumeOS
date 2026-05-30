@@ -16,6 +16,7 @@ class UserModel {
   final bool onboardingComplete;
   final ResumePreferences resumePreferences;
   final DateTime? createdAt;
+  final bool isEmailVerified;
 
   const UserModel({
     required this.uid,
@@ -32,6 +33,7 @@ class UserModel {
     this.onboardingComplete = false,
     this.resumePreferences = const ResumePreferences(),
     this.createdAt,
+    this.isEmailVerified = true,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -52,6 +54,7 @@ class UserModel {
                 json['resumePreferences'] as Map<String, dynamic>)
             : const ResumePreferences(),
         createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
+        isEmailVerified: json['isEmailVerified'] as bool? ?? true,
       );
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -73,6 +76,7 @@ class UserModel {
         'onboardingComplete': onboardingComplete,
         'resumePreferences': resumePreferences.toJson(),
         'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+        'isEmailVerified': isEmailVerified,
       };
 
   UserModel copyWith({
@@ -89,6 +93,7 @@ class UserModel {
     String? currentRole,
     bool? onboardingComplete,
     ResumePreferences? resumePreferences,
+    bool? isEmailVerified,
   }) =>
       UserModel(
         uid: uid ?? this.uid,
@@ -105,6 +110,7 @@ class UserModel {
         onboardingComplete: onboardingComplete ?? this.onboardingComplete,
         resumePreferences: resumePreferences ?? this.resumePreferences,
         createdAt: createdAt,
+        isEmailVerified: isEmailVerified ?? this.isEmailVerified,
       );
 }
 

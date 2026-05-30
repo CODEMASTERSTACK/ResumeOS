@@ -1,0 +1,14 @@
+name = "smartresume-backend"
+main = "index.js"
+compatibility_date = "2024-05-01"
+
+[vars]
+FIREBASE_PROJECT_ID = "smartresume-7601e"
+
+[triggers]
+crons = ["*/10 * * * *"]
+
+# Note: GEMINI_API_KEY and OPENROUTER_API_KEY should be set as secrets
+# in Cloudflare dashboard or via command line:
+# wrangler secret put GEMINI_API_KEY
+# wrangler secret put OPENROUTER_API_KEY

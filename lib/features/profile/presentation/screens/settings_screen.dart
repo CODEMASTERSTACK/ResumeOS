@@ -3,8 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../../routes/route_names.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -376,10 +378,10 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  void _showDeleteAccountDialog(BuildContext context, WidgetRef ref) {
+  void _showDeleteAccountDialog(BuildContext parentContext, WidgetRef ref) {
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: parentContext,
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
@@ -397,7 +399,7 @@ class SettingsScreen extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: Text(
               'Cancel',
               style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
@@ -405,9 +407,9 @@ class SettingsScreen extends ConsumerWidget {
           ),
           ElevatedButton(
             onPressed: () async {
-              Navigator.pop(context); // Close dialog
-              _showProcessingDialog(context); // Show deleting... spinner
-              await _performAccountDeletion(context, ref);
+              Navigator.pop(dialogContext); // Close dialog
+              _showProcessingDialog(parentContext); // Show deleting... spinner using parentContext
+              await _performAccountDeletion(parentContext, ref);
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.red,
@@ -447,115 +449,46 @@ class SettingsScreen extends ConsumerWidget {
     );
   }
 
-  Future<void> _performAccountDeletion(BuildContext context, WidgetRef ref) async {
+  Future<void> _performAccountDeletion(BuildContext parentContext, WidgetRef ref) async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null) {
-        // 1. Delete all Firestore data
-        await _deleteUserFirestoreData(user.uid);
-        
-        // 2. Delete Auth User account
-        await user.delete();
-        
-        // Close the processing spinner
-        if (context.mounted) {
-          Navigator.pop(context); // Close spinner
-        }
-
-        // Show toast and pop back
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Account permanently deleted.'),
-              backgroundColor: Colors.black87,
-            ),
-          );
-          Navigator.pop(context); // Pop Settings screen
-        }
-      } else {
-        // If user is somehow null, close spinner
-        if (context.mounted) {
-          Navigator.pop(context);
-        }
+      await ref.read(authNotifierProvider.notifier).deleteAccount();
+      
+      // Close the processing spinner
+      if (parentContext.mounted) {
+        Navigator.pop(parentContext); // Close spinner
       }
-    } on FirebaseAuthException catch (e) {
-      // Close spinner
-      if (context.mounted) {
-        Navigator.pop(context);
+
+      // Show toast
+      if (parentContext.mounted) {
+        ScaffoldMessenger.of(parentContext).showSnackBar(
+          const SnackBar(
+            content: Text('Account permanently deleted.'),
+            backgroundColor: Colors.black87,
+          ),
+        );
+      }
+
+      // Navigate to Account Deleted screen while context is still valid.
+      // The AccountDeletedScreen will safely perform the local sign out once it is loaded.
+      if (parentContext.mounted) {
+        parentContext.go(RouteNames.accountDeleted);
       }
       
-      if (e.code == 'requires-recent-login') {
-        if (context.mounted) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              title: const Text('Re-authentication Required'),
-              content: const Text(
-                'For security reasons, deleting your account requires recent sign-in. '
-                'Please sign out, sign back in, and try deleting your account again.'
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
-        }
-      } else {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${e.message}'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
     } catch (e) {
       // Close spinner
-      if (context.mounted) {
-        Navigator.pop(context);
+      if (parentContext.mounted) {
+        Navigator.pop(parentContext);
       }
       
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+      if (parentContext.mounted) {
+        ScaffoldMessenger.of(parentContext).showSnackBar(
           SnackBar(
-            content: Text('Failed to delete account: $e'),
+            content: Text('Failed to delete account: ${e.toString().replaceAll('Exception: ', '')}'),
             backgroundColor: Colors.red,
           ),
         );
       }
     }
-  }
-
-  Future<void> _deleteUserFirestoreData(String uid) async {
-    final db = FirebaseFirestore.instance;
-    final batch = db.batch();
-
-    final subcollections = [
-      'skills',
-      'education',
-      'experience',
-      'certifications',
-      'achievements',
-      'resumes',
-      'projects',
-    ];
-
-    for (final sub in subcollections) {
-      final snap = await db.collection('users').doc(uid).collection(sub).get();
-      for (final doc in snap.docs) {
-        batch.delete(doc.reference);
-      }
-    }
-
-    // Delete primary user document
-    batch.delete(db.collection('users').doc(uid));
-
-    await batch.commit();
   }
 }
 

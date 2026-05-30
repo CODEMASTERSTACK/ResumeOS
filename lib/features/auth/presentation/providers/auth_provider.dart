@@ -1,10 +1,14 @@
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:http/http.dart' as http;
 import '../../../../shared/providers/firebase_providers.dart';
 import '../../../../services/github/github_service.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
+import '../../../../features/dashboard/presentation/screens/dashboard_screen.dart';
 
 // ── Auth Repository ────────────────────────────────────────
 
@@ -44,7 +48,11 @@ class AuthRepositoryImpl implements AuthRepository {
     final provider = GithubAuthProvider();
     provider.addScope('repo');
     provider.addScope('user:email');
-    return _auth.signInWithProvider(provider);
+    if (kIsWeb) {
+      return _auth.signInWithPopup(provider);
+    } else {
+      return _auth.signInWithProvider(provider);
+    }
   }
 
   @override
@@ -161,12 +169,70 @@ class AuthNotifier extends StateNotifier<AuthState> {
           name: name.trim(),
           email: email.trim(),
           createdAt: DateTime.now(),
+          isEmailVerified: false,
         );
         await profileRepo.createUser(newUser);
       }
       state = const AuthState();
     } catch (e) {
       state = AuthState(error: e);
+    }
+  }
+
+  Future<void> sendVerificationOtp() async {
+    state = const AuthState(isLoading: true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not logged in');
+      final idToken = await user.getIdToken();
+      
+      final response = await http.post(
+        Uri.parse('https://smartresume-backend.kanasingh974.workers.dev/v1/auth/send-otp'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        final err = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(err['error'] ?? 'Failed to send verification code');
+      }
+      state = const AuthState();
+    } catch (e) {
+      state = AuthState(error: e);
+      rethrow;
+    }
+  }
+
+  Future<void> verifyOtp(String code) async {
+    state = const AuthState(isLoading: true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not logged in');
+      final idToken = await user.getIdToken();
+      
+      final response = await http.post(
+        Uri.parse('https://smartresume-backend.kanasingh974.workers.dev/v1/auth/verify-otp'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+        body: jsonEncode({'code': code}),
+      );
+
+      if (response.statusCode != 200) {
+        final err = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(err['error'] ?? 'Invalid or expired verification code');
+      }
+      
+      // Force refresh user profile to trigger router state update immediately
+      _ref.invalidate(userProfileProvider);
+      
+      state = const AuthState();
+    } catch (e) {
+      state = AuthState(error: e);
+      rethrow;
     }
   }
 
@@ -187,21 +253,43 @@ class AuthNotifier extends StateNotifier<AuthState> {
         await profileRepo.createUser(newUser);
       }
     } catch (e) {
-      // Safe fallback: try setting the document to ensure it exists
-      try {
-        final newUser = UserModel(
-          uid: user.uid,
-          name: user.displayName ?? '',
-          email: user.email ?? '',
-          createdAt: DateTime.now(),
-        );
-        await profileRepo.createUser(newUser);
-      } catch (_) {}
+      // Log/print the error; DO NOT perform a write that could overwrite an existing profile document!
+      debugPrint('Error ensuring user profile exists: $e');
     }
   }
 
   Future<void> sendPasswordReset(String email) async {
     await _repo.sendPasswordReset(email);
+  }
+
+  Future<void> deleteAccount() async {
+    state = const AuthState(isLoading: true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('User not logged in');
+      final idToken = await user.getIdToken();
+
+      final response = await http.post(
+        Uri.parse('https://smartresume-backend.kanasingh974.workers.dev/v1/auth/delete-account'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
+      );
+
+      if (response.statusCode != 200) {
+        final err = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(err['error'] ?? 'Failed to delete account from backend');
+      }
+
+      // Invalidate the profile locally
+      _ref.invalidate(userProfileProvider);
+
+      state = const AuthState();
+    } catch (e) {
+      state = AuthState(error: e);
+      rethrow;
+    }
   }
 
   Future<void> signOut() async {

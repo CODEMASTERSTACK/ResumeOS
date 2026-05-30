@@ -10,7 +10,7 @@ import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../shared/widgets/app_button.dart';
 
 // ── Step index provider ────────────────────────────────────
-final onboardingStepProvider = StateProvider<int>((ref) => 0);
+final onboardingStepProvider = StateProvider.autoDispose<int>((ref) => 0);
 
 class OnboardingWrapper extends ConsumerWidget {
   const OnboardingWrapper({super.key});
@@ -47,9 +47,22 @@ class OnboardingWrapper extends ConsumerWidget {
                           style: AppTypography.caption,
                         ),
                         TextButton(
-                          onPressed: () => ref
-                              .read(onboardingStepProvider.notifier)
-                              .state++,
+                          onPressed: () async {
+                            final notifier = ref.read(onboardingStepProvider.notifier);
+                            if (step == steps.length - 2) {
+                              final uid = ref.read(currentUserProvider)?.uid;
+                              if (uid != null) {
+                                try {
+                                  await ref.read(profileRepositoryProvider).updateUser(uid, {
+                                    'onboardingComplete': true,
+                                  });
+                                } catch (e) {
+                                  debugPrint('Error updating onboardingComplete: $e');
+                                }
+                              }
+                            }
+                            notifier.state++;
+                          },
                           child: Text(AppStrings.skip,
                               style: AppTypography.labelMedium),
                         ),
@@ -825,7 +838,21 @@ class _CompletionStep extends ConsumerWidget {
           const SizedBox(height: 48),
           AppButton(
             label: 'Go to Dashboard',
-            onTap: () => context.go(RouteNames.dashboard),
+            onTap: () async {
+              final uid = ref.read(currentUserProvider)?.uid;
+              if (uid != null) {
+                try {
+                  await ref.read(profileRepositoryProvider).updateUser(uid, {
+                    'onboardingComplete': true,
+                  });
+                } catch (e) {
+                  debugPrint('Error completing onboarding: $e');
+                }
+              }
+              if (context.mounted) {
+                context.go(RouteNames.dashboard);
+              }
+            },
             variant: AppButtonVariant.accent,
             icon: Icons.home_rounded,
           ),

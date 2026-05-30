@@ -45,9 +45,6 @@ dependencies:
   pdf: ^3.11.1
   printing: ^5.13.1
 
-  # AI
-  google_generative_ai: ^0.4.6
-
   # Utilities
   image_picker: ^1.1.2
   url_launcher: ^6.3.0
