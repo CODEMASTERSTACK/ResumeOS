@@ -7,6 +7,9 @@ class RouteNames {
   static const String signup = '/signup';
   static const String otpVerify = '/otp-verify';
   static const String accountDeleted = '/account-deleted';
+  static const String forgotPassword = '/forgot-password';
+  static const String terms = '/terms';
+  static const String privacy = '/privacy';
 
   // Onboarding
   static const String onboarding = '/onboarding';

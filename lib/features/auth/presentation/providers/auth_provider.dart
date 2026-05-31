@@ -236,6 +236,58 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  Future<void> sendForgotPasswordOtp(String email) async {
+    state = const AuthState(isLoading: true);
+    try {
+      final response = await http.post(
+        Uri.parse('https://smartresume-backend.kanasingh974.workers.dev/v1/auth/forgot-password/send-otp'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({'email': email.trim()}),
+      );
+
+      if (response.statusCode != 200) {
+        final err = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(err['error'] ?? 'Failed to send reset code');
+      }
+      state = const AuthState();
+    } catch (e) {
+      state = AuthState(error: e);
+      rethrow;
+    }
+  }
+
+  Future<void> verifyForgotPasswordAndReset({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    state = const AuthState(isLoading: true);
+    try {
+      final response = await http.post(
+        Uri.parse('https://smartresume-backend.kanasingh974.workers.dev/v1/auth/forgot-password/verify-and-reset'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'email': email.trim(),
+          'code': code.trim(),
+          'newPassword': newPassword,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        final err = jsonDecode(response.body) as Map<String, dynamic>;
+        throw Exception(err['error'] ?? 'Failed to reset password');
+      }
+      state = const AuthState();
+    } catch (e) {
+      state = AuthState(error: e);
+      rethrow;
+    }
+  }
+
   Future<void> _ensureUserProfile(UserCredential cred) async {
     final user = cred.user;
     if (user == null) return;

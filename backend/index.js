@@ -854,6 +854,290 @@ export default {
         });
       }
 
+      // Route 2.1: Forgot Password - Send OTP
+      if (url.pathname === '/v1/auth/forgot-password/send-otp') {
+        if (request.method !== 'POST') {
+          return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+            status: 405,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        let body;
+        try {
+          body = await request.json();
+        } catch (_) {
+          return new Response(JSON.stringify({ error: 'Malformed JSON body' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { email } = body;
+        if (!email || !email.includes('@')) {
+          return new Response(JSON.stringify({ error: 'Please enter a valid email address' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const saJson = env.FIREBASE_SERVICE_ACCOUNT_JSON;
+        if (!saJson) {
+          return new Response(JSON.stringify({ error: 'Service account credentials missing on server' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const adminToken = await getGoogleAccessToken(saJson);
+
+        // 1. Lookup user in Firebase Auth by email
+        const lookupUrl = `https://identitytoolkit.googleapis.com/v1/projects/${projectId}/accounts:lookup`;
+        const lookupRes = await fetch(lookupUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email: [email.trim()] })
+        });
+
+        if (!lookupRes.ok) {
+          return new Response(JSON.stringify({ error: 'Failed to query authentication server' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const lookupData = await lookupRes.json();
+        if (!lookupData.users || lookupData.users.length === 0) {
+          return new Response(JSON.stringify({ error: 'No account found with this email address' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const uid = lookupData.users[0].localId;
+
+        // Generate a 6-digit cryptographic OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = Math.floor(Date.now() / 1000) + 600; // 10 minutes from now
+
+        // 2. Store OTP code to /users/{uid}/verification/forgot_password_otp in Firestore
+        const patchUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}/verification/forgot_password_otp?updateMask.fieldPaths=code&updateMask.fieldPaths=expiresAt`;
+        const patchBody = {
+          fields: {
+            code: { stringValue: otp },
+            expiresAt: { integerValue: expiresAt.toString() }
+          }
+        };
+
+        const patchRes = await fetch(patchUrl, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(patchBody)
+        });
+
+        if (!patchRes.ok) {
+          return new Response(JSON.stringify({ error: `Failed to store reset code: ${await patchRes.text()}` }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // 3. Send Email via Resend API
+        const resendKey = env.RESEND_API_KEY;
+        if (!resendKey) {
+          return new Response(JSON.stringify({ error: 'Email provider credentials missing on server' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const emailRes = await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${resendKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: 'SmartResume <onboarding@resend.dev>',
+            to: [email.trim()],
+            subject: 'Reset Your SmartResume Password',
+            html: `
+              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; borderRadius: 8px;">
+                <h2 style="color: #673AB7; text-align: center;">Reset Your Password</h2>
+                <p>Hello,</p>
+                <p>We received a request to reset your password for your SmartResume account. Enter the 6-digit One-Time Password (OTP) below in the app to complete your password reset:</p>
+                <div style="background-color: #f5f5f5; border-radius: 8px; padding: 15px; text-align: center; margin: 20px 0;">
+                  <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #333;">${otp}</span>
+                </div>
+                <p style="color: #666; font-size: 12px; text-align: center;">This code will expire in 10 minutes. If you did not request a password reset, please ignore this email.</p>
+              </div>
+            `
+          })
+        });
+
+        if (!emailRes.ok) {
+          return new Response(JSON.stringify({ error: `Failed to dispatch email: ${await emailRes.text()}` }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        return new Response(JSON.stringify({ success: true, message: 'Password reset code sent to your email.' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // Route 2.2: Forgot Password - Verify OTP & Reset Password
+      if (url.pathname === '/v1/auth/forgot-password/verify-and-reset') {
+        if (request.method !== 'POST') {
+          return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+            status: 405,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        let body;
+        try {
+          body = await request.json();
+        } catch (_) {
+          return new Response(JSON.stringify({ error: 'Malformed JSON body' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const { email, code, newPassword } = body;
+        if (!email || !code || !newPassword) {
+          return new Response(JSON.stringify({ error: 'Missing email, code, or newPassword' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (code.length !== 6) {
+          return new Response(JSON.stringify({ error: 'Verification code must be exactly 6 digits' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (newPassword.length < 6) {
+          return new Response(JSON.stringify({ error: 'New password must be at least 6 characters' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const saJson = env.FIREBASE_SERVICE_ACCOUNT_JSON;
+        if (!saJson) {
+          return new Response(JSON.stringify({ error: 'Service account credentials missing on server' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const adminToken = await getGoogleAccessToken(saJson);
+
+        // 1. Lookup user in Firebase Auth by email to get UID
+        const lookupUrl = `https://identitytoolkit.googleapis.com/v1/projects/${projectId}/accounts:lookup`;
+        const lookupRes = await fetch(lookupUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email: [email.trim()] })
+        });
+
+        if (!lookupRes.ok) {
+          return new Response(JSON.stringify({ error: 'Failed to query authentication server' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const lookupData = await lookupRes.json();
+        if (!lookupData.users || lookupData.users.length === 0) {
+          return new Response(JSON.stringify({ error: 'No account found with this email address' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const uid = lookupData.users[0].localId;
+
+        // 2. Fetch OTP from Firestore
+        const fetchUrl = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}/verification/forgot_password_otp`;
+        const fetchRes = await fetch(fetchUrl, {
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+
+        if (!fetchRes.ok) {
+          return new Response(JSON.stringify({ error: 'Verification code expired or not requested' }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const otpDoc = await fetchRes.json();
+        const storedCode = otpDoc.fields?.code?.stringValue;
+        const expiresAt = parseInt(otpDoc.fields?.expiresAt?.integerValue || '0', 10);
+        const now = Math.floor(Date.now() / 1000);
+
+        if (now > expiresAt) {
+          return new Response(JSON.stringify({ error: 'Verification code has expired. Please request a new one.' }), {
+            status: 410,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (storedCode !== code) {
+          return new Response(JSON.stringify({ error: 'Invalid verification code' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // 3. OTP is valid! Administratively update user's password in Firebase Auth
+        const updateUrl = `https://identitytoolkit.googleapis.com/v1/projects/${projectId}/accounts:update`;
+        const updateRes = await fetch(updateUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${adminToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            localId: uid,
+            password: newPassword
+          })
+        });
+
+        if (!updateRes.ok) {
+          return new Response(JSON.stringify({ error: `Failed to update password: ${await updateRes.text()}` }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // 4. Delete the OTP document in Firestore to clean up
+        await fetch(fetchUrl, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+
+        return new Response(JSON.stringify({ success: true, message: 'Password updated successfully!' }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       // Route 2.5: Delete Account (Firestore Data & Firebase Auth User)
       if (url.pathname === '/v1/auth/delete-account') {
         if (request.method !== 'POST') {

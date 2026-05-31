@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_typography.dart';
 import '../providers/auth_provider.dart';
 
 class OtpVerificationScreen extends ConsumerStatefulWidget {
@@ -144,227 +143,314 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: Stack(
-        children: [
-          // Background subtle gradients
-          Positioned(
-            top: -100,
-            right: -50,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent.withValues(alpha: 0.1),
-              ),
-            ),
+      backgroundColor: Colors.white,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFFCFAF7), // Soft premium warm top
+              Colors.white,       // Clean white base
+            ],
           ),
-          Positioned(
-            bottom: -80,
-            left: -50,
-            child: Container(
-              width: 250,
-              height: 250,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.accent.withValues(alpha: 0.08),
-              ),
-            ),
-          ),
-
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: Container(
-                  width: screenWidth > 500 ? 460 : double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(24.0),
-                    border: Border.all(color: AppColors.border.withValues(alpha: 0.3)),
-                    boxShadow: AppColors.cardShadow,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Immersive Icon Header
-                      Container(
-                        width: 68,
-                        height: 68,
-                        decoration: BoxDecoration(
-                          gradient: AppColors.accentGradient,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: AppColors.accentShadow,
-                        ),
-                        child: const Icon(
-                          Icons.mark_email_read_rounded,
-                          color: Colors.white,
-                          size: 32,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      Text(
-                        'Verify Your Account',
-                        style: AppTypography.headlineMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-
-                      Text(
-                        'We sent a 6-digit One-Time Password (OTP) to your registered email address:',
-                        style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 6),
-
-                      Text(
-                        email,
-                        style: AppTypography.titleMedium.copyWith(color: AppColors.accent, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Countdown clock
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.timer_outlined,
-                            size: 18,
-                            color: _secondsRemaining > 60 ? AppColors.textSecondary : AppColors.error,
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
+              child: Container(
+                width: screenWidth > 500 ? 450 : double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 40.0),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(screenWidth > 500 ? 28 : 0),
+                  border: screenWidth > 500
+                      ? Border.all(color: const Color(0xFFF3EFEA), width: 1.5)
+                      : null,
+                  boxShadow: screenWidth > 500
+                      ? [
+                          BoxShadow(
+                            color: const Color(0xFF5A453A).withValues(alpha: 0.04),
+                            blurRadius: 32,
+                            offset: const Offset(0, 12),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _formatTimer(_secondsRemaining),
-                            style: AppTypography.titleMedium.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: _secondsRemaining > 60 ? AppColors.textPrimary : AppColors.error,
-                            ),
-                          ),
-                        ],
+                        ]
+                      : null,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Immersive Icon Header
+                    Container(
+                      width: 68,
+                      height: 68,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF8B6B58).withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: const Color(0xFF8B6B58).withValues(alpha: 0.15), width: 1.5),
                       ),
-                      const SizedBox(height: 24),
+                      child: const Icon(
+                        Icons.mark_email_read_rounded,
+                        color: Color(0xFF8B6B58),
+                        size: 32,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
 
-                      // OTP Digit Boxes
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: List.generate(6, (index) {
-                          return SizedBox(
-                            width: (screenWidth > 500 ? 380 : screenWidth - 96) / 7.5,
-                            child: KeyboardListener(
-                              focusNode: FocusNode(), // Dummy focus node to capture key events
-                              onKeyEvent: (event) {
-                                if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace) {
-                                  if (_controllers[index].text.isEmpty && index > 0) {
-                                    _focusNodes[index - 1].requestFocus();
+                    const Text(
+                      'Verify Your Account',
+                      style: TextStyle(
+                        fontSize: 28,
+                        color: Color(0xFF5A453A),
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 8),
+
+                    const Text(
+                      'We sent a 6-digit One-Time Password (OTP) to your registered email address:',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF8B6B58),
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 6),
+
+                    Text(
+                      email,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Color(0xFF5A453A),
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Countdown clock
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.timer_outlined,
+                          size: 16,
+                          color: _secondsRemaining > 60 ? const Color(0xFF8B6B58) : AppColors.error,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _formatTimer(_secondsRemaining),
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: _secondsRemaining > 60 ? const Color(0xFF5A453A) : AppColors.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // OTP Digit Boxes
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(6, (index) {
+                        return SizedBox(
+                          width: (screenWidth > 500 ? 380 : screenWidth - 96) / 7.5,
+                          child: KeyboardListener(
+                            focusNode: FocusNode(),
+                            onKeyEvent: (event) {
+                              if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.backspace) {
+                                if (_controllers[index].text.isEmpty && index > 0) {
+                                  _focusNodes[index - 1].requestFocus();
+                                }
+                              }
+                            },
+                            child: TextField(
+                              controller: _controllers[index],
+                              focusNode: _focusNodes[index],
+                              keyboardType: TextInputType.number,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontSize: 20,
+                                color: Color(0xFF5A453A),
+                                fontWeight: FontWeight.bold,
+                              ),
+                              maxLength: 1,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                              ],
+                              decoration: InputDecoration(
+                                counterText: '',
+                                contentPadding: const EdgeInsets.symmetric(vertical: 12.0),
+                                filled: true,
+                                fillColor: const Color(0xFFFAF8F5),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: BorderSide.none,
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide: const BorderSide(color: Color(0xFF8B6B58), width: 1.5),
+                                ),
+                              ),
+                              onChanged: (value) {
+                                if (value.isNotEmpty) {
+                                  if (index < 5) {
+                                    _focusNodes[index + 1].requestFocus();
+                                  } else {
+                                    _focusNodes[index].unfocus();
+                                    _submitOtp();
                                   }
                                 }
                               },
-                              child: TextField(
-                                controller: _controllers[index],
-                                focusNode: _focusNodes[index],
-                                keyboardType: TextInputType.number,
-                                textAlign: TextAlign.center,
-                                style: AppTypography.titleLarge.copyWith(fontWeight: FontWeight.bold),
-                                maxLength: 1,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: InputDecoration(
-                                  counterText: '',
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 12.0),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: AppColors.border),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(color: AppColors.accent, width: 2),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Submit Verification button
+                    _TapScaleButton(
+                      onTap: _isVerifyingOtp || _isSendingOtp ? null : _submitOtp,
+                      child: Container(
+                        width: double.infinity,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF8B6B58),
+                          borderRadius: BorderRadius.circular(24),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF8B6B58).withValues(alpha: 0.15),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: _isVerifyingOtp
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Text(
+                                  'VERIFY CODE',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 13,
+                                    letterSpacing: 0.5,
                                   ),
                                 ),
-                                onChanged: (value) {
-                                  if (value.isNotEmpty) {
-                                    if (index < 5) {
-                                      _focusNodes[index + 1].requestFocus();
-                                    } else {
-                                      _focusNodes[index].unfocus();
-                                      _submitOtp(); // Auto submit when last digit is filled
-                                    }
-                                  }
-                                },
-                              ),
-                            ),
-                          );
-                        }),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Submit Verification button
-                      ElevatedButton(
-                        onPressed: _isVerifyingOtp || _isSendingOtp ? null : _submitOtp,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.accent,
-                          minimumSize: const Size(double.infinity, 50),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: _isVerifyingOtp
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-                              )
-                            : Text(
-                                'Verify Code',
-                                style: AppTypography.labelLarge.copyWith(color: Colors.white),
-                              ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Resend Code text trigger
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Didn't receive the code? ",
-                            style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
-                          ),
-                          GestureDetector(
-                            onTap: _canResend && !_isSendingOtp ? _resendCode : null,
-                            child: Text(
-                              _isSendingOtp ? 'Sending...' : 'Resend Code',
-                              style: AppTypography.bodyMedium.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: _canResend && !_isSendingOtp ? AppColors.accent : AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 48, color: AppColors.border),
-
-                      // Escape button / Sign Out
-                      TextButton.icon(
-                        onPressed: () {
-                          ref.read(authNotifierProvider.notifier).signOut();
-                        },
-                        icon: const Icon(Icons.logout_rounded, size: 16, color: AppColors.textSecondary),
-                        label: Text(
-                          'Back to Login',
-                          style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Resend Code text trigger
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Didn't receive the code? ",
+                          style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                        ),
+                        GestureDetector(
+                          onTap: _canResend && !_isSendingOtp ? _resendCode : null,
+                          child: Text(
+                            _isSendingOtp ? 'Sending...' : 'Resend Code',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _canResend && !_isSendingOtp ? const Color(0xFF8B6B58) : Colors.grey.shade400,
+                              fontWeight: FontWeight.w700,
+                              decoration: _canResend && !_isSendingOtp ? TextDecoration.underline : TextDecoration.none,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 48, color: Color(0xFFF3EFEA), thickness: 1.5),
+
+                    // Escape button / Sign Out
+                    TextButton.icon(
+                      onPressed: () {
+                        ref.read(authNotifierProvider.notifier).signOut();
+                      },
+                      icon: const Icon(Icons.logout_rounded, size: 16, color: Color(0xFF8B6B58)),
+                      label: const Text(
+                        'Back to Login',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF8B6B58),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Tap Scale Micro-Animation Wrapper ───────────────────────
+
+class _TapScaleButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  const _TapScaleButton({required this.child, this.onTap});
+
+  @override
+  State<_TapScaleButton> createState() => _TapScaleButtonState();
+}
+
+class _TapScaleButtonState extends State<_TapScaleButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scale = Tween<double>(begin: 1.0, end: 0.96).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => widget.onTap != null ? _ctrl.forward() : null,
+      onTapUp: (_) {
+        if (widget.onTap != null) {
+          _ctrl.reverse();
+          widget.onTap!();
+        }
+      },
+      onTapCancel: () => widget.onTap != null ? _ctrl.reverse() : null,
+      child: ScaleTransition(
+        scale: _scale,
+        child: widget.child,
       ),
     );
   }

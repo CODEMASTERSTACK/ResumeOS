@@ -7,6 +7,9 @@ import '../features/auth/presentation/screens/splash_screen.dart';
 import '../features/auth/presentation/screens/login_screen.dart';
 import '../features/auth/presentation/screens/otp_verification_screen.dart';
 import '../features/auth/presentation/screens/account_deleted_screen.dart';
+import '../features/auth/presentation/screens/forgot_password_screen.dart';
+import '../features/auth/presentation/screens/terms_screen.dart';
+import '../features/auth/presentation/screens/privacy_policy_screen.dart';
 import '../features/onboarding/presentation/screens/onboarding_wrapper.dart';
 import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/projects/presentation/screens/projects_screen.dart';
@@ -62,7 +65,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isOnSplash = location == RouteNames.splash;
       final isOnAuth = location == RouteNames.login ||
           location == RouteNames.signup ||
-          location == RouteNames.accountDeleted;
+          location == RouteNames.accountDeleted ||
+          location == RouteNames.forgotPassword ||
+          location == RouteNames.terms ||
+          location == RouteNames.privacy;
 
       if (isOnSplash) return null; // Splash handles its own redirect
 
@@ -130,6 +136,33 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _fadeTransition(
           state,
           const AccountDeletedScreen(),
+        ),
+      ),
+
+      // ── Forgot Password ──────────────────────────────────
+      GoRoute(
+        path: RouteNames.forgotPassword,
+        pageBuilder: (context, state) => _fadeTransition(
+          state,
+          const ForgotPasswordScreen(),
+        ),
+      ),
+
+      // ── Terms of Service ─────────────────────────────────
+      GoRoute(
+        path: RouteNames.terms,
+        pageBuilder: (context, state) => _fadeTransition(
+          state,
+          const TermsScreen(),
+        ),
+      ),
+
+      // ── Privacy Policy ───────────────────────────────────
+      GoRoute(
+        path: RouteNames.privacy,
+        pageBuilder: (context, state) => _fadeTransition(
+          state,
+          const PrivacyPolicyScreen(),
         ),
       ),
 
