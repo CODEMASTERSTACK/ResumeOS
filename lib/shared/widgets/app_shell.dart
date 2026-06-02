@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/constants/app_colors.dart';
+import 'dart:async';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_strings.dart';
 import '../../routes/route_names.dart';
 
@@ -93,109 +94,209 @@ class _AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSelectedGenerate = currentIndex == 2;
+
     return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        border: const Border(
-          top: BorderSide(color: AppColors.divider, width: 1),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 20,
-            offset: const Offset(0, -4),
+      height: 92, // Elevated space to let floating button protrude cleanly without overlap
+      color: Colors.transparent,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // 1. Curved White Bottom Bar Container
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              height: 72, // Standard white bar height (taller to avoid text overlap)
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(32),
+                  topRight: Radius.circular(32),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 20,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                top: false,
+                child: Row(
+                  children: destinations.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final item = entry.value;
+                    final isSelected = currentIndex == index;
+                    final isGenerate = index == 2;
+
+                    return Expanded(
+                      child: GestureDetector(
+                        onTap: () => onTap(index),
+                        behavior: HitTestBehavior.opaque,
+                        child: MouseRegion(
+                          cursor: SystemMouseCursors.click,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end, // Align everything to the bottom
+                            children: [
+                              if (isGenerate)
+                                const SizedBox(height: 22) // Empty space placeholder matching icon height perfectly to prevent overflow
+                              else
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 200),
+                                  child: Icon(
+                                    isSelected ? item.activeIcon : item.icon,
+                                    key: ValueKey(isSelected),
+                                    size: 22,
+                                    color: isSelected
+                                        ? const Color(0xFF8B6B58) // Signature Brand Brown
+                                        : Colors.grey.shade400, // Line-art grey
+                                  ),
+                                ),
+                              const SizedBox(height: 4),
+                              AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 200),
+                                style: TextStyle(
+                                  fontFamily: 'Inter',
+                                  fontSize: 10,
+                                  fontWeight: isSelected
+                                      ? FontWeight.w600
+                                      : FontWeight.w400,
+                                  color: isSelected
+                                      ? const Color(0xFF8B6B58)
+                                      : Colors.grey.shade500,
+                                ),
+                                child: Text(item.label),
+                              ),
+                              const SizedBox(height: 8), // Standard bottom padding
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ),
+          ),
+
+          // 2. The Overlapping Floating Center Circular Button (index 2: Generate)
+          Positioned(
+            top: -7, // Protrudes beautifully above the curved white bar by half its diameter
+            left: screenWidth / 2 - 28, // Perfectly centered horizontally
+            child: _FloatingCenterButton(
+              isSelected: isSelectedGenerate,
+              onTap: () => onTap(2),
+            ),
           ),
         ],
-      ),
-      child: SafeArea(
-        child: SizedBox(
-          height: 64,
-          child: Row(
-            children: destinations.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              final isSelected = currentIndex == index;
-              final isGenerate = index == 2;
-
-              return Expanded(
-                child: GestureDetector(
-                  onTap: () => onTap(index),
-                  behavior: HitTestBehavior.opaque,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        isGenerate
-                            ? _GenerateNavIcon(isSelected: isSelected)
-                            : AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 200),
-                                child: Icon(
-                                  isSelected ? item.activeIcon : item.icon,
-                                  key: ValueKey(isSelected),
-                                  size: 22,
-                                  color: isSelected
-                                      ? AppColors.accent
-                                      : AppColors.textMuted,
-                                ),
-                              ),
-                        const SizedBox(height: 4),
-                        AnimatedDefaultTextStyle(
-                          duration: const Duration(milliseconds: 200),
-                          style: TextStyle(
-                            fontFamily: 'Inter',
-                            fontSize: 10,
-                            fontWeight: isSelected
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                            color: isSelected
-                                ? AppColors.accent
-                                : AppColors.textMuted,
-                          ),
-                          child: Text(item.label),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
       ),
     );
   }
 }
 
-/// Special Generate button — glowing accent style
-class _GenerateNavIcon extends StatelessWidget {
+class _FloatingCenterButton extends StatefulWidget {
   final bool isSelected;
+  final VoidCallback onTap;
 
-  const _GenerateNavIcon({required this.isSelected});
+  const _FloatingCenterButton({
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_FloatingCenterButton> createState() => _FloatingCenterButtonState();
+}
+
+class _FloatingCenterButtonState extends State<_FloatingCenterButton> {
+  bool _showAiIcon = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // Cycle the icon every 3 seconds
+    _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (mounted) {
+        setState(() {
+          _showAiIcon = !_showAiIcon;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 250),
-      width: 36,
-      height: 28,
-      decoration: BoxDecoration(
-        color: isSelected ? AppColors.accent : AppColors.accentContainer,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: isSelected
-            ? [
-                BoxShadow(
-                  color: AppColors.accent.withOpacity(0.35),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                )
-              ]
-            : [],
-      ),
-      child: Icon(
-        Icons.auto_awesome_rounded,
-        size: 16,
-        color: isSelected ? Colors.white : AppColors.accent,
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: widget.isSelected ? const Color(0xFF8B6B58) : Colors.black,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: (widget.isSelected ? const Color(0xFF8B6B58) : Colors.black)
+                    .withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Center(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(
+                  opacity: CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeInOut,
+                  ),
+                  child: ScaleTransition(
+                    scale: Tween<double>(begin: 0.8, end: 1.0).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOutBack,
+                      ),
+                    ),
+                    child: child,
+                  ),
+                );
+              },
+              child: _showAiIcon
+                  ? const Icon(
+                      Icons.auto_awesome_rounded,
+                      color: Colors.white,
+                      size: 24,
+                      key: ValueKey('ai_icon'),
+                    )
+                  : Text(
+                      'R.',
+                      key: const ValueKey('r_logo'),
+                      style: GoogleFonts.playfairDisplay(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -1,
+                        height: 1.0,
+                      ),
+                    ),
+            ),
+          ),
+        ),
       ),
     );
   }

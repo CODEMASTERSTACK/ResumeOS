@@ -53,63 +53,8 @@ class DashboardScreen extends ConsumerWidget {
               snap: true,
               elevation: 0,
               scrolledUnderElevation: 0,
-              title: Row(
-                children: [
-                  Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: AppColors.accent,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        'AC',
-                        style: TextStyle(
-                          fontFamily: 'Inter',
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    AppStrings.appName,
-                    style: AppTypography.titleMedium.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              actions: [
-                userAsync.when(
-                  data: (user) => Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: CircleAvatar(
-                      radius: 18,
-                      backgroundColor: AppColors.accentContainer,
-                      backgroundImage: user?.profileImageUrl.isNotEmpty == true
-                          ? NetworkImage(user!.profileImageUrl)
-                          : null,
-                      child: user?.profileImageUrl.isEmpty != false
-                          ? Text(
-                              user?.name.isNotEmpty == true
-                                  ? user!.name[0].toUpperCase()
-                                  : '?',
-                              style: AppTypography.labelMedium.copyWith(
-                                color: AppColors.accent,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            )
-                          : null,
-                    ),
-                  ),
-                  loading: () => const SizedBox.shrink(),
-                  error: (_, __) => const SizedBox.shrink(),
-                ),
-              ],
+
+
             ),
 
             // ── Content ──────────────────────────────────
