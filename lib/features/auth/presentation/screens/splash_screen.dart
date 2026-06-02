@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
-import '../../../../core/constants/app_typography.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../routes/route_names.dart';
 import '../providers/auth_provider.dart';
 
@@ -94,96 +92,70 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.primary,
+      backgroundColor: const Color(0xFFFCFAF7), // Milky white
       body: Center(
         child: AnimatedBuilder(
           animation: _controller,
           builder: (context, _) {
-            return Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo Mark
-                FadeTransition(
-                  opacity: _fadeAnim,
-                  child: ScaleTransition(
-                    scale: _scaleAnim,
-                    child: const _LogoMark(),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                // App Name
-                FadeTransition(
-                  opacity: _fadeAnim,
-                  child: Text(
-                    AppStrings.appName,
-                    style: AppTypography.displaySmall.copyWith(
-                      color: AppColors.textInverse,
-                      fontWeight: FontWeight.w700,
+            return SizedBox(
+              width: double.infinity,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Monogram Logo Mark styled exactly like the A in the image
+                  FadeTransition(
+                    opacity: _fadeAnim,
+                    child: ScaleTransition(
+                      scale: _scaleAnim,
+                      child: Text(
+                        'R.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.playfairDisplay(
+                          fontSize: 160,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF8B6B58), // Signature brand brown
+                          letterSpacing: -5,
+                          height: 1.0,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                // Tagline
-                FadeTransition(
-                  opacity: _taglineFade,
-                  child: Text(
-                    AppStrings.tagline,
-                    style: AppTypography.bodyMedium.copyWith(
-                      color: AppColors.textInverse.withOpacity(0.6),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                const SizedBox(height: 80),
-                // Loading indicator
-                FadeTransition(
-                  opacity: _taglineFade,
-                  child: SizedBox(
-                    width: 24,
-                    height: 24,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.textInverse.withOpacity(0.4),
+                  const SizedBox(height: 12),
+                  // App Name styled exactly like "The Atlantic" in italic serif
+                  FadeTransition(
+                    opacity: _fadeAnim,
+                    child: Text(
+                      'ResumeOS',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.playfairDisplay(
+                        fontSize: 26,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF5A453A), // Dark slate-brown
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 90),
+                  // Subtle premium loader
+                  FadeTransition(
+                    opacity: _taglineFade,
+                    child: const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Color(0xFF8B6B58),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           },
-        ),
-      ),
-    );
-  }
-}
-
-class _LogoMark extends StatelessWidget {
-  const _LogoMark();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: AppColors.accent,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.accent.withOpacity(0.4),
-            blurRadius: 32,
-            offset: const Offset(0, 12),
-          ),
-        ],
-      ),
-      child: const Center(
-        child: Text(
-          'AC',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-            letterSpacing: -1,
-          ),
         ),
       ),
     );
