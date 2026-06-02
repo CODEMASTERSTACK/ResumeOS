@@ -112,7 +112,7 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Email verified successfully! Welcome to SmartResume.'),
+            content: Text('Email verified successfully! Welcome to ResumeOS.'),
             backgroundColor: AppColors.success,
           ),
         );

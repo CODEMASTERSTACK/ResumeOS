@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 
 class TermsScreen extends StatelessWidget {
@@ -74,7 +73,7 @@ class TermsScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   Center(
                     child: Text(
-                      'AI Career OS Terms of Service',
+                      'ResumeOS Terms of Service',
                       style: AppTypography.titleLarge.copyWith(
                         color: const Color(0xFF5A453A),
                         fontWeight: FontWeight.bold,
@@ -94,30 +93,30 @@ class TermsScreen extends StatelessWidget {
                   ),
                   const Divider(height: 32, color: Color(0xFFE8DCD3)),
                   
-                  _buildSectionHeader('1. Welcome to AI Career OS'),
+                  _buildSectionHeader('1. Welcome to ResumeOS'),
                   _buildSectionBody(
-                    'Welcome to AI Career OS (also referred to as "SmartResume"). By creating an account or accessing our services, you agree to comply with and be bound by these Terms of Service. Please read them carefully. If you do not agree to these terms, you must not use or register for our platform.',
+                    'Welcome to ResumeOS. By creating an account or accessing our services, you agree to comply with and be bound by these Terms of Service. Please read them carefully. If you do not agree to these terms, you must not use or register for our platform.',
                   ),
 
                   _buildSectionHeader('2. Artificial Intelligence Disclosures & Consent'),
                   _buildSectionBody(
-                    'AI Career OS leverages advanced Large Language Models (LLMs) via Google Gemini and OpenRouter APIs to analyze job descriptions, parse candidates\' backgrounds, and auto-rewrite highly optimized, professional resume bullets.\n\n'
+                    'ResumeOS leverages advanced Large Language Models (LLMs) via Google Gemini and OpenRouter APIs to analyze job descriptions, parse candidates\' backgrounds, and auto-rewrite highly optimized, professional resume bullets.\n\n'
                     '• Content Generation Accuracy: While our AI models are finely tuned for recruitment and ATS (Applicant Tracking System) optimization, AI-generated content can occasionally contain factual inconsistencies or "hallucinations." You are solely responsible for reviewing, editing, and verifying the absolute truthfulness of any generated resume details before distributing them to potential employers.\n'
                     '• Consent: By uploading resumes, portfolios, or job descriptions, you consent to the secure transfer and processing of this text content via third-party AI APIs.',
                   ),
 
                   _buildSectionHeader('3. Bring Your Own Key (BYOK) & Billing'),
                   _buildSectionBody(
-                    'AI Career OS operates on a Freemium, BYOK (Bring Your Own Key) model to allow developers and power users to scale their usage at zero markup cost.\n\n'
+                    'ResumeOS operates on a Freemium, BYOK (Bring Your Own Key) model to allow developers and power users to scale their usage at zero markup cost.\n\n'
                     '• Key Caching: If you configure custom API keys for Gemini or OpenRouter in the Settings page (under the "Owner of Will" feature), these keys are stored securely in local device storage and are never uploaded to our servers.\n'
-                    '• Billing responsibility: When using your own keys, you are directly billed by the respective AI API providers under their standard developer rates. AI Career OS is not liable for any sudden billing surges or model usage limits incurred on your custom API keys.',
+                    '• Billing responsibility: When using your own keys, you are directly billed by the respective AI API providers under their standard developer rates. ResumeOS is not liable for any sudden billing surges or model usage limits incurred on your custom API keys.',
                   ),
 
                   _buildSectionHeader('4. GitHub Integration & Repository Synchronization'),
                   _buildSectionBody(
                     'Our platform allows candidates to sync their professional portfolios directly with GitHub.\n\n'
                     '• Read-Only Access: When you select "Continue with GitHub" or authenticate your repository portfolio, our application requests standard read-only access (e.g., repository list, commit statistics, file structures) to automatically generate descriptive project bullets.\n'
-                    '• No Write Permissions: AI Career OS will never request, store, or execute write permissions or administrative access on your GitHub repositories.',
+                    '• No Write Permissions: ResumeOS will never request, store, or execute write permissions or administrative access on your GitHub repositories.',
                   ),
 
                   _buildSectionHeader('5. Account Termination & Permanent Purging'),
@@ -129,18 +128,18 @@ class TermsScreen extends StatelessWidget {
 
                   _buildSectionHeader('6. Acceptable Use Policy'),
                   _buildSectionBody(
-                    'You agree not to use AI Career OS to generate fraudulent credentials, falsify work experience, impersonate other entities, or attempt to reverse-engineer or abuse the Cloudflare serverless gateway or underlying database systems.',
+                    'You agree not to use ResumeOS to generate fraudulent credentials, falsify work experience, impersonate other entities, or attempt to reverse-engineer or abuse the Cloudflare serverless gateway or underlying database systems.',
                   ),
 
                   _buildSectionHeader('7. Limitation of Liability'),
                   _buildSectionBody(
-                    'AI Career OS and its developers are provided "as is" without warranties of any kind. We are not liable for any employment outcomes, candidate rejections, resume parsing errors by external systems, or data loss arising from your use of this software.',
+                    'ResumeOS and its developers are provided "as is" without warranties of any kind. We are not liable for any employment outcomes, candidate rejections, resume parsing errors by external systems, or data loss arising from your use of this software.',
                   ),
 
                   const SizedBox(height: 32),
                   Center(
                     child: Text(
-                      'Thank you for trusting AI Career OS to accelerate your professional journey.',
+                      'Thank you for trusting ResumeOS to accelerate your professional journey.',
                       style: AppTypography.bodyMedium.copyWith(
                         color: const Color(0xFF8B6B58),
                         fontWeight: FontWeight.bold,

@@ -46,7 +46,7 @@ class AiCareerOsApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
 
     return MaterialApp.router(
-      title: 'AI Career OS',
+      title: 'ResumeOS',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: router,

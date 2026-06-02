@@ -407,8 +407,8 @@ async function generateAI(prompt, customGeminiKey, customOpenRouterKey, env) {
       headers: {
         'Authorization': `Bearer ${activeOpenRouterKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://aicareer.os',
-        'X-Title': 'AI Career OS',
+        'HTTP-Referer': 'https://resumeos.com',
+        'X-Title': 'ResumeOS',
       },
       body: JSON.stringify({
         model: 'anthropic/claude-3-haiku',
@@ -699,14 +699,14 @@ export default {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            from: 'SmartResume <onboarding@resend.dev>',
+            from: 'ResumeOS <onboarding@resend.dev>',
             to: [email],
-            subject: 'Verify Your SmartResume Account',
+            subject: 'Verify Your ResumeOS Account',
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; borderRadius: 8px;">
-                <h2 style="color: #673AB7; text-align: center;">Verify Your SmartResume Account</h2>
+                <h2 style="color: #8B6B58; text-align: center;">Verify Your ResumeOS Account</h2>
                 <p>Hello,</p>
-                <p>Thank you for signing up for SmartResume! To complete your registration and proceed to the onboarding checklist, please enter the 6-digit One-Time Password (OTP) below within the next 10 minutes:</p>
+                <p>Thank you for signing up for ResumeOS! To complete your registration and proceed to the onboarding checklist, please enter the 6-digit One-Time Password (OTP) below within the next 10 minutes:</p>
                 <div style="background-color: #f5f5f5; border-radius: 8px; padding: 15px; text-align: center; margin: 20px 0;">
                   <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #333;">${otp}</span>
                 </div>
@@ -964,14 +964,14 @@ export default {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            from: 'SmartResume <onboarding@resend.dev>',
+            from: 'ResumeOS <onboarding@resend.dev>',
             to: [email.trim()],
-            subject: 'Reset Your SmartResume Password',
+            subject: 'Reset Your ResumeOS Password',
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; borderRadius: 8px;">
-                <h2 style="color: #673AB7; text-align: center;">Reset Your Password</h2>
+                <h2 style="color: #8B6B58; text-align: center;">Reset Your Password</h2>
                 <p>Hello,</p>
-                <p>We received a request to reset your password for your SmartResume account. Enter the 6-digit One-Time Password (OTP) below in the app to complete your password reset:</p>
+                <p>We received a request to reset your password for your ResumeOS account. Enter the 6-digit One-Time Password (OTP) below in the app to complete your password reset:</p>
                 <div style="background-color: #f5f5f5; border-radius: 8px; padding: 15px; text-align: center; margin: 20px 0;">
                   <span style="font-size: 32px; font-weight: bold; letter-spacing: 5px; color: #333;">${otp}</span>
                 </div>

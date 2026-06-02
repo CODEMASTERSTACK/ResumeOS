@@ -178,7 +178,7 @@ class _AccountDeletedScreenState extends ConsumerState<AccountDeletedScreen>
                         const SizedBox(height: 24),
 
                         Text(
-                          "We're truly sorry to see you go. All of your personal details, resumes, synced repositories, and career records have been permanently cleared from our servers and can never be recovered.\n\nThank you for choosing and experimenting with AI Career OS. We wish you the absolute best on your professional journey, and if you ever need to craft tailored, ATS-compliant resumes again, you're always welcome back.",
+                          "We're truly sorry to see you go. All of your personal details, resumes, synced repositories, and career records have been permanently cleared from our servers and can never be recovered.\n\nThank you for choosing and experimenting with ResumeOS. We wish you the absolute best on your professional journey, and if you ever need to craft tailored, ATS-compliant resumes again, you're always welcome back.",
                           style: AppTypography.bodyMedium.copyWith(
                             color: AppColors.textSecondary,
                             height: 1.6,

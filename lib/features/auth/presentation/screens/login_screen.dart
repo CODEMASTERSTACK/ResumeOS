@@ -6,10 +6,9 @@ import 'package:go_router/go_router.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_strings.dart';
-import '../../../../core/constants/app_typography.dart';
 import '../../../../routes/route_names.dart';
 import '../providers/auth_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 // ── Mode provider ──────────────────────────────────────────
 enum _AuthMode { signIn, signUp }
@@ -335,28 +334,30 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Styled Text Logo
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              'smartresume',
-                              style: TextStyle(
-                                fontSize: 32,
-                                color: const Color(0xFF5A453A),
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: -1.0,
-                              ),
-                            ),
-                            Text(
-                              '.',
-                              style: TextStyle(
-                                fontSize: 32,
-                                color: const Color(0xFF7E57C2), // Purple dot matching hat
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                          ],
+                        // Logo Monogram
+                        Text(
+                          'R.',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.playfairDisplay(
+                            fontSize: 72,
+                            fontWeight: FontWeight.w700,
+                            color: const Color(0xFF8B6B58), // Signature brand brown
+                            letterSpacing: -2,
+                            height: 1.0,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        // App Name
+                        Text(
+                          'ResumeOS',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.playfairDisplay(
+                            fontSize: 24,
+                            fontStyle: FontStyle.italic,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFF5A453A), // Dark slate-brown
+                            letterSpacing: 0.5,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         

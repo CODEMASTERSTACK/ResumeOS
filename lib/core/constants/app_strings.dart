@@ -3,8 +3,8 @@ class AppStrings {
   AppStrings._();
 
   // App
-  static const String appName = 'AI Career OS';
-  static const String tagline = 'Your AI-Powered Career Operating System';
+  static const String appName = 'ResumeOS';
+  static const String tagline = 'Your AI-Powered Resume Builder & Career OS';
 
   // Auth
   static const String signInWithGoogle = 'Continue with Google';
@@ -17,7 +17,7 @@ class AppStrings {
   static const String dontHaveAccount = "Don't have an account?";
 
   // Onboarding
-  static const String welcome = 'Welcome to AI Career OS';
+  static const String welcome = 'Welcome to ResumeOS';
   static const String welcomeSubtitle =
       'Build your career profile once. Let AI do the rest.';
   static const String getStarted = 'Get Started';

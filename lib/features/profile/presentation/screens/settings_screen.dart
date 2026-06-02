@@ -256,7 +256,7 @@ class SettingsScreen extends ConsumerWidget {
               child: Column(
                 children: [
                   const Text(
-                    'AI Career OS',
+                    'ResumeOS',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -587,7 +587,7 @@ class SettingsDetailScreen extends StatelessWidget {
       
       const SizedBox(height: 16),
       _sectionHeader('3. Third-Party Sharing'),
-      _bodyText('Because AI Career OS relies on Generative Artificial Intelligence, selected professional highlights (skills, role titles, company names, and project details) are transmitted securely to leading AI APIs (including Gemini, OpenAI, or OpenRouter) strictly for text enhancement. No third-party AI provider receives permanent rights to store or train on your identity. We do not sell or lease candidate details to third-party databases, brokers, or advertisers.'),
+      _bodyText('Because ResumeOS relies on Generative Artificial Intelligence, selected professional highlights (skills, role titles, company names, and project details) are transmitted securely to leading AI APIs (including Gemini, OpenAI, or OpenRouter) strictly for text enhancement. No third-party AI provider receives permanent rights to store or train on your identity. We do not sell or lease candidate details to third-party databases, brokers, or advertisers.'),
       
       const SizedBox(height: 16),
       _sectionHeader('4. Your Rights'),
@@ -621,7 +621,7 @@ class SettingsDetailScreen extends StatelessWidget {
       
       const SizedBox(height: 16),
       _sectionHeader('3. Intellectual Property (IP)'),
-      _bodyText('Candidates retain 100% intellectual property ownership of the final generated PDF resumes produced by this app. You are free to publish, sell, share, or submit them. AI Career OS retains all proprietary rights to the underlying source code, database structures, graphic assets, layout designs, and generative text algorithms.'),
+      _bodyText('Candidates retain 100% intellectual property ownership of the final generated PDF resumes produced by this app. You are free to publish, sell, share, or submit them. ResumeOS retains all proprietary rights to the underlying source code, database structures, graphic assets, layout designs, and generative text algorithms.'),
     ];
   }
 
@@ -638,7 +638,7 @@ class SettingsDetailScreen extends StatelessWidget {
       
       const SizedBox(height: 16),
       _sectionHeader('3. Contact Legal Support'),
-      _bodyText('If you have any questions regarding these compliance terms, security disclosures, or wish to execute your data deletion rights, please contact our legal desk at compliance@aicareeros.com.'),
+      _bodyText('If you have any questions regarding these compliance terms, security disclosures, or wish to execute your data deletion rights, please contact our legal desk at compliance@resumeos.com.'),
     ];
   }
 

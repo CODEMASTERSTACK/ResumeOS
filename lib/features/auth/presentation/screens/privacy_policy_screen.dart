@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 
 class PrivacyPolicyScreen extends StatelessWidget {
@@ -74,7 +73,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   Center(
                     child: Text(
-                      'AI Career OS Privacy Policy',
+                      'ResumeOS Privacy Policy',
                       style: AppTypography.titleLarge.copyWith(
                         color: const Color(0xFF5A453A),
                         fontWeight: FontWeight.bold,
@@ -96,7 +95,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   
                   _buildSectionHeader('1. Overview of Data Privacy'),
                   _buildSectionBody(
-                    'At AI Career OS ("SmartResume"), privacy is a core principle. We design our systems to ensure your professional candidate profiles, resumes, and career details are kept completely secure and under your absolute control. This policy explains what information we collect, how it is processed, and your rights.',
+                    'At ResumeOS, privacy is a core principle. We design our systems to ensure your professional candidate profiles, resumes, and career details are kept completely secure and under your absolute control. This policy explains what information we collect, how it is processed, and your rights.',
                   ),
 
                   _buildSectionHeader('2. Information We Collect'),
@@ -131,7 +130,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
                   _buildSectionHeader('6. Compliance (GDPR & CCPA)'),
                   _buildSectionBody(
-                    'AI Career OS respects user rights under GDPR and CCPA. You have the right to request access to your stored files, correct errors in your profile, or request complete deletion. You can fulfill these directly within the application settings.',
+                    'ResumeOS respects user rights under GDPR and CCPA. You have the right to request access to your stored files, correct errors in your profile, or request complete deletion. You can fulfill these directly within the application settings.',
                   ),
 
                   _buildSectionHeader('7. Changes to this Policy'),
@@ -142,7 +141,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   const SizedBox(height: 32),
                   Center(
                     child: Text(
-                      'Your privacy is our standard. Thank you for using AI Career OS.',
+                      'Your privacy is our standard. Thank you for using ResumeOS.',
                       style: AppTypography.bodyMedium.copyWith(
                         color: const Color(0xFF8B6B58),
                         fontWeight: FontWeight.bold,

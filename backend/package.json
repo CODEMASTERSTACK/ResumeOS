@@ -1,7 +1,7 @@
 {
-  "name": "ai-career-os-backend",
+  "name": "resumeos-backend",
   "version": "1.0.0",
-  "description": "Secure Edge API Gateway for AI Career OS",
+  "description": "Secure Edge API Gateway for ResumeOS",
   "main": "index.js",
   "scripts": {
     "deploy": "wrangler deploy"
