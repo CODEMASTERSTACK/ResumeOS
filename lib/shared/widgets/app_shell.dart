@@ -160,7 +160,7 @@ class _AppBottomNav extends StatelessWidget {
                               AnimatedDefaultTextStyle(
                                 duration: const Duration(milliseconds: 200),
                                 style: TextStyle(
-                                  fontFamily: 'Inter',
+                                  fontFamily: 'Poppins',
                                   fontSize: 10,
                                   fontWeight: isSelected
                                       ? FontWeight.w600

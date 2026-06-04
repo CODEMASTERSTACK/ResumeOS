@@ -37,95 +37,151 @@ class DashboardScreen extends ConsumerWidget {
   }
 
   @override
+  @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsync = ref.watch(userProfileProvider);
     final completionAsync = ref.watch(profileCompletionProvider);
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // ── App Bar ─────────────────────────────────
-            SliverAppBar(
-              backgroundColor: AppColors.background,
-              floating: true,
-              snap: true,
-              elevation: 0,
-              scrolledUnderElevation: 0,
-
-
-            ),
-
-            // ── Content ──────────────────────────────────
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  const SizedBox(height: 8),
-
-                  // Greeting
-                  userAsync.when(
-                    data: (user) => _GreetingSection(
-                      greeting: _greeting(),
-                      name: user?.name ?? '',
-                    ),
-                    loading: () => const _GreetingShimmer(),
-                    error: (_, __) => const _GreetingSection(
-                      greeting: 'Hello',
-                      name: '',
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Hero Generate Card
-                  _GenerateHeroCard(
-                    onTap: () => context.go(RouteNames.generate),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Profile Completion
-                  completionAsync.when(
-                    data: (pct) => _ProfileCompletionCard(
-                      percent: pct,
-                      onTap: () => context.go(RouteNames.profile),
-                    ),
-                    loading: () => const _CardShimmer(height: 100),
-                    error: (_, __) => const SizedBox.shrink(),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Quick Stats Row
-                  const _QuickStatsRow(),
-
-                  const SizedBox(height: 24),
-
-                  // Recent Resumes
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        AppStrings.recentResumes,
-                        style: AppTypography.headlineSmall,
-                      ),
-                      TextButton(
-                        onPressed: () => context.go(RouteNames.history),
-                        child: const Text('View all'),
-                      ),
+      backgroundColor: const Color(0xFFFCFAF7), // Milky White base
+      body: Stack(
+        children: [
+          // 1. Revolut-style Immersive Top Gradient Backdrop
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: screenHeight * 0.52,
+            child: ClipPath(
+              clipper: _BottomCurveClipper(),
+              child: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: [0.0, 0.55, 1.0],
+                    colors: [
+                      Color(0xFF2C1F18), // Deep espresso at the very top
+                      Color(0xFF8B6B58), // Warm signature brand brown in the middle
+                      Color(0xFFFCFAF7), // Fades into milky white at the base
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  const _RecentResumesSection(),
-
-                  const SizedBox(height: 32),
-                ]),
+                ),
               ),
             ),
-          ],
-        ),
+          ),
+
+          // 2. Subtle radial glow overlay for depth (like Revolut's inner highlight)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: screenHeight * 0.36,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0.0, -0.3),
+                  radius: 0.9,
+                  colors: [
+                    const Color(0xFF8B6B58).withValues(alpha: 0.35),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // 2. Scrollable Foreground Layer
+          SafeArea(
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
+                // Minimal SliverAppBar — keeps safe area but collapses height
+                const SliverAppBar(
+                  backgroundColor: Colors.transparent,
+                  floating: true,
+                  snap: true,
+                  elevation: 0,
+                  scrolledUnderElevation: 0,
+                  toolbarHeight: 30, // Collapse to almost nothing so greeting sits high
+                ),
+
+                // Content list
+                SliverPadding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate([
+                      // Personalized User Greeting (styled in high-contrast white/cream)
+                      userAsync.when(
+                        data: (user) => _GreetingSection(
+                          greeting: _greeting(),
+                          name: user?.name ?? '',
+                        ),
+                        loading: () => const _GreetingShimmer(),
+                        error: (_, __) => const _GreetingSection(
+                          greeting: 'Hello',
+                          name: '',
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Dark Chocolate Slate Hero Generate Card
+                      _GenerateHeroCard(
+                        onTap: () => context.go(RouteNames.generate),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Profile Completion Card (pops with a soft shadow on the white base)
+                      completionAsync.when(
+                        data: (pct) => _ProfileCompletionCard(
+                          percent: pct,
+                          onTap: () => context.go(RouteNames.profile),
+                        ),
+                        loading: () => const _CardShimmer(height: 100),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Quick Stats Row
+                      const _QuickStatsRow(),
+
+                      const SizedBox(height: 24),
+
+                      // Recent Resumes
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            AppStrings.recentResumes,
+                            style: AppTypography.headlineSmall.copyWith(
+                              color: const Color(0xFF5A453A),
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: () => context.go(RouteNames.history),
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFF8B6B58), // Signature Brand Active Brown
+                            ),
+                            child: const Text('View all'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      const _RecentResumesSection(),
+
+                      const SizedBox(height: 32),
+                    ]),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -146,13 +202,19 @@ class _GreetingSection extends StatelessWidget {
       children: [
         Text(
           name.isNotEmpty ? '$greeting, ${name.split(' ').first} 👋' : '$greeting 👋',
-          style: AppTypography.displaySmall,
+          style: AppTypography.displaySmall.copyWith(
+            color: Colors.white, // Solid high-contrast white
+            fontWeight: FontWeight.w800,
+            fontSize: 26,
+            letterSpacing: -0.5,
+          ),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 6),
         Text(
           'What job are you targeting today?',
           style: AppTypography.bodyMedium.copyWith(
-            color: AppColors.textSecondary,
+            color: const Color(0xFFFCFAF7).withValues(alpha: 0.8), // Soft cream
+            fontWeight: FontWeight.w500,
           ),
         ),
       ],
@@ -185,7 +247,10 @@ class _GenerateHeroCardState extends State<_GenerateHeroCard> {
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
             gradient: const LinearGradient(
-              colors: [Color(0xFF111111), Color(0xFF1a1a2e)],
+              colors: [
+                Color(0xFF3E2F26), // Dark warm chocolate brown
+                Color(0xFF261D17), // Rich warm charcoal
+              ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
@@ -193,7 +258,7 @@ class _GenerateHeroCardState extends State<_GenerateHeroCard> {
             boxShadow: _hovered
                 ? [
                     BoxShadow(
-                      color: AppColors.accent.withOpacity(0.3),
+                      color: const Color(0xFF8B6B58).withValues(alpha: 0.3),
                       blurRadius: 32,
                       offset: const Offset(0, 12),
                     )
@@ -210,19 +275,19 @@ class _GenerateHeroCardState extends State<_GenerateHeroCard> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.2),
+                        color: const Color(0xFF8B6B58).withValues(alpha: 0.25),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.auto_awesome_rounded,
-                              size: 12, color: AppColors.accentLight),
+                              size: 12, color: Color(0xFFC4AB9B)),
                           const SizedBox(width: 4),
                           Text(
                             'AI-Powered',
                             style: AppTypography.caption.copyWith(
-                              color: AppColors.accentLight,
+                              color: const Color(0xFFC4AB9B),
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -241,7 +306,7 @@ class _GenerateHeroCardState extends State<_GenerateHeroCard> {
                     Text(
                       AppStrings.generateResumeHeroSub,
                       style: AppTypography.bodySmall.copyWith(
-                        color: Colors.white.withOpacity(0.6),
+                        color: Colors.white.withValues(alpha: 0.6),
                         height: 1.5,
                       ),
                     ),
@@ -250,9 +315,15 @@ class _GenerateHeroCardState extends State<_GenerateHeroCard> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppColors.accent,
+                        color: const Color(0xFF8B6B58), // signature brand brown
                         borderRadius: BorderRadius.circular(10),
-                        boxShadow: AppColors.accentShadow,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF8B6B58).withValues(alpha: 0.3),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -307,7 +378,7 @@ class _SparkleIcon extends StatelessWidget {
       child: Icon(
         Icons.auto_awesome_rounded,
         size: size,
-        color: AppColors.accentLight,
+        color: const Color(0xFFC4AB9B), // Warm cream/light brown matching the theme perfectly
       ),
     );
   }
@@ -685,4 +756,26 @@ class _CardShimmer extends StatelessWidget {
       ),
     );
   }
+}
+
+// ── Bottom Curve Clipper ──────────────────────────────────
+
+/// Clips the gradient backdrop with a smooth downward Bezier arc at the bottom,
+/// giving the Revolut-style immersive panel effect.
+class _BottomCurveClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.lineTo(0, size.height - 48); // left side drops down
+    path.quadraticBezierTo(
+      size.width / 2, size.height + 48, // control point curves down in the center
+      size.width, size.height - 48,     // right side comes back up
+    );
+    path.lineTo(size.width, 0);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(_BottomCurveClipper oldClipper) => false;
 }
