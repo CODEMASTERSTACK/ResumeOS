@@ -45,6 +45,29 @@ class GeminiService implements AIService {
       final body = jsonEncode({
         'action': action,
         'data': data,
+      }, toEncodable: (nonEncodable) {
+        if (nonEncodable is DateTime) {
+          return nonEncodable.toIso8601String();
+        }
+        
+        // Handle Cloud Firestore Timestamp dynamically
+        try {
+          final typeString = nonEncodable.runtimeType.toString();
+          if (typeString == 'Timestamp' || typeString.contains('Timestamp')) {
+            final dynamic obj = nonEncodable;
+            final dateTime = obj.toDate() as DateTime;
+            return dateTime.toIso8601String();
+          }
+        } catch (_) {}
+
+        // Handle custom objects that have a toJson() method
+        try {
+          final dynamic obj = nonEncodable;
+          return obj.toJson();
+        } catch (_) {}
+
+        // Fallback to string representation
+        return nonEncodable.toString();
       });
 
       final response = await http.post(

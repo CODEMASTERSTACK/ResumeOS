@@ -216,8 +216,10 @@ class _ProfileSummaryAiEnhanceScreenState extends ConsumerState<ProfileSummaryAi
     try {
       final repo = ref.read(profileRepositoryProvider);
       final userProfile = await repo.getUser(uid);
-      final name = userProfile?.name ?? 'Your Name';
-      final currentRole = userProfile?.currentRole ?? 'Software Professional';
+      final rawName = userProfile?.name ?? '';
+      final name = rawName.trim().isNotEmpty ? rawName : 'Your Name';
+      final rawRole = userProfile?.currentRole ?? '';
+      final currentRole = rawRole.trim().isNotEmpty ? rawRole : 'Software Professional';
 
       // Filter context based on user toggles
       final skillsList = _useSkills ? _skills.map((s) => s['name'] as String).toList() : <String>[];

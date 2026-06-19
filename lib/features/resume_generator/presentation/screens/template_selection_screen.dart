@@ -93,8 +93,8 @@ class _TemplateSelectionScreenState
 
       // AI: generate professional summary
       final summary = await ai.generateProfessionalSummary(
-        candidateBackground: user.summary,
-        targetRole: analysis.role,
+        candidateBackground: user.summary.trim().isNotEmpty ? user.summary : 'Experienced software developer / IT professional',
+        targetRole: analysis.role.trim().isNotEmpty ? analysis.role : 'Software Professional',
         keywords: analysis.allKeywords,
         topSkills: selectedProjects
             .expand((ProjectModel p) => p.technologies)
