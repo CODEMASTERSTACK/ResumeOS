@@ -102,7 +102,8 @@ class _ProfileContent extends ConsumerWidget {
     final uid = user.uid;
 
     return ListView(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.only(
+          left: 20, right: 20, top: 20, bottom: 108),
       children: [
         // Avatar + Name
         _ProfileHeader(user: user),

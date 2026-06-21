@@ -45,8 +45,8 @@ class HistoryScreen extends ConsumerWidget {
           }
 
           return ListView.separated(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            padding: const EdgeInsets.only(
+                left: 20, right: 20, top: 12, bottom: 108),
             itemCount: docs.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, i) {
@@ -355,7 +355,8 @@ class _HistoryShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.only(
+          left: 20, right: 20, top: 12, bottom: 108),
       itemCount: 5,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (_, __) => Container(

@@ -37,4 +37,5 @@ class RouteNames {
   static const String profile = '/profile';
   static const String editProfileSection = '/profile/edit/:section';
   static const String githubRepoView = '/projects/github-view/:projectId';
+  static const String jobOpenings = '/job-openings';
 }

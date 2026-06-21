@@ -57,6 +57,8 @@ class AppShell extends StatelessWidget {
     final currentIndex = _currentIndex(location);
 
     return Scaffold(
+      extendBody: true,
+      backgroundColor: const Color(0xFF07060F),
       body: child,
       bottomNavigationBar: _AppBottomNav(
         currentIndex: currentIndex,
@@ -103,23 +105,29 @@ class _AppBottomNav extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // 1. Curved White Bottom Bar Container
+          // 1. Curved Dark Bottom Bar Container
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: Container(
-              height: 72, // Standard white bar height (taller to avoid text overlap)
+              height: 72, // Standard bar height (taller to avoid text overlap)
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: const Color(0xFF0C0B10), // Solid dark bottom bar matching base theme
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(32),
                   topRight: Radius.circular(32),
                 ),
+                border: Border(
+                  top: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    width: 1.0,
+                  ),
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 20,
+                    color: Colors.black.withValues(alpha: 0.35),
+                    blurRadius: 24,
                     offset: const Offset(0, -4),
                   ),
                 ],
@@ -152,8 +160,8 @@ class _AppBottomNav extends StatelessWidget {
                                     key: ValueKey(isSelected),
                                     size: 22,
                                     color: isSelected
-                                        ? const Color(0xFF8B6B58) // Signature Brand Brown
-                                        : Colors.grey.shade400, // Line-art grey
+                                        ? const Color(0xFFCBE349) // Neon Lime Green Accent
+                                        : Colors.white.withValues(alpha: 0.35), // Desaturated inactive tab
                                   ),
                                 ),
                               const SizedBox(height: 4),
@@ -166,8 +174,8 @@ class _AppBottomNav extends StatelessWidget {
                                       ? FontWeight.w600
                                       : FontWeight.w400,
                                   color: isSelected
-                                      ? const Color(0xFF8B6B58)
-                                      : Colors.grey.shade500,
+                                      ? const Color(0xFFCBE349)
+                                      : Colors.white.withValues(alpha: 0.35),
                                 ),
                                 child: Text(item.label),
                               ),
@@ -185,7 +193,7 @@ class _AppBottomNav extends StatelessWidget {
 
           // 2. The Overlapping Floating Center Circular Button (index 2: Generate)
           Positioned(
-            top: -7, // Protrudes beautifully above the curved white bar by half its diameter
+            top: -7, // Protrudes beautifully above the curved bottom bar by half its diameter
             left: screenWidth / 2 - 28, // Perfectly centered horizontally
             child: _FloatingCenterButton(
               isSelected: isSelectedGenerate,
@@ -245,13 +253,17 @@ class _FloatingCenterButtonState extends State<_FloatingCenterButton> {
           width: 56,
           height: 56,
           decoration: BoxDecoration(
-            color: widget.isSelected ? const Color(0xFF8B6B58) : Colors.black,
+            color: widget.isSelected ? const Color(0xFFCBE349) : const Color(0xFF1E1C2B),
             shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: widget.isSelected ? 0.15 : 0.05),
+              width: 1.0,
+            ),
             boxShadow: [
               BoxShadow(
-                color: (widget.isSelected ? const Color(0xFF8B6B58) : Colors.black)
-                    .withValues(alpha: 0.3),
-                blurRadius: 12,
+                color: (widget.isSelected ? const Color(0xFFCBE349) : Colors.black)
+                    .withValues(alpha: widget.isSelected ? 0.35 : 0.15),
+                blurRadius: widget.isSelected ? 16 : 8,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -277,17 +289,17 @@ class _FloatingCenterButtonState extends State<_FloatingCenterButton> {
                 );
               },
               child: _showAiIcon
-                  ? const Icon(
+                  ? Icon(
                       Icons.auto_awesome_rounded,
-                      color: Colors.white,
+                      color: widget.isSelected ? Colors.black : Colors.white,
                       size: 24,
-                      key: ValueKey('ai_icon'),
+                      key: const ValueKey('ai_icon'),
                     )
                   : Text(
                       'R.',
                       key: const ValueKey('r_logo'),
                       style: GoogleFonts.playfairDisplay(
-                        color: Colors.white,
+                        color: widget.isSelected ? Colors.black : Colors.white,
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -1,

@@ -76,7 +76,8 @@ class _GenerateScreenState extends ConsumerState<GenerateScreen>
         scrolledUnderElevation: 0,
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.only(
+            left: 20, right: 20, top: 20, bottom: 108),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

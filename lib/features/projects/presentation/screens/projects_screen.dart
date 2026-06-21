@@ -906,8 +906,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 }
 
                 return ListView.separated(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 8),
+                  padding: const EdgeInsets.only(
+                      left: 20, right: 20, top: 8, bottom: 108),
                   itemCount: filtered.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
                   itemBuilder: (context, i) => _ProjectCard(

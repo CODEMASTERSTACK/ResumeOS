@@ -27,6 +27,7 @@ import '../features/profile/presentation/screens/profile_section_edit_screen.dar
 import '../features/profile/presentation/screens/profile_skills_edit_screen.dart';
 import '../features/profile/presentation/screens/profile_summary_ai_enhance_screen.dart';
 import '../features/profile/presentation/screens/settings_screen.dart';
+import '../features/jobs/presentation/screens/job_openings_screen.dart';
 import '../shared/widgets/app_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -172,6 +173,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _slideTransition(
           state,
           const OnboardingWrapper(),
+        ),
+      ),
+
+      // ── Job Openings ──────────────────────────────────────
+      GoRoute(
+        path: RouteNames.jobOpenings,
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => _slideTransition(
+          state,
+          const JobOpeningsScreen(),
         ),
       ),
 

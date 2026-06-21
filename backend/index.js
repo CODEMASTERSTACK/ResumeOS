@@ -1271,6 +1271,56 @@ export default {
         });
       }
 
+      // Route 4: Get India IT jobs (Proxy to Adzuna)
+      if (url.pathname === '/v1/jobs/india') {
+        if (request.method !== 'GET') {
+          return new Response(JSON.stringify({ error: 'Method Not Allowed' }), {
+            status: 405,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const appId = env.ADZUNA_APP_ID;
+        const appKey = env.ADZUNA_APP_KEY;
+
+        if (!appId || !appKey) {
+          return new Response(JSON.stringify({ error: 'Adzuna API credentials missing on server' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const page = url.searchParams.get('page') || '1';
+        const resultsPerPage = url.searchParams.get('results_per_page') || '50';
+
+        const adzunaUrl = `https://api.adzuna.com/v1/api/jobs/in/search/${page}`
+          + `?app_id=${appId}&app_key=${appKey}`
+          + `&results_per_page=${resultsPerPage}&sort_by=date&category=it-jobs`
+          + `&content-type=application/json`;
+
+        try {
+          const adzunaRes = await fetch(adzunaUrl);
+          if (!adzunaRes.ok) {
+            const errText = await adzunaRes.text();
+            return new Response(JSON.stringify({ error: `Adzuna API error: ${errText}` }), {
+              status: adzunaRes.status,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          const data = await adzunaRes.json();
+          return new Response(JSON.stringify(data), {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (fetchErr) {
+          return new Response(JSON.stringify({ error: `Failed to fetch from Adzuna: ${fetchErr.message || fetchErr}` }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
       // 404 handler
       return new Response(JSON.stringify({ error: 'Not Found' }), {
         status: 404,
