@@ -7,6 +7,7 @@ import '../../../../shared/providers/firebase_providers.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../services/pdf/pdf_service.dart';
 import '../../domain/entities/resume_model.dart';
+import '../../../../features/projects/presentation/screens/projects_screen.dart';
 
 class ResumeEditScreen extends ConsumerStatefulWidget {
   final String resumeId;
@@ -44,6 +45,8 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
   List<ResumeEducation> _education = [];
   List<ResumeExperience> _experience = [];
   List<ResumeProject> _projects = [];
+  List<ResumeProject> _research = [];
+  bool _showResearch = true;
   List<ResumeCertification> _certifications = [];
   List<String> _achievements = [];
 
@@ -121,6 +124,8 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
             _education = List<ResumeEducation>.from(data.education);
             _experience = List<ResumeExperience>.from(data.experience);
             _projects = List<ResumeProject>.from(data.projects);
+            _research = List<ResumeProject>.from(data.research);
+            _showResearch = data.showResearch;
             _certifications = List<ResumeCertification>.from(data.certifications);
             _achievements = List<String>.from(data.achievements);
 
@@ -155,6 +160,8 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
         education: _education,
         experience: _experience,
         projects: _projects,
+        research: _research,
+        showResearch: _showResearch,
         certifications: _certifications,
         achievements: _achievements,
         primaryColorHex: _selectedColorHex,
@@ -355,6 +362,8 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                                   const SizedBox(height: 14),
                                   _buildProjectsSection(),
                                   const SizedBox(height: 14),
+                                  _buildResearchSection(),
+                                  const SizedBox(height: 14),
                                   _buildEducationSection(),
                                   const SizedBox(height: 14),
                                   _buildCertificationsSection(),
@@ -453,6 +462,8 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
       education: _education,
       experience: _experience,
       projects: _projects,
+      research: _research,
+      showResearch: _showResearch,
       certifications: _certifications,
       achievements: _achievements,
       primaryColorHex: _selectedColorHex,
@@ -1562,6 +1573,251 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
             ),
           ],
         ),
+      ],
+    );
+  }
+
+  Widget _buildResearchSection() {
+    final projectsAsync = ref.watch(projectsProvider);
+
+    return _buildAccordionSection(
+      title: 'Research Work',
+      icon: Icons.science_rounded,
+      children: [
+        // Enable/Disable switch
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Show Research Section in Resume',
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            Switch(
+              value: _showResearch,
+              activeThumbColor: AppColors.accent,
+              activeTrackColor: AppColors.accent.withValues(alpha: 0.3),
+              inactiveThumbColor: Colors.white70,
+              inactiveTrackColor: Colors.white10,
+              onChanged: (val) {
+                setState(() {
+                  _showResearch = val;
+                });
+              },
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        if (_showResearch) ...[
+          // Choose which research to add
+          projectsAsync.when(
+            data: (allProjects) {
+              final availableResearch = allProjects.where((p) => p.isResearch).toList();
+              if (availableResearch.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'No research work items found in your profile. Please add them in the Project and Research Work screen.',
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                );
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select Research Work to include:',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: availableResearch.map((res) {
+                      final isSelected = _research.any((r) => r.title == res.title);
+                      return FilterChip(
+                        label: Text(res.title),
+                        selected: isSelected,
+                        selectedColor: AppColors.accent.withValues(alpha: 0.2),
+                        checkmarkColor: AppColors.accent,
+                        labelStyle: TextStyle(
+                          color: isSelected ? AppColors.accent : AppColors.textPrimary,
+                          fontSize: 12,
+                        ),
+                        backgroundColor: AppColors.background,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(
+                            color: isSelected ? AppColors.accent : AppColors.border,
+                          ),
+                        ),
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              if (!isSelected) {
+                                _research.add(ResumeProject(
+                                  title: res.title,
+                                  technologies: const [],
+                                  bullets: res.bulletPoints.take(3).toList(),
+                                  githubUrl: res.duration, // use githubUrl to store duration
+                                  liveUrl: '',
+                                ));
+                              }
+                            } else {
+                              _research.removeWhere((r) => r.title == res.title);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (err, stack) => Text('Error loading research items: $err', style: const TextStyle(color: AppColors.error)),
+          ),
+          const SizedBox(height: 16),
+          // Edit chosen research items
+          if (_research.isNotEmpty) ...[
+            const Divider(color: AppColors.border, height: 1),
+            const SizedBox(height: 16),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _research.length,
+              itemBuilder: (context, rIdx) {
+                final item = _research[rIdx];
+                final topicController = TextEditingController(text: item.title);
+                final durationController = TextEditingController(text: item.githubUrl);
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Research Item #${rIdx + 1}',
+                            style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 12),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_rounded, color: AppColors.error, size: 16),
+                            onPressed: () {
+                              setState(() => _research.removeAt(rIdx));
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      _buildTextField(
+                        controller: topicController,
+                        label: 'Research Topic / Title',
+                        onChanged: (val) {
+                          _research[rIdx] = _research[rIdx].copyWith(title: val.trim());
+                        },
+                      ),
+                      _buildTextField(
+                        controller: durationController,
+                        label: 'Duration (e.g. Oct 2025 - Present)',
+                        onChanged: (val) {
+                          _research[rIdx] = _research[rIdx].copyWith(githubUrl: val.trim());
+                        },
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Research Description Bullets (Max 3)',
+                        style: TextStyle(fontSize: 11, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      ...List.generate(item.bullets.length, (bIdx) {
+                        final bulletController = TextEditingController(text: item.bullets[bIdx]);
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _buildTextField(
+                                  controller: bulletController,
+                                  label: 'Bullet #${bIdx + 1}',
+                                  onChanged: (value) {
+                                    final updatedBullets = List<String>.from(item.bullets);
+                                    updatedBullets[bIdx] = value;
+                                    _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
+                                  },
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.error, size: 18),
+                                onPressed: () {
+                                  final updatedBullets = List<String>.from(item.bullets)..removeAt(bIdx);
+                                  setState(() {
+                                    _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (item.bullets.length < 3)
+                            TextButton.icon(
+                              onPressed: () {
+                                final updatedBullets = List<String>.from(item.bullets)..add('');
+                                setState(() {
+                                  _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
+                                });
+                              },
+                              icon: const Icon(Icons.add_rounded, size: 14),
+                              label: const Text('Add Bullet', style: TextStyle(fontSize: 11)),
+                              style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          TextButton(
+                            onPressed: () {
+                              final topic = topicController.text.trim();
+                              final dur = durationController.text.trim();
+                              setState(() {
+                                _research[rIdx] = _research[rIdx].copyWith(
+                                  title: topic,
+                                  githubUrl: dur,
+                                );
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Research details saved!'), duration: Duration(seconds: 1)),
+                              );
+                            },
+                            child: const Text('Save', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ],
+        ],
       ],
     );
   }

@@ -51,7 +51,7 @@ class _JobOpeningsScreenState extends ConsumerState<JobOpeningsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final jobsAsync = ref.watch(freshJobsProvider);
+    final jobsAsync = ref.watch(freshJobsProvider(todayJobCacheKey()));
 
     return Scaffold(
       backgroundColor: const Color(0xFF07060F),
@@ -313,26 +313,33 @@ class _JobCard extends StatelessWidget {
 
   String _formatPostedTime() {
     final createdAt = job['created_at'];
+    // Treat null or blank as "no date available"
     if (createdAt == null) return '';
+    final raw = createdAt.toString().trim();
+    if (raw.isEmpty) return '';
     try {
       DateTime? postDate;
       if (createdAt is int) {
+        // Unix epoch seconds
         postDate = DateTime.fromMillisecondsSinceEpoch(createdAt * 1000);
-      } else if (createdAt is String) {
-        final s = createdAt as String;
-        // Try ISO 8601 first (Remotive: "2024-01-15T10:30:00")
-        postDate = DateTime.tryParse(s);
-        // Then try Unix timestamp string (arbeitnow fallback)
+      } else {
+        // Try ISO 8601 first (Adzuna / Remotive: "2024-06-15T10:30:00Z")
+        postDate = DateTime.tryParse(raw);
+        // Then try plain Unix timestamp string
         if (postDate == null) {
-          final secs = int.tryParse(s) ?? 0;
+          final secs = int.tryParse(raw) ?? 0;
           if (secs > 0) postDate = DateTime.fromMillisecondsSinceEpoch(secs * 1000);
         }
       }
       if (postDate == null) return '';
+
       final diff = DateTime.now().difference(postDate);
+
+      // Future-dated or zero-diff (API clock skew) → show as "Today"
+      if (diff.isNegative || diff.inMinutes < 2) return 'Today';
+
       if (diff.inMinutes < 60) {
-        final m = diff.inMinutes <= 0 ? 1 : diff.inMinutes;
-        return '$m min ago';
+        return '${diff.inMinutes} min ago';
       } else if (diff.inHours < 24) {
         final h = diff.inHours;
         return '$h ${h == 1 ? "hr" : "hrs"} ago';

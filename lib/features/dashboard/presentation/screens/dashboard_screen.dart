@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -12,6 +13,8 @@ import '../../../../routes/route_names.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
+import '../../../../shared/providers/firebase_providers.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // ── Providers ─────────────────────────────────────────────
 
@@ -82,7 +85,16 @@ Map<String, dynamic> _normalizeRemotive(Map<String, dynamic> j) => {
   'tags':         (j['tags'] as List<dynamic>? ?? []).cast<String>(),
 };
 
-final freshJobsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+// Returns today's date as a stable cache-key ("YYYY-MM-DD").
+// The provider family is keyed on this string, so it automatically
+// fetches a fresh batch of jobs whenever the calendar date changes.
+String todayJobCacheKey() {
+  final now = DateTime.now();
+  return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+}
+
+final freshJobsProvider =
+    FutureProvider.family<List<Map<String, dynamic>>, String>((ref, dateKey) async {
   // ── Primary: Adzuna India — via Cloudflare Worker proxy ────────────
   try {
     final uri = Uri.parse(
@@ -147,10 +159,22 @@ final freshJobsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async
 
 
 
-final profileCompletionProvider = FutureProvider<int>((ref) async {
+final profileCompletionProvider = StreamProvider<int>((ref) {
   final uid = ref.watch(currentUserProvider)?.uid;
-  if (uid == null) return 0;
-  return ref.read(profileRepositoryProvider).getProfileCompletionPercent(uid);
+  if (uid == null) return Stream.value(0);
+  return ref.read(profileRepositoryProvider).watchProfileCompletionPercent(uid);
+});
+
+final resumesCountProvider = StreamProvider<int>((ref) {
+  final uid = ref.watch(currentUserProvider)?.uid;
+  if (uid == null) return Stream.value(0);
+  return ref
+      .watch(firestoreProvider)
+      .collection('users')
+      .doc(uid)
+      .collection('resumes')
+      .snapshots()
+      .map((snap) => snap.docs.length);
 });
 
 // ── Dashboard Screen ───────────────────────────────────────
@@ -350,65 +374,77 @@ class _GreetingSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final name = user?.name ?? '';
-    final profileImageUrl = user?.profileImageUrl ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Top Avatar Row (inspired by the layout in the picture, without search/like buttons)
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.08),
-                  width: 2.0,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$greeting,',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white60,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    name.isNotEmpty ? name : 'Professional',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 32,
+                      height: 1.1,
+                      letterSpacing: -0.5,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
-              child: CircleAvatar(
-                radius: 24,
-                backgroundColor: const Color(0xFF723FFD).withValues(alpha: 0.15),
-                backgroundImage: profileImageUrl.isNotEmpty ? NetworkImage(profileImageUrl) : null,
-                child: profileImageUrl.isEmpty
-                    ? Text(
-                        name.isNotEmpty ? name[0].toUpperCase() : 'U',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                        ),
-                      )
-                    : null,
-              ),
+            ),
+            const SizedBox(width: 16),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const _PointsIndicatorWidget(),
+                const SizedBox(width: 12),
+                GestureDetector(
+                  onTap: () => context.push('/profile/settings'),
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.settings_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
-
-        const SizedBox(height: 16),
-
-        // 2. Greeting Text (inspired by "Hi, Samantha" in the picture)
-        Text(
-          name.isNotEmpty ? 'Hi, ${name.split(' ').first}' : 'Hi there 👋',
-          style: AppTypography.displaySmall.copyWith(
-            color: Colors.white, // Solid high-contrast white
-            fontWeight: FontWeight.w800,
-            fontSize: 28,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
         Text(
           'What job are you targeting today?',
           style: AppTypography.bodyMedium.copyWith(
-            color: Colors.white.withValues(alpha: 0.5), // Soft white
+            color: Colors.white.withValues(alpha: 0.4),
             fontWeight: FontWeight.w500,
           ),
         ),
@@ -417,183 +453,413 @@ class _GreetingSection extends StatelessWidget {
   }
 }
 
+class _PointsIndicatorWidget extends ConsumerStatefulWidget {
+  const _PointsIndicatorWidget();
+
+  @override
+  ConsumerState<_PointsIndicatorWidget> createState() => _PointsIndicatorWidgetState();
+}
+
+class _PointsIndicatorWidgetState extends ConsumerState<_PointsIndicatorWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _glowAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    )..repeat(reverse: true);
+    _glowAnimation = Tween<double>(begin: 4.0, end: 12.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = ref.watch(userProfileProvider).valueOrNull;
+    final completionPercent = ref.watch(profileCompletionProvider).valueOrNull ?? 0;
+    final points = user?.points ?? 10;
+    final claimed = user?.claimedMilestones ?? [];
+
+    final canClaim50 = completionPercent > 50 && !claimed.contains('profile_50');
+    final canClaim80 = completionPercent > 80 && !claimed.contains('profile_80');
+    final canClaim100 = completionPercent == 100 && !claimed.contains('profile_100');
+    final isEligible = canClaim50 || canClaim80 || canClaim100;
+
+    return GestureDetector(
+      onTap: () {
+        context.push('/profile/points');
+      },
+      child: AnimatedBuilder(
+        animation: _glowAnimation,
+        builder: (context, child) {
+          return Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: isEligible
+                    ? const Color(0xFFFFD60A).withValues(alpha: 0.8)
+                    : Colors.white.withValues(alpha: 0.08),
+                width: isEligible ? 1.5 : 1.0,
+              ),
+              boxShadow: isEligible
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFFFFD60A).withValues(alpha: 0.3),
+                        blurRadius: _glowAnimation.value,
+                        spreadRadius: _glowAnimation.value / 4,
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.monetization_on_rounded,
+                  color: isEligible ? const Color(0xFFFFD60A) : const Color(0xFFFFD60A).withValues(alpha: 0.8),
+                  size: 18,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '$points',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 
 // ── Hero Generate Card ────────────────────────────────────
 
-class _GenerateHeroCard extends StatefulWidget {
+class _GenerateHeroCard extends ConsumerStatefulWidget {
   final VoidCallback onTap;
   const _GenerateHeroCard({required this.onTap});
 
   @override
-  State<_GenerateHeroCard> createState() => _GenerateHeroCardState();
+  ConsumerState<_GenerateHeroCard> createState() => _GenerateHeroCardState();
 }
 
-class _GenerateHeroCardState extends State<_GenerateHeroCard> {
+class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> {
   bool _hovered = false;
 
   @override
   Widget build(BuildContext context) {
+    final user = ref.watch(userProfileProvider).valueOrNull;
+    final completionPercent = ref.watch(profileCompletionProvider).valueOrNull ?? 0;
+    final resumesCount = ref.watch(resumesCountProvider).valueOrNull ?? 0;
+
+    final name = user?.name ?? 'Your name';
+    final String title;
+    if (user != null && user.domainBackground.isNotEmpty) {
+      if (user.domainBackground.toLowerCase() == 'both') {
+        title = 'Technical + Non-Technical';
+      } else {
+        title = user.domainBackground;
+      }
+    } else {
+      title = (user?.currentRole.isNotEmpty == true)
+          ? user!.currentRole
+          : 'Your selected domain';
+    }
+    final profileImageUrl = user?.profileImageUrl ?? '';
+
+    ImageProvider? avatarImage;
+    if (profileImageUrl.isNotEmpty) {
+      avatarImage = NetworkImage(profileImageUrl);
+    } else if (user?.gender.toLowerCase() == 'female') {
+      avatarImage = const AssetImage('assets/images/female.png');
+    } else if (user?.gender.toLowerCase() == 'male') {
+      avatarImage = const AssetImage('assets/images/male.png');
+    }
+
+    final showPlaceholderText = avatarImage == null;
+
     return MouseRegion(
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         onTap: widget.onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.all(24),
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+          transform: _hovered 
+              ? (Matrix4.identity()..translate(0, -4)..scale(1.008))
+              : Matrix4.identity(),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF161324), // Highly desaturated dark violet
-                Color(0xFF0E0B14), // Almost black
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.05),
+              color: Colors.black.withValues(alpha: 0.08),
               width: 1.0,
             ),
-            boxShadow: _hovered
-                ? [
-                    BoxShadow(
-                      color: const Color(0xFF723FFD).withValues(alpha: 0.15),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    )
-                  ]
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.3),
-                      blurRadius: 16,
-                      offset: const Offset(0, 6),
-                    )
-                  ],
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.auto_awesome_rounded,
-                              size: 12, color: Colors.white70),
-                          const SizedBox(width: 4),
-                          Text(
-                            'AI-Powered',
-                            style: AppTypography.caption.copyWith(
-                              color: Colors.white70,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      AppStrings.generateResumeHero,
-                      style: AppTypography.headlineLarge.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      AppStrings.generateResumeHeroSub,
-                      style: AppTypography.bodySmall.copyWith(
-                        color: Colors.white.withValues(alpha: 0.6),
-                        height: 1.5,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFCBE349).withValues(alpha: 0.08), // Desaturated lime glass
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: const Color(0xFFCBE349).withValues(alpha: 0.25),
-                          width: 1,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFCBE349).withValues(alpha: 0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            'Start Now',
-                            style: AppTypography.labelLarge.copyWith(
-                              color: const Color(0xFFCBE349),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(Icons.arrow_forward_rounded,
-                              size: 16, color: Color(0xFFCBE349)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              // AI sparkle icon cluster
-              Column(
-                children: [
-                  _SparkleIcon(size: 48, opacity: 1.0),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      _SparkleIcon(size: 28, opacity: 0.5),
-                      const SizedBox(width: 6),
-                      _SparkleIcon(size: 20, opacity: 0.3),
-                    ],
-                  ),
-                ],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: _hovered ? 0.18 : 0.08),
+                blurRadius: _hovered ? 24 : 16,
+                offset: Offset(0, _hovered ? 12 : 8),
               ),
             ],
           ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(27),
+            child: SizedBox(
+              height: 335,
+              child: Stack(
+                children: [
+                  // 1. Top half landscape image
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 140,
+                    child: Image.network(
+                      'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=800&q=80',
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+
+                  // 2. Soft fade overlay on top of the image to blend it down
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 140,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.transparent,
+                            Colors.white.withValues(alpha: 0.2),
+                            Colors.white,
+                          ],
+                          stops: const [0.6, 0.9, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+
+
+
+                  // 4. Overlapping Profile Avatar
+                  Positioned(
+                    top: 104,
+                    left: 24,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white,
+                          width: 3.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: CircleAvatar(
+                        radius: 28,
+                        backgroundColor: const Color(0xFFFFE8D6),
+                        backgroundImage: avatarImage,
+                        child: showPlaceholderText
+                            ? Text(
+                                name.isNotEmpty ? name[0].toUpperCase() : 'U',
+                                style: const TextStyle(
+                                  color: Color(0xFF5A4A42),
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 18,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+
+                  // 5. Card Body (positioned underneath the avatar)
+                  Positioned(
+                    top: 168,
+                    left: 24,
+                    right: 24,
+                    bottom: 20,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Name and Title Column
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              name,
+                              style: const TextStyle(
+                                color: Color(0xFF1E1C24),
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: -0.4,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              title,
+                              style: const TextStyle(
+                                color: Color(0xFF8A8894),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+
+                        const Spacer(),
+
+                        // Bottom Row: Stats and Button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            // Stats Section (Profile Completed + Resume Created)
+                            Flexible(
+                              child: FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: Row(
+                                  children: [
+                                    // Profile Completed
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Text(
+                                              '★ ',
+                                              style: TextStyle(
+                                                color: Color(0xFF1E1C24),
+                                                fontSize: 15,
+                                              ),
+                                            ),
+                                            Text(
+                                              '$completionPercent%',
+                                              style: const TextStyle(
+                                                color: Color(0xFF1E1C24),
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        const Text(
+                                          'profile completed',
+                                          style: TextStyle(
+                                            color: Color(0xFF8A8894),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+
+                                    // Vertical Divider
+                                    Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 10),
+                                      height: 28,
+                                      width: 1,
+                                      color: Colors.black.withValues(alpha: 0.08),
+                                    ),
+
+                                    // Resume Created
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          resumesCount.toString(),
+                                          style: const TextStyle(
+                                            color: Color(0xFF1E1C24),
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w800,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        const Text(
+                                          'resume created',
+                                          style: TextStyle(
+                                            color: Color(0xFF8A8894),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+
+                            // Design Resume Button
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF07060F), // Sleek black
+                                borderRadius: BorderRadius.circular(30),
+                                boxShadow: _hovered
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.15),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: const Text(
+                                'Design Resume',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _SparkleIcon extends StatelessWidget {
-  final double size;
-  final double opacity;
-  const _SparkleIcon({required this.size, required this.opacity});
-
-  @override
-  Widget build(BuildContext context) {
-    return Opacity(
-      opacity: opacity,
-      child: Icon(
-        Icons.auto_awesome_rounded,
-        size: size,
-        color: Colors.white,
       ),
     );
   }
@@ -609,13 +875,43 @@ class _KnowTheResumeSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Know the Resume',
-          style: AppTypography.headlineSmall.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w800,
-            fontSize: 22,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Know the Resume',
+              style: AppTypography.headlineSmall.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+                fontSize: 22,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF723FFD).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.menu_book_rounded,
+                    color: Color(0xFFB89EFF),
+                    size: 14,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    'Guides',
+                    style: TextStyle(
+                      color: Color(0xFFB89EFF),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         SizedBox(
@@ -629,32 +925,22 @@ class _KnowTheResumeSection extends StatelessWidget {
                   title: 'Non Technical Resume',
                   subtitle: 'Optimized for business, management, operations, and creative roles.',
                   gradientColors: const [
-                    Color(0xFF2C253B), // Pastel lavender light desaturated
-                    Color(0xFF1E1929), // Pastel lavender dark desaturated
+                    Color(0xFF2C253B),
+                    Color(0xFF1E1929),
                   ],
-                  iconColor: const Color(0xFFBE97E8), // Desaturated violet/purple accent
-                  onTap: () => _showTemplateDetails(
-                    context,
-                    'Non Technical Resume',
-                    'A non-technical resume highlights leadership, strategy, project management, business metrics, and communications. Best suited for managerial, administrative, operations, sales, and creative professions.',
-                    'ATS Professional Template (single-column, high parseability)',
-                  ),
+                  accentColor: const Color(0xFFBE97E8),
+                  onTap: () => context.push('/profile/resume-guide/non_technical'),
                 ),
                 const SizedBox(width: 16),
                 _TemplateScrollCard(
                   title: 'Technical Resume',
                   subtitle: 'Highlights systems, code repositories, frameworks, and engineering metrics.',
                   gradientColors: const [
-                    Color(0xFF2A2E1A), // Pastel/Neon lime green light desaturated
-                    Color(0xFF1C1E11), // Pastel/Neon lime green dark desaturated
+                    Color(0xFF2A2E1A),
+                    Color(0xFF1C1E11),
                   ],
-                  iconColor: const Color(0xFFCBE349), // Desaturated olive/forest green accent
-                  onTap: () => _showTemplateDetails(
-                    context,
-                    'Technical Resume',
-                    'A technical resume emphasizes developer tools, programming languages, database systems, architectural contributions, GitHub repositories, and quantitative engineering metrics.',
-                    'Modern Minimal Template (two-column layout with sidebar)',
-                  ),
+                  accentColor: const Color(0xFFCBE349),
+                  onTap: () => context.push('/profile/resume-guide/technical'),
                 ),
               ],
             ),
@@ -663,138 +949,20 @@ class _KnowTheResumeSection extends StatelessWidget {
       ],
     );
   }
-
-  void _showTemplateDetails(
-    BuildContext context,
-    String title,
-    String description,
-    String recommendedTemplate,
-  ) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(28),
-          decoration: const BoxDecoration(
-            color: Color(0xFF0F0E15), // Luxury dark bottom sheet background
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(24),
-              topRight: Radius.circular(24),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black38,
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 48,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 24),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Text(
-                title,
-                style: AppTypography.headlineMedium.copyWith(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                description,
-                style: AppTypography.bodyMedium.copyWith(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF723FFD).withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF723FFD).withValues(alpha: 0.3),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.star_rounded,
-                      color: Color(0xFFC39BEF),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        'Recommended: $recommendedTemplate',
-                        style: AppTypography.labelMedium.copyWith(
-                          color: const Color(0xFFC39BEF),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 28),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF723FFD), // Vibrant violet button
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    elevation: 0,
-                  ),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    context.go(RouteNames.generate);
-                  },
-                  child: const Text(
-                    'Generate this Style',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
 class _TemplateScrollCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final List<Color> gradientColors;
-  final Color iconColor;
+  final Color accentColor;
   final VoidCallback onTap;
 
   const _TemplateScrollCard({
     required this.title,
     required this.subtitle,
     required this.gradientColors,
-    required this.iconColor,
+    required this.accentColor,
     required this.onTap,
   });
 
@@ -828,95 +996,54 @@ class _TemplateScrollCard extends StatelessWidget {
             ),
           ],
         ),
-        child: Stack(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            // Decorative background curves (music/gradient glow effect)
-            Positioned(
-              right: -30,
-              bottom: -20,
-              child: Opacity(
-                opacity: 0.08,
-                child: Icon(
-                  Icons.auto_awesome_motion_rounded,
-                  size: 140,
-                  color: iconColor,
-                ),
-              ),
-            ),
-
-            // Text and actions column
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 18,
-                        letterSpacing: -0.3,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      subtitle,
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.65),
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
-                        height: 1.35,
-                      ),
-                    ),
-                  ],
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    letterSpacing: -0.3,
+                  ),
                 ),
-
-                // Bottom control actions (resembles playbar in reference picture)
-                Row(
-                  children: [
-                    Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: iconColor.withValues(alpha: 0.15),
-                        border: Border.all(
-                          color: iconColor.withValues(alpha: 0.3),
-                          width: 1.0,
-                        ),
-                      ),
-                      child: Icon(
-                        Icons.visibility_rounded, // Eye icon representing preview/start
-                        color: iconColor,
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Icon(
-                      Icons.star_border_rounded,
-                      color: Colors.white.withValues(alpha: 0.4),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.arrow_circle_down_rounded,
-                      color: Colors.white.withValues(alpha: 0.4),
-                      size: 20,
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.more_horiz_rounded,
-                      color: Colors.white.withValues(alpha: 0.4),
-                      size: 20,
-                    ),
-                  ],
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
                 ),
               ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: accentColor.withValues(alpha: 0.25),
+                  width: 1.0,
+                ),
+              ),
+              child: Text(
+                'Read Guide',
+                style: TextStyle(
+                  color: accentColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ],
         ),
@@ -958,9 +1085,80 @@ class _CardShimmer extends StatelessWidget {
 class _FreshJobOpeningsSection extends ConsumerWidget {
   const _FreshJobOpeningsSection();
 
+  void _showJobSourceInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF13111C),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        title: Row(
+          children: [
+            const Icon(Icons.info_outline_rounded, color: Color(0xFFCBE349), size: 24),
+            const SizedBox(width: 10),
+            Text(
+              'Job Openings Info',
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Where are these jobs from?',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Jobs are aggregated live daily from Adzuna (primarily focused on job markets in India) with automatic failovers to Remotive and Arbeitnow for international remote roles.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'How are they filtered?',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'We prioritize tech openings in top Indian cities (Bangalore, Pune, Noida, Mumbai) and remote positions that explicitly welcome Indian and APAC applicants.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12, height: 1.4),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Good to know:',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '• Click any job card to navigate directly to the application link.\n• Fresh lists populate dynamically every 24 hours.',
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12, height: 1.4),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Got it',
+              style: TextStyle(color: Color(0xFFCBE349), fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final jobsAsync = ref.watch(freshJobsProvider);
+    final jobsAsync = ref.watch(freshJobsProvider(todayJobCacheKey()));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -968,13 +1166,34 @@ class _FreshJobOpeningsSection extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Fresh job openings',
-              style: AppTypography.headlineSmall.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 22,
-              ),
+            Row(
+              children: [
+                Text(
+                  'Fresh job openings',
+                  style: AppTypography.headlineSmall.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 22,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: () => _showJobSourceInfoDialog(context),
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                    ),
+                    child: const Icon(
+                      Icons.info_outline_rounded,
+                      color: Colors.white60,
+                      size: 14,
+                    ),
+                  ),
+                ),
+              ],
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

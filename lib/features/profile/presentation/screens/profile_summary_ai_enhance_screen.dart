@@ -335,7 +335,8 @@ class _ProfileSummaryAiEnhanceScreenState extends ConsumerState<ProfileSummaryAi
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Enhanced professional summary applied!'), backgroundColor: AppColors.success),
         );
-        Navigator.of(context).pop();
+        // Navigate back to the profile screen
+        context.go('/profile');
       }
     } catch (e) {
       if (mounted) {
@@ -1375,7 +1376,7 @@ class _ProfileSummaryAiEnhanceScreenState extends ConsumerState<ProfileSummaryAi
           // Discard Link Button below it (Image 2 style)
           Center(
             child: TextButton(
-              onPressed: () => setState(() => _currentStep = 0),
+              onPressed: () => context.go('/profile'),
               child: Text(
                 'Discard and Go Back',
                 style: GoogleFonts.outfit(

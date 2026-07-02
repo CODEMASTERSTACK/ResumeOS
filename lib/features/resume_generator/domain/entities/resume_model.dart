@@ -109,6 +109,8 @@ class ResumeData {
   final List<ResumeEducation> education;
   final List<ResumeExperience> experience;
   final List<ResumeProject> projects;
+  final List<ResumeProject> research;
+  final bool showResearch;
   final List<ResumeCertification> certifications;
   final List<String> achievements;
 
@@ -130,6 +132,8 @@ class ResumeData {
     this.education = const [],
     this.experience = const [],
     this.projects = const [],
+    this.research = const [],
+    this.showResearch = true,
     this.certifications = const [],
     this.achievements = const [],
     this.primaryColorHex = '#1E3A8A', // default Navy
@@ -166,6 +170,12 @@ class ResumeData {
                     ResumeProject.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
+        research: (json['research'] as List<dynamic>?)
+                ?.map((e) =>
+                    ResumeProject.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        showResearch: json['showResearch'] as bool? ?? true,
         certifications: (json['certifications'] as List<dynamic>?)
                 ?.map((e) =>
                     ResumeCertification.fromJson(e as Map<String, dynamic>))
@@ -192,6 +202,8 @@ class ResumeData {
         'education': education.map((e) => e.toJson()).toList(),
         'experience': experience.map((e) => e.toJson()).toList(),
         'projects': projects.map((e) => e.toJson()).toList(),
+        'research': research.map((e) => e.toJson()).toList(),
+        'showResearch': showResearch,
         'certifications': certifications.map((e) => e.toJson()).toList(),
         'achievements': achievements,
         'primaryColorHex': primaryColorHex,
@@ -212,6 +224,8 @@ class ResumeData {
     List<ResumeEducation>? education,
     List<ResumeExperience>? experience,
     List<ResumeProject>? projects,
+    List<ResumeProject>? research,
+    bool? showResearch,
     List<ResumeCertification>? certifications,
     List<String>? achievements,
     String? primaryColorHex,
@@ -231,6 +245,8 @@ class ResumeData {
         education: education ?? this.education,
         experience: experience ?? this.experience,
         projects: projects ?? this.projects,
+        research: research ?? this.research,
+        showResearch: showResearch ?? this.showResearch,
         certifications: certifications ?? this.certifications,
         achievements: achievements ?? this.achievements,
         primaryColorHex: primaryColorHex ?? this.primaryColorHex,

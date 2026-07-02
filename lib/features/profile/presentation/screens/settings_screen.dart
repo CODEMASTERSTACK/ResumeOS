@@ -14,33 +14,20 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F), // Rich dark background matching home
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: const Icon(
-                Icons.chevron_left_rounded,
-                color: Colors.black,
-                size: 24,
-              ),
-            ),
-          ),
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Settings',
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.white,
+            fontFamily: 'Outfit',
             fontWeight: FontWeight.bold,
             fontSize: 18,
           ),
@@ -56,9 +43,9 @@ class SettingsScreen extends ConsumerWidget {
               child: Text(
                 'LEGAL & COMPLIANCE',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: Colors.grey,
+                  color: Colors.white30,
                   letterSpacing: 1.5,
                 ),
               ),
@@ -67,16 +54,9 @@ class SettingsScreen extends ConsumerWidget {
             // Settings menu card
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.white.withValues(alpha: 0.03),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.015),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -84,7 +64,7 @@ class SettingsScreen extends ConsumerWidget {
                   _buildSettingTile(
                     context: context,
                     icon: Icons.shield_outlined,
-                    iconColor: const Color(0xFF3F51B5), // Premium Indigo
+                    iconColor: const Color(0xFF6366F1), // Indigo
                     title: 'Privacy Policy',
                     subtitle: 'Data collection, purposes, and sharing policies',
                     topic: 'privacy',
@@ -93,7 +73,7 @@ class SettingsScreen extends ConsumerWidget {
                   _buildSettingTile(
                     context: context,
                     icon: Icons.key_outlined,
-                    iconColor: const Color(0xFF009688), // Modern Mint
+                    iconColor: const Color(0xFF10B981), // Emerald
                     title: 'Authentication Disclosure',
                     subtitle: 'Google & GitHub OAuth scope compliance',
                     topic: 'oauth',
@@ -102,7 +82,7 @@ class SettingsScreen extends ConsumerWidget {
                   _buildSettingTile(
                     context: context,
                     icon: Icons.auto_awesome_outlined,
-                    iconColor: const Color(0xFF673AB7), // Sleek Royal Purple
+                    iconColor: const Color(0xFF8B5CF6), // Royal Purple
                     title: 'AI Data Usage & Disclaimers',
                     subtitle: 'Terms of Service and AI liability releases',
                     topic: 'ai_legal',
@@ -111,7 +91,7 @@ class SettingsScreen extends ConsumerWidget {
                   _buildSettingTile(
                     context: context,
                     icon: Icons.verified_user_outlined,
-                    iconColor: const Color(0xFFFF9800), // Premium Amber Gold
+                    iconColor: const Color(0xFFF59E0B), // Amber Gold
                     title: 'Data Security & Age Limits',
                     subtitle: 'User rights, security measures, and workforce limits',
                     topic: 'security',
@@ -120,7 +100,7 @@ class SettingsScreen extends ConsumerWidget {
                   _buildSettingTile(
                     context: context,
                     icon: Icons.token_outlined,
-                    iconColor: const Color(0xFFE91E63), // Exclusive Rose
+                    iconColor: const Color(0xFFD26EAB), // Rose Pink
                     title: 'Owner of Will',
                     subtitle: 'BYOK Freemium: Configure custom Gemini & OpenRouter keys',
                     topic: 'byok',
@@ -135,9 +115,9 @@ class SettingsScreen extends ConsumerWidget {
               child: Text(
                 'ACCOUNT SESSION',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: Colors.grey,
+                  color: Colors.white30,
                   letterSpacing: 1.5,
                 ),
               ),
@@ -146,16 +126,9 @@ class SettingsScreen extends ConsumerWidget {
             // Sign out card
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.white.withValues(alpha: 0.03),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.grey.shade200, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.015),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
               ),
               clipBehavior: Clip.antiAlias,
               child: ListTile(
@@ -163,27 +136,27 @@ class SettingsScreen extends ConsumerWidget {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                    color: const Color(0xFFFF5B5C).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.logout_rounded, color: Colors.red.shade600, size: 20),
+                  child: const Icon(Icons.logout_rounded, color: Color(0xFFFF5B5C), size: 20),
                 ),
                 title: const Text(
                   'Sign Out',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: Colors.red,
+                    color: Color(0xFFFF5B5C),
                   ),
                 ),
-                subtitle: Text(
+                subtitle: const Text(
                   'Securely disconnect your account and session',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade500,
+                    color: Colors.white38,
                   ),
                 ),
-                trailing: Icon(Icons.chevron_right_rounded, color: Colors.red.shade200),
+                trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
                 onTap: () {
                   _showSignOutDialog(context, ref);
                 },
@@ -196,9 +169,9 @@ class SettingsScreen extends ConsumerWidget {
               child: Text(
                 'DANGER ZONE',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w800,
-                  color: Colors.redAccent,
+                  color: Color(0xFFFF5B5C),
                   letterSpacing: 1.5,
                 ),
               ),
@@ -207,16 +180,9 @@ class SettingsScreen extends ConsumerWidget {
             // Delete account card
             Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.white.withValues(alpha: 0.03),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.red.shade100, width: 1),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.red.withValues(alpha: 0.005),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: Border.all(color: const Color(0xFFFF5B5C).withValues(alpha: 0.2), width: 1),
               ),
               clipBehavior: Clip.antiAlias,
               child: ListTile(
@@ -224,27 +190,27 @@ class SettingsScreen extends ConsumerWidget {
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.red.shade50,
+                    color: const Color(0xFFFF5B5C).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.delete_forever_outlined, color: Colors.red.shade700, size: 20),
+                  child: const Icon(Icons.delete_forever_outlined, color: Color(0xFFFF5B5C), size: 20),
                 ),
                 title: const Text(
                   'Delete Account',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: Colors.red,
+                    color: Color(0xFFFF5B5C),
                   ),
                 ),
-                subtitle: Text(
+                subtitle: const Text(
                   'Permanently destroy your profile and all resumes',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.grey.shade500,
+                    color: Colors.white38,
                   ),
                 ),
-                trailing: Icon(Icons.chevron_right_rounded, color: Colors.red.shade200),
+                trailing: const Icon(Icons.chevron_right_rounded, color: Color(0xFFFF5B5C)),
                 onTap: () {
                   _showDeleteAccountDialog(context, ref);
                 },
@@ -252,23 +218,23 @@ class SettingsScreen extends ConsumerWidget {
             ),
             
             const SizedBox(height: 32),
-            Center(
+            const Center(
               child: Column(
                 children: [
-                  const Text(
+                  Text(
                     'ResumeOS',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      color: Colors.black87,
+                      color: Colors.white70,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  SizedBox(height: 4),
                   Text(
                     'Version 1.0.0 (Production Build)',
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.grey.shade500,
+                      color: Colors.white30,
                     ),
                   ),
                 ],
@@ -283,7 +249,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget _buildDivider() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(height: 1, color: Colors.grey.shade100),
+      child: Container(height: 1, color: Colors.white.withValues(alpha: 0.04)),
     );
   }
 
@@ -300,7 +266,7 @@ class SettingsScreen extends ConsumerWidget {
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: iconColor.withValues(alpha: 0.08),
+          color: iconColor.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(icon, color: iconColor, size: 20),
@@ -310,20 +276,20 @@ class SettingsScreen extends ConsumerWidget {
         style: const TextStyle(
           fontWeight: FontWeight.bold,
           fontSize: 14,
-          color: Colors.black87,
+          color: Colors.white,
         ),
       ),
       subtitle: Padding(
         padding: const EdgeInsets.only(top: 2),
         child: Text(
           subtitle,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 11,
-            color: Colors.grey.shade600,
+            color: Colors.white54,
           ),
         ),
       ),
-      trailing: Icon(Icons.chevron_right_rounded, color: Colors.grey.shade400),
+      trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
       onTap: () {
         if (topic == 'byok') {
           Navigator.push(
@@ -348,18 +314,22 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: const Color(0xFF0C0B10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text(
           'Sign Out',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
-        content: const Text('Are you sure you want to sign out of your account?'),
+        content: const Text(
+          'Are you sure you want to sign out of your account?',
+          style: TextStyle(color: Colors.white70),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(
+            child: const Text(
               'Cancel',
-              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+              style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600),
             ),
           ),
           TextButton(
@@ -370,7 +340,7 @@ class SettingsScreen extends ConsumerWidget {
             },
             child: const Text(
               'Sign Out',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Color(0xFFFF5B5C), fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -382,27 +352,28 @@ class SettingsScreen extends ConsumerWidget {
     showDialog(
       context: parentContext,
       builder: (dialogContext) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: const Color(0xFF0C0B10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red, size: 24),
+            Icon(Icons.warning_amber_rounded, color: Color(0xFFFF5B5C), size: 24),
             SizedBox(width: 8),
             Text(
               'Delete Account',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+              style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFFFF5B5C)),
             ),
           ],
         ),
         content: const Text(
           'All the data including your details, resume and logs will be permanently deleted from our database and they won\'t be recoverable.',
-          style: TextStyle(fontSize: 14, height: 1.4),
+          style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text(
+            child: const Text(
               'Cancel',
-              style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.w600),
+              style: TextStyle(color: Colors.white38, fontWeight: FontWeight.w600),
             ),
           ),
           ElevatedButton(
@@ -412,7 +383,7 @@ class SettingsScreen extends ConsumerWidget {
               await _performAccountDeletion(parentContext, ref);
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: const Color(0xFFFF5B5C),
               foregroundColor: Colors.white,
               elevation: 0,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -434,13 +405,14 @@ class SettingsScreen extends ConsumerWidget {
       builder: (context) => const PopScope(
         canPop: false,
         child: AlertDialog(
+          backgroundColor: Color(0xFF0C0B10),
           content: Row(
             children: [
-              CircularProgressIndicator(color: Colors.red),
+              CircularProgressIndicator(color: Color(0xFFFF5B5C)),
               SizedBox(width: 20),
               Text(
                 'Permanently deleting account...',
-                style: TextStyle(fontWeight: FontWeight.w500),
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
               ),
             ],
           ),
@@ -463,13 +435,11 @@ class SettingsScreen extends ConsumerWidget {
         ScaffoldMessenger.of(parentContext).showSnackBar(
           const SnackBar(
             content: Text('Account permanently deleted.'),
-            backgroundColor: Colors.black87,
+            backgroundColor: Color(0xFF0C0B10),
           ),
         );
       }
 
-      // Navigate to Account Deleted screen while context is still valid.
-      // The AccountDeletedScreen will safely perform the local sign out once it is loaded.
       if (parentContext.mounted) {
         parentContext.go(RouteNames.accountDeleted);
       }
@@ -484,7 +454,7 @@ class SettingsScreen extends ConsumerWidget {
         ScaffoldMessenger.of(parentContext).showSnackBar(
           SnackBar(
             content: Text('Failed to delete account: ${e.toString().replaceAll('Exception: ', '')}'),
-            backgroundColor: Colors.red,
+            backgroundColor: const Color(0xFFFF5B5C),
           ),
         );
       }
@@ -521,33 +491,20 @@ class SettingsDetailScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F), // Rich dark background matching home
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: const Icon(
-                Icons.chevron_left_rounded,
-                color: Colors.black,
-                size: 24,
-              ),
-            ),
-          ),
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           title,
           style: const TextStyle(
-            color: Colors.black,
+            color: Colors.white,
+            fontFamily: 'Outfit',
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
@@ -558,9 +515,9 @@ class SettingsDetailScreen extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(20.0),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -650,7 +607,7 @@ class SettingsDetailScreen extends StatelessWidget {
         style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF1E1E2F),
+          color: Colors.white,
         ),
       ),
     );
@@ -661,10 +618,10 @@ class SettingsDetailScreen extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12),
       child: Text(
         text,
-        style: TextStyle(
+        style: const TextStyle(
           fontSize: 11.5,
           height: 1.4,
-          color: Colors.grey.shade700,
+          color: Colors.white70,
         ),
       ),
     );
@@ -676,18 +633,18 @@ class SettingsDetailScreen extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             '• ',
-            style: TextStyle(color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Colors.white30, fontWeight: FontWeight.bold),
           ),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade700, height: 1.4),
+                style: const TextStyle(fontSize: 11, color: Colors.white70, height: 1.4),
                 children: [
                   TextSpan(
                     text: '$label: ',
-                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87),
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   TextSpan(text: value),
                 ],
@@ -703,22 +660,22 @@ class SettingsDetailScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange.shade50.withValues(alpha: 0.5),
-        border: Border.all(color: Colors.orange.shade200),
-        borderRadius: BorderRadius.circular(8),
+        color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+        border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.warning_amber_rounded, color: Colors.orange.shade800, size: 16),
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 16),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 10.5,
                 height: 1.4,
-                color: Colors.orange.shade900,
+                color: Color(0xFFF59E0B),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -767,7 +724,7 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('API Keys saved successfully!'),
-          backgroundColor: Colors.black87,
+          backgroundColor: Color(0xFF0C0B10),
         ),
       );
       Navigator.pop(context);
@@ -788,7 +745,7 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('API Keys reset to defaults.'),
-          backgroundColor: Colors.black87,
+          backgroundColor: Color(0xFF0C0B10),
         ),
       );
     }
@@ -804,40 +761,27 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FC),
+      backgroundColor: const Color(0xFF07060F), // Rich dark background matching home
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F9FC),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.grey.shade200),
-              ),
-              child: const Icon(
-                Icons.chevron_left_rounded,
-                color: Colors.black,
-                size: 24,
-              ),
-            ),
-          ),
+        scrolledUnderElevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Owner of Will',
           style: TextStyle(
-            color: Colors.black,
+            color: Colors.white,
+            fontFamily: 'Outfit',
             fontWeight: FontWeight.bold,
             fontSize: 16,
           ),
         ),
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: Color(0xFFE91E63)))
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFFD26EAB)))
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24.0),
               child: Column(
@@ -847,14 +791,14 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFF0F5), // Light Lavender Pink
-                      border: Border.all(color: const Color(0xFFFFB6C1)),
+                      color: const Color(0xFFD26EAB).withValues(alpha: 0.1),
+                      border: Border.all(color: const Color(0xFFD26EAB).withValues(alpha: 0.2)),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.stars_rounded, color: Color(0xFFE91E63), size: 24),
+                        const Icon(Icons.stars_rounded, color: Color(0xFFD26EAB), size: 24),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -865,7 +809,7 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 14,
-                                  color: Color(0xFFC71585),
+                                  color: Color(0xFFE88BB4),
                                 ),
                               ),
                               const SizedBox(height: 6),
@@ -874,7 +818,7 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   height: 1.4,
-                                  color: Colors.grey.shade800,
+                                  color: Colors.white.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],
@@ -916,8 +860,8 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
                           icon: const Icon(Icons.refresh_rounded, size: 18),
                           label: const Text('Reset Defaults'),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.grey.shade700,
-                            side: BorderSide(color: Colors.grey.shade300),
+                            foregroundColor: Colors.white70,
+                            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
@@ -930,7 +874,7 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
                           icon: const Icon(Icons.save_rounded, size: 18),
                           label: const Text('Save Keys'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFE91E63),
+                            backgroundColor: const Color(0xFFD26EAB),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -957,16 +901,9 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Colors.white.withValues(alpha: 0.03),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.015),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -976,15 +913,15 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
             style: const TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 14,
-              color: Colors.black87,
+              color: Colors.white,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 11,
-              color: Colors.grey.shade500,
+              color: Colors.white38,
             ),
           ),
           const SizedBox(height: 16),
@@ -993,9 +930,9 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
             obscureText: obscure,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+              hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
               filled: true,
-              fillColor: const Color(0xFFF8F9FC),
+              fillColor: Colors.white.withValues(alpha: 0.02),
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -1003,18 +940,18 @@ class _OwnerOfWillScreenState extends State<OwnerOfWillScreen> {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: Color(0xFFE91E63), width: 1.5),
+                borderSide: const BorderSide(color: Color(0xFFD26EAB), width: 1.5),
               ),
               suffixIcon: IconButton(
                 icon: Icon(
                   obscure ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                  color: Colors.grey.shade500,
+                  color: Colors.white38,
                   size: 20,
                 ),
                 onPressed: onToggleObscure,
               ),
             ),
-            style: const TextStyle(fontSize: 13, fontFamily: 'monospace', letterSpacing: 1.2),
+            style: const TextStyle(color: Colors.white, fontSize: 13, fontFamily: 'monospace', letterSpacing: 1.2),
           ),
         ],
       ),

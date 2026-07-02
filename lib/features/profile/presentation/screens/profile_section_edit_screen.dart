@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_typography.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
-import '../../../../services/ai/gemini_service.dart';
 import '../../../../shared/providers/firebase_providers.dart';
 
 const List<String> _kMonths = [
@@ -379,27 +377,31 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
         controller: ctrl,
         keyboardType: type,
         maxLines: maxLines,
-        style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
+        style: const TextStyle(color: Colors.white, fontSize: 15),
         decoration: InputDecoration(
           labelText: label,
           hintText: hint,
           alignLabelWithHint: maxLines > 1,
-          labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+          labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+          floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.03),
+          hintStyle: const TextStyle(color: Colors.white24, fontSize: 14),
           enabledBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.border),
-            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+            borderRadius: BorderRadius.circular(12),
           ),
           focusedBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
-            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+            borderRadius: BorderRadius.circular(12),
           ),
           errorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFFF5B5C), width: 1.5),
+            borderRadius: BorderRadius.circular(12),
           ),
           focusedErrorBorder: OutlineInputBorder(
-            borderSide: const BorderSide(color: AppColors.error, width: 2),
-            borderRadius: BorderRadius.circular(10),
+            borderSide: const BorderSide(color: Color(0xFFFF5B5C), width: 2),
+            borderRadius: BorderRadius.circular(12),
           ),
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
@@ -436,9 +438,9 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
+            const Text(
               'Professional Summary',
-              style: AppTypography.labelMedium.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
             ),
             TextButton.icon(
               style: TextButton.styleFrom(padding: EdgeInsets.zero, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
@@ -452,8 +454,8 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
                   }
                 }
               },
-              icon: const Icon(Icons.auto_awesome_rounded, size: 13, color: AppColors.accent),
-              label: const Text('AI Enhance', style: TextStyle(color: AppColors.accent, fontSize: 13, fontWeight: FontWeight.bold)),
+              icon: const Icon(Icons.auto_awesome_rounded, size: 13, color: Color(0xFFD26EAB)),
+              label: const Text('AI Enhance', style: TextStyle(color: Color(0xFFD26EAB), fontSize: 13, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -475,9 +477,9 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
         if (isSchool) ...[
           _buildTextField(_boardCtrl, 'Board, e.g. CBSE', isCompulsory: true),
           const SizedBox(height: 4),
-          Text(
+          const Text(
             'Stream',
-            style: AppTypography.labelMedium.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
           _buildTextField(_streamCtrl, '', isCompulsory: true, hint: 'e.g. Humanities, Science, Commerce'),
@@ -486,7 +488,7 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
               padding: const EdgeInsets.only(bottom: 16.0),
               child: Row(
                 children: [
-                  const Text('Suggestion: ', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                  const Text('Suggestion: ', style: TextStyle(fontSize: 12, color: Colors.white38)),
                   GestureDetector(
                     onTap: () {
                       setState(() {
@@ -496,15 +498,15 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.accentContainer,
+                        color: Colors.white.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(15),
-                        border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+                        border: Border.all(color: const Color(0xFFCBE349).withValues(alpha: 0.35)),
                       ),
                       child: const Text(
                         'Humanities',
                         style: TextStyle(
                           fontSize: 11,
-                          color: AppColors.accent,
+                          color: Color(0xFFCBE349),
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -547,23 +549,33 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
         _buildTextField(_instCtrl, 'Company Name', isCompulsory: true),
         
         // Month + Year Selector for Start Date
-        const Text('Start Date', style: TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+        const Text('Start Date', style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _startMonth,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
-                decoration: InputDecoration(
-                  labelText: 'Month',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.border), borderRadius: BorderRadius.circular(10)),
-                  focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(10)),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  canvasColor: const Color(0xFF0C0B10), // Themed dropdown list background
                 ),
-                items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                onChanged: (val) => setState(() => _startMonth = val),
-                validator: (val) => val == null ? 'Select Month' : null,
+                child: DropdownButtonFormField<String>(
+                  dropdownColor: const Color(0xFF0C0B10),
+                  value: _startMonth,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  decoration: InputDecoration(
+                    labelText: 'Month',
+                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                    floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.03),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
+                    focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                  onChanged: (val) => setState(() => _startMonth = val),
+                  validator: (val) => val == null ? 'Select Month' : null,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -573,44 +585,58 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
           ],
         ),
 
-        // "Currently Work Here" checkbox
+        // "Currently Work Here" Checkbox
         Row(
           children: [
-            Checkbox(
-              value: _isCurrent,
-              activeColor: AppColors.accent,
-              onChanged: (val) => setState(() {
-                _isCurrent = val ?? false;
-                if (_isCurrent) {
-                  _endMonth = null;
-                  _endYearCtrl.clear();
-                }
-              }),
+            Theme(
+              data: ThemeData(unselectedWidgetColor: Colors.white30),
+              child: Checkbox(
+                value: _isCurrent,
+                checkColor: Colors.black,
+                activeColor: const Color(0xFFCBE349), // Neon Lime Green
+                onChanged: (val) => setState(() {
+                  _isCurrent = val ?? false;
+                  if (_isCurrent) {
+                    _endMonth = null;
+                    _endYearCtrl.clear();
+                  }
+                }),
+              ),
             ),
-            const Text('I am currently working in this role', style: TextStyle(color: AppColors.textPrimary, fontSize: 14)),
+            const Text('I am currently working in this role', style: TextStyle(color: Colors.white70, fontSize: 13)),
           ],
         ),
         const SizedBox(height: 8),
 
         // End Date fields (shown if not currently working here)
         if (!_isCurrent) ...[
-          const Text('End Date', style: TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+          const Text('End Date', style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _endMonth,
-                  style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
-                  decoration: InputDecoration(
-                    labelText: 'Month',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.border), borderRadius: BorderRadius.circular(10)),
-                    focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(10)),
+                child: Theme(
+                  data: Theme.of(context).copyWith(
+                    canvasColor: const Color(0xFF0C0B10),
                   ),
-                  items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                  onChanged: (val) => setState(() => _endMonth = val),
-                  validator: (val) => val == null ? 'Select Month' : null,
+                  child: DropdownButtonFormField<String>(
+                    dropdownColor: const Color(0xFF0C0B10),
+                    value: _endMonth,
+                    style: const TextStyle(color: Colors.white, fontSize: 15),
+                    decoration: InputDecoration(
+                      labelText: 'Month',
+                      labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                      floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.03),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
+                      focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
+                    ),
+                    items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                    onChanged: (val) => setState(() => _endMonth = val),
+                    validator: (val) => val == null ? 'Select Month' : null,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -626,9 +652,9 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
         // Job description / Bullet points text area
         const Text(
           'Work Description / Bullet Points',
-          style: TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         _buildTextField(
           _bulletsCtrl,
           '',
@@ -644,44 +670,44 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
             padding: const EdgeInsets.all(12),
             margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
-              color: AppColors.error.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+              color: const Color(0xFFFF5B5C).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFF5B5C).withValues(alpha: 0.2)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.warning_amber_rounded, size: 16, color: AppColors.error),
-                    const SizedBox(width: 6),
+                    Icon(Icons.warning_amber_rounded, size: 16, color: Color(0xFFFF5B5C)),
+                    SizedBox(width: 6),
                     Text(
                       'Word Limit Violation (Max 30 words per bullet)',
-                      style: AppTypography.labelMedium.copyWith(color: AppColors.error, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Color(0xFFFF5B5C), fontSize: 13, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 ..._bulletValidationErrors.map((err) => Padding(
                       padding: const EdgeInsets.only(bottom: 4.0),
                       child: Text(
                         '• $err',
-                        style: AppTypography.bodySmall.copyWith(color: AppColors.error, height: 1.4),
+                        style: const TextStyle(color: Color(0xFFFF5B5C), fontSize: 11, height: 1.4),
                       ),
                     )),
               ],
             ),
           ),
         ] else if (_bulletsCtrl.text.trim().isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16.0),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16.0),
             child: Row(
               children: [
-                const Icon(Icons.check_circle_outline_rounded, size: 14, color: AppColors.success),
-                const SizedBox(width: 6),
+                Icon(Icons.check_circle_outline_rounded, size: 14, color: Color(0xFFCBE349)),
+                SizedBox(width: 6),
                 Text(
                   'All bullet points are within the 30-word limit!',
-                  style: AppTypography.caption.copyWith(color: AppColors.success, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Color(0xFFCBE349), fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -699,23 +725,33 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
         _buildTextField(_instCtrl, 'Issuer', isCompulsory: true),
         
         // Start Month / Year picker row
-        const Text('Start Date', style: TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+        const Text('Start Date', style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _startMonth,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
-                decoration: InputDecoration(
-                  labelText: 'Month',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.border), borderRadius: BorderRadius.circular(10)),
-                  focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(10)),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  canvasColor: const Color(0xFF0C0B10),
                 ),
-                items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                onChanged: (val) => setState(() => _startMonth = val),
-                validator: (val) => val == null ? 'Select Month' : null,
+                child: DropdownButtonFormField<String>(
+                  dropdownColor: const Color(0xFF0C0B10),
+                  value: _startMonth,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  decoration: InputDecoration(
+                    labelText: 'Month',
+                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                    floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.03),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
+                    focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                  onChanged: (val) => setState(() => _startMonth = val),
+                  validator: (val) => val == null ? 'Select Month' : null,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -724,25 +760,36 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
             ),
           ],
         ),
+        const SizedBox(height: 12),
 
         // End Month / Year picker row
-        const Text('End Date (or Expiry)', style: TextStyle(fontSize: 14, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+        const Text('End Date (or Expiry)', style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
-                value: _endMonth,
-                style: const TextStyle(color: AppColors.textPrimary, fontSize: 15),
-                decoration: InputDecoration(
-                  labelText: 'Month',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.border), borderRadius: BorderRadius.circular(10)),
-                  focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(10)),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  canvasColor: const Color(0xFF0C0B10),
                 ),
-                items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                onChanged: (val) => setState(() => _endMonth = val),
-                validator: (val) => val == null ? 'Select Month' : null,
+                child: DropdownButtonFormField<String>(
+                  dropdownColor: const Color(0xFF0C0B10),
+                  value: _endMonth,
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  decoration: InputDecoration(
+                    labelText: 'Month',
+                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                    floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                    filled: true,
+                    fillColor: Colors.white.withValues(alpha: 0.03),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
+                    focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                  onChanged: (val) => setState(() => _endMonth = val),
+                  validator: (val) => val == null ? 'Select Month' : null,
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -789,22 +836,27 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
         formBody = _buildAchievementsForm();
         break;
       default:
-        formBody = const Center(child: Text('Invalid Profile Section'));
+        formBody = const Center(child: Text('Invalid Profile Section', style: TextStyle(color: Colors.white70)));
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F), // Rich dark background matching home
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           _screenTitle,
-          style: AppTypography.headlineMedium.copyWith(fontSize: 18),
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: 'Outfit',
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
         actions: [
           if (_saving)
@@ -814,7 +866,7 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
                 child: SizedBox(
                   width: 20,
                   height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accent),
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFFCBE349)),
                 ),
               ),
             )
@@ -823,12 +875,13 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
               onPressed: _save,
               child: Text(
                 'Save',
-                style: AppTypography.labelLarge.copyWith(
+                style: TextStyle(
                   color: (widget.section == 'experience' && _bulletValidationErrors.isNotEmpty)
-                      ? AppColors.textDisabled
-                      : AppColors.accent,
+                      ? Colors.white24
+                      : const Color(0xFFCBE349), // Neon Lime Green Save Button
                   fontWeight: FontWeight.bold,
                   fontSize: 16,
+                  fontFamily: 'Poppins',
                 ),
               ),
             ),

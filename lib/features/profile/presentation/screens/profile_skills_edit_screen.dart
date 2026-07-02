@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_typography.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 
@@ -66,7 +65,11 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
       _searchCtrl.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Added skill "$cleanName"!'), backgroundColor: AppColors.success, duration: const Duration(seconds: 1)),
+          SnackBar(
+            content: Text('Added skill "$cleanName"!'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 1),
+          ),
         );
       }
     } catch (e) {
@@ -104,22 +107,30 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
   Widget build(BuildContext context) {
     final uid = ref.watch(currentUserProvider)?.uid;
     if (uid == null) {
-      return const Scaffold(body: Center(child: Text('Please log in')));
+      return const Scaffold(
+        backgroundColor: Color(0xFF07060F),
+        body: Center(child: Text('Please log in', style: TextStyle(color: Colors.white70))),
+      );
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F), // Rich dark background matching home
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded, color: AppColors.textPrimary),
+          icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           onPressed: () => Navigator.of(context).pop(),
         ),
-        title: Text(
+        title: const Text(
           'Manage Skills',
-          style: AppTypography.headlineMedium.copyWith(fontSize: 18),
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Outfit',
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: SafeArea(
@@ -139,28 +150,42 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
                       Expanded(
                         child: TextField(
                           controller: _searchCtrl,
-                          style: const TextStyle(color: AppColors.textPrimary, fontSize: 14),
+                          style: const TextStyle(color: Colors.white, fontSize: 14),
                           decoration: InputDecoration(
                             hintText: 'Search or add a skill manually...',
-                            prefixIcon: const Icon(Icons.search_rounded, size: 20, color: AppColors.textSecondary),
+                            hintStyle: const TextStyle(color: Colors.white30, fontSize: 14),
+                            prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Colors.white38),
                             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                            enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.border), borderRadius: BorderRadius.circular(10)),
-                            focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: AppColors.accent, width: 1.5), borderRadius: BorderRadius.circular(10)),
+                            filled: true,
+                            fillColor: Colors.white.withValues(alpha: 0.03),
+                            enabledBorder: OutlineInputBorder(
+                              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                           onSubmitted: (val) => _addManualSkill(uid, val),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 10),
                       GestureDetector(
                         onTap: () => _addManualSkill(uid, _searchCtrl.text),
                         child: Container(
-                          width: 44,
-                          height: 44,
+                          width: 46,
+                          height: 46,
                           decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            borderRadius: BorderRadius.circular(10),
+                            gradient: const LinearGradient(
+                              colors: [
+                                Color(0xFFD26EAB),
+                                Color(0xFFE88BB4),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.add_rounded, color: Colors.white, size: 24),
+                          child: const Icon(Icons.add_rounded, color: Colors.white, size: 22),
                         ),
                       ),
                     ],
@@ -169,25 +194,30 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
 
                 // Owned Skills Panel
                 if (mySkills.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
                     child: Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        'My Skills (${mySkills.length})',
-                        style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                        'My Skills',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'Poppins',
+                        ),
                       ),
                     ),
                   ),
                   Container(
                     width: double.infinity,
                     constraints: const BoxConstraints(maxHeight: 120),
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
+                      color: Colors.white.withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                     ),
                     child: SingleChildScrollView(
                       child: Wrap(
@@ -197,20 +227,27 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
                           final name = s['name'] as String;
                           final id = s['id'] as String;
                           final cat = s['category'] as String? ?? 'Tools/Platforms';
-                          final color = _kCategoryColors[cat] ?? AppColors.accent;
+                          final color = _kCategoryColors[cat] ?? const Color(0xFFD26EAB);
 
                           return Container(
-                            padding: const EdgeInsets.fromLTRB(10, 4, 6, 4),
+                            padding: const EdgeInsets.fromLTRB(12, 5, 8, 5),
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceVariant,
+                              color: Colors.white.withValues(alpha: 0.04),
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(color: color.withValues(alpha: 0.25)),
                             ),
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Text(name, style: AppTypography.labelSmall),
-                                const SizedBox(width: 4),
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
                                 GestureDetector(
                                   onTap: () => ref.read(profileRepositoryProvider).deleteSkill(uid, id),
                                   child: Icon(Icons.cancel_rounded, size: 14, color: color.withValues(alpha: 0.7)),
@@ -224,26 +261,31 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
                   ),
                 ],
 
-                // Recommended Skills grid
+                // Recommended Skills Grid
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Suggested Skills for You',
-                          style: AppTypography.labelLarge.copyWith(fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'Poppins',
+                          ),
                         ),
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 14),
 
                         // Render Categories
                         ..._kRecommendedSkills.entries.map((catEntry) {
                           final category = catEntry.key;
-                          final color = _kCategoryColors[category] ?? AppColors.accent;
+                          final color = _kCategoryColors[category] ?? const Color(0xFFCBE349);
                           final allRecommendations = catEntry.value;
 
-                          // Show only 5 if not expanded, otherwise show all 20
+                          // Show only 5 if not expanded, otherwise show all
                           final visibleRecommendations = _showMore ? allRecommendations : allRecommendations.take(5).toList();
 
                           return Padding(
@@ -261,11 +303,11 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
                                     const SizedBox(width: 8),
                                     Text(
                                       category,
-                                      style: AppTypography.labelMedium.copyWith(color: color, fontWeight: FontWeight.bold),
+                                      style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 10),
+                                const SizedBox(height: 12),
                                 Wrap(
                                   spacing: 8,
                                   runSpacing: 8,
@@ -277,10 +319,10 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                         decoration: BoxDecoration(
-                                          color: owned ? color.withValues(alpha: 0.12) : AppColors.surface,
+                                          color: owned ? color.withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.03),
                                           borderRadius: BorderRadius.circular(20),
                                           border: Border.all(
-                                            color: owned ? color : AppColors.border,
+                                            color: owned ? color : Colors.white.withValues(alpha: 0.08),
                                             width: owned ? 1.5 : 1.0,
                                           ),
                                         ),
@@ -293,8 +335,9 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
                                             ],
                                             Text(
                                               name,
-                                              style: AppTypography.labelSmall.copyWith(
-                                                color: owned ? color : AppColors.textSecondary,
+                                              style: TextStyle(
+                                                color: owned ? color : Colors.white70,
+                                                fontSize: 11,
                                                 fontWeight: owned ? FontWeight.bold : FontWeight.normal,
                                               ),
                                             ),
@@ -315,18 +358,18 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
                           child: OutlinedButton.icon(
                             onPressed: () => setState(() => _showMore = !_showMore),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: AppColors.accent),
+                              side: const BorderSide(color: Color(0xFFD26EAB)),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
                             ),
                             icon: Icon(
                               _showMore ? Icons.expand_less_rounded : Icons.expand_more_rounded,
                               size: 16,
-                              color: AppColors.accent,
+                              color: const Color(0xFFD26EAB),
                             ),
                             label: Text(
-                              _showMore ? 'Show Less' : 'Show More (+15 Recommendations)',
-                              style: AppTypography.labelLarge.copyWith(color: AppColors.accent, fontWeight: FontWeight.bold),
+                              _showMore ? 'Show Less' : 'Show More Recommendations',
+                              style: const TextStyle(color: Color(0xFFD26EAB), fontSize: 13, fontWeight: FontWeight.bold),
                             ),
                           ),
                         ),

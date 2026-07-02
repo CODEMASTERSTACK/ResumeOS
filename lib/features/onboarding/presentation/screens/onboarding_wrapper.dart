@@ -19,6 +19,7 @@ class OnboardingWrapper extends ConsumerWidget {
     final step = ref.watch(onboardingStepProvider);
     final steps = [
       const _WelcomeStep(),
+      const _DomainBackgroundStep(),
       const _BasicDetailsStep(),
       const _SkillsStep(),
       const _EducationStep(),
@@ -92,33 +93,36 @@ class OnboardingWrapper extends ConsumerWidget {
                               ),
                             ],
                           ),
-                          TextButton(
-                            onPressed: () async {
-                              final notifier = ref.read(onboardingStepProvider.notifier);
-                              if (step == steps.length - 2) {
-                                final uid = ref.read(currentUserProvider)?.uid;
-                                if (uid != null) {
-                                  try {
-                                    await ref.read(profileRepositoryProvider).updateUser(uid, {
-                                      'onboardingComplete': true,
-                                    });
-                                  } catch (e) {
-                                    debugPrint('Error updating onboardingComplete: $e');
+                          if (step > 2)
+                            TextButton(
+                              onPressed: () async {
+                                final notifier = ref.read(onboardingStepProvider.notifier);
+                                if (step == steps.length - 2) {
+                                  final uid = ref.read(currentUserProvider)?.uid;
+                                  if (uid != null) {
+                                    try {
+                                      await ref.read(profileRepositoryProvider).updateUser(uid, {
+                                        'onboardingComplete': true,
+                                      });
+                                    } catch (e) {
+                                      debugPrint('Error updating onboardingComplete: $e');
+                                    }
                                   }
                                 }
-                              }
-                              notifier.state++;
-                            },
-                            child: const Text(
-                              'Skip',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF8B6B58),
-                                fontWeight: FontWeight.w700,
-                                decoration: TextDecoration.underline,
+                                notifier.state++;
+                              },
+                              child: const Text(
+                                'Skip',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF8B6B58),
+                                  fontWeight: FontWeight.w700,
+                                  decoration: TextDecoration.underline,
+                                ),
                               ),
-                            ),
-                          ),
+                            )
+                          else
+                            const SizedBox(width: 48),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -505,7 +509,7 @@ class _WelcomeStep extends ConsumerWidget {
         // Page Indicator Dots
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: List.generate(5, (index) {
+          children: List.generate(6, (index) {
             final isActive = index == 0;
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 4),
@@ -558,6 +562,544 @@ class _WelcomeStep extends ConsumerWidget {
   }
 }
 
+class _DomainBackgroundStep extends ConsumerStatefulWidget {
+  const _DomainBackgroundStep();
+
+  @override
+  ConsumerState<_DomainBackgroundStep> createState() =>
+      _DomainBackgroundStepState();
+}
+
+class _DomainBackgroundStepState extends ConsumerState<_DomainBackgroundStep> {
+  String _selectedDomain = '';
+  bool _saving = false;
+  bool _showInfo = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = ref.read(userProfileProvider).value;
+      if (user != null) {
+        _selectedDomain = user.domainBackground;
+        if (mounted) setState(() {});
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    if (_selectedDomain.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select your domain background to continue'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    final uid = ref.read(currentUserProvider)?.uid;
+    if (uid == null) {
+      ref.read(onboardingStepProvider.notifier).state++;
+      return;
+    }
+
+    setState(() => _saving = true);
+    try {
+      await ref.read(profileRepositoryProvider).updateUser(uid, {
+        'domainBackground': _selectedDomain,
+      });
+      if (mounted) {
+        ref.read(onboardingStepProvider.notifier).state++;
+      }
+    } catch (e, stack) {
+      debugPrint('Error saving domain background during onboarding: $e');
+      debugPrint(stack.toString());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving domain background: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  void _showKnowYourDomainBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFCFAF7),
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(24),
+              topRight: Radius.circular(24),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 10,
+                spreadRadius: 1,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Grab handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE5D5C8),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const Row(
+                children: [
+                  Icon(
+                    Icons.explore_outlined,
+                    color: Color(0xFF8B6B58),
+                    size: 24,
+                  ),
+                  SizedBox(width: 8),
+                  Text(
+                    'Explore Career Domains',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF5A453A),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Understand where your profession falls to optimize your resume and career suggestions.',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF8B6B58),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 20),
+              
+              // Flexible scroll list
+              Flexible(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildBottomSheetDomainSection(
+                        title: 'Technical Domain',
+                        icon: Icons.code_rounded,
+                        description: 'Engineering, software development, data systems, and quantitative scientific roles.',
+                        roles: [
+                          'Software Engineer / Developer',
+                          'Data Scientist / Analyst',
+                          'DevOps / Cloud Architect',
+                          'Systems Administrator',
+                          'QA / Test Engineer',
+                          'Cybersecurity Specialist',
+                          'Research Scientist',
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildBottomSheetDomainSection(
+                        title: 'Non-Technical Domain',
+                        icon: Icons.palette_rounded,
+                        description: 'Operations, marketing, creative design, sales, human resources, and business administration.',
+                        roles: [
+                          'UX/UI Designer / Graphic Designer',
+                          'Marketing Manager / Content Writer',
+                          'HR Specialist / Talent Acquisition',
+                          'Sales Executive / Account Manager',
+                          'Operations Manager / Coordinator',
+                          'Customer Success Specialist',
+                          'Accountant / Financial Analyst',
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      _buildBottomSheetDomainSection(
+                        title: 'Both (Hybrid / Cross-functional)',
+                        icon: Icons.layers_rounded,
+                        description: 'Interdisciplinary roles requiring technical coordination, business leadership, or domain expertise in both areas.',
+                        roles: [
+                          'Product Manager / Product Owner',
+                          'IT Project Manager / Scrum Master',
+                          'Technical Writer / Documentation Spec',
+                          'Solutions Architect / Pre-Sales',
+                          'Technical Support Engineer',
+                          'Technical Recruiter',
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Close button
+              _TapScaleButton(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: double.infinity,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B6B58),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      'GOT IT',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBottomSheetDomainSection({
+    required String title,
+    required IconData icon,
+    required String description,
+    required List<String> roles,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFE5D5C8).withValues(alpha: 0.4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: const Color(0xFF8B6B58), size: 18),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF5A453A),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            description,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF8B6B58),
+              height: 1.4,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: roles.map((role) {
+              return Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFAF8F5),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFE5D5C8).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  role,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF5A453A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDomainCard(String title, String description, IconData icon) {
+    final isSelected = _selectedDomain == title;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: _TapScaleButton(
+        onTap: () {
+          setState(() {
+            _selectedDomain = title;
+          });
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFFFAF8F5) : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF8B6B58)
+                  : const Color(0xFFE5D5C8).withValues(alpha: 0.5),
+              width: isSelected ? 2 : 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: isSelected
+                    ? const Color(0xFF8B6B58).withValues(alpha: 0.05)
+                    : Colors.black.withValues(alpha: 0.02),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFF8B6B58).withValues(alpha: 0.1)
+                      : const Color(0xFFFAF8F5),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: isSelected ? const Color(0xFF8B6B58) : const Color(0xFF8B6B58).withValues(alpha: 0.6),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        color: isSelected ? const Color(0xFF5A453A) : const Color(0xFF8B6B58),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isSelected
+                            ? const Color(0xFF8B6B58)
+                            : const Color(0xFF8B6B58).withValues(alpha: 0.7),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF8B6B58) : Colors.transparent,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: isSelected
+                        ? const Color(0xFF8B6B58)
+                        : const Color(0xFFE5D5C8),
+                    width: 2,
+                  ),
+                ),
+                child: isSelected
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 14,
+                      )
+                    : null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Expanded(
+              child: Text(
+                'What is your domain background?',
+                style: TextStyle(
+                  fontSize: 24,
+                  color: Color(0xFF5A453A),
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: () => setState(() => _showInfo = !_showInfo),
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: _showInfo
+                      ? const Color(0xFF8B6B58).withValues(alpha: 0.1)
+                      : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.info_outline_rounded,
+                  size: 20,
+                  color: _showInfo ? const Color(0xFF8B6B58) : Colors.grey.shade400,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Select the option that best represents your career path.',
+          style: TextStyle(
+            fontSize: 13,
+            color: Color(0xFF8B6B58),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        if (_showInfo)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            margin: const EdgeInsets.only(top: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFAF8F5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5D5C8), width: 1),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.help_outline_rounded,
+                  size: 16,
+                  color: Color(0xFF8B6B58),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Your selected career domain allows the AI to tailor resume templates, formatting, and suggestions optimized for your specific field.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF8B6B58),
+                      fontWeight: FontWeight.w500,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        const SizedBox(height: 28),
+        _buildDomainCard('Technical', 'Software, Engineering, IT, Data Science, etc.', Icons.code_rounded),
+        _buildDomainCard('Non-Technical', 'Marketing, Design, HR, Management, Finance, etc.', Icons.palette_rounded),
+        _buildDomainCard('Both', 'Hybrid roles, IT Project Management, Product, etc.', Icons.layers_rounded),
+        const SizedBox(height: 24),
+        _TapScaleButton(
+          onTap: _saving ? null : _save,
+          child: Container(
+            width: double.infinity,
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFF8B6B58),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF8B6B58).withValues(alpha: 0.15),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Center(
+              child: _saving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text(
+                      'CONTINUE',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Center(
+          child: TextButton.icon(
+            onPressed: () => _showKnowYourDomainBottomSheet(context),
+            icon: const Icon(
+              Icons.help_outline_rounded,
+              size: 16,
+              color: Color(0xFF8B6B58),
+            ),
+            label: const Text(
+              'Know your domain',
+              style: TextStyle(
+                fontSize: 13,
+                color: Color(0xFF8B6B58),
+                fontWeight: FontWeight.w700,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _BasicDetailsStep extends ConsumerStatefulWidget {
   const _BasicDetailsStep();
 
@@ -572,6 +1114,7 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
   final _locationCtrl = TextEditingController();
   final _githubCtrl = TextEditingController();
   final _linkedinCtrl = TextEditingController();
+  String _selectedGender = '';
   bool _saving = false;
 
   @override
@@ -585,6 +1128,7 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
         _locationCtrl.text = user.location;
         _githubCtrl.text = user.githubUrl;
         _linkedinCtrl.text = user.linkedinUrl;
+        _selectedGender = user.gender;
         if (mounted) setState(() {});
       }
     });
@@ -601,17 +1145,30 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
   }
 
   Future<void> _save() async {
+    final name = _nameCtrl.text.trim();
+    final phone = _phoneCtrl.text.trim();
+    if (name.isEmpty || _selectedGender.isEmpty || phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Name, Gender, and Phone Number are required fields.'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
     final uid = ref.read(currentUserProvider)?.uid;
     if (uid == null) return;
 
     setState(() => _saving = true);
     try {
       await ref.read(profileRepositoryProvider).updateUser(uid, {
-        'name': _nameCtrl.text.trim(),
-        'phone': _phoneCtrl.text.trim(),
+        'name': name,
+        'phone': phone,
         'location': _locationCtrl.text.trim(),
         'githubUrl': _githubCtrl.text.trim(),
         'linkedinUrl': _linkedinCtrl.text.trim(),
+        'gender': _selectedGender,
       });
       if (mounted) {
         ref.read(onboardingStepProvider.notifier).state++;
@@ -681,6 +1238,50 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
     );
   }
 
+  Widget _buildGenderCard(String gender, IconData icon) {
+    final isSelected = _selectedGender == gender;
+    return _TapScaleButton(
+      onTap: () {
+        setState(() {
+          _selectedGender = gender;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFFFAF8F5) : Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF8B6B58)
+                : const Color(0xFFE5D5C8).withValues(alpha: 0.5),
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              icon,
+              size: 18,
+              color: isSelected ? const Color(0xFF8B6B58) : const Color(0xFF8B6B58).withValues(alpha: 0.5),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              gender,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: isSelected ? const Color(0xFF5A453A) : const Color(0xFF8B6B58),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -712,8 +1313,35 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
           icon: Icons.person_outline_rounded,
         ),
         const SizedBox(height: 14),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Gender *',
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF5A453A),
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildGenderCard('Male', Icons.male_rounded),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildGenderCard('Female', Icons.female_rounded),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
         _buildStepField(
-          label: 'Phone Number',
+          label: 'Phone Number *',
           ctrl: _phoneCtrl,
           hint: '+1 (555) 000-0000',
           icon: Icons.phone_outlined,

@@ -1,15 +1,16 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
-import '../../../../core/constants/app_typography.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/projects/data/repositories/project_repository.dart';
 import '../../../../features/projects/domain/entities/project_model.dart';
 import '../../../../services/ai/gemini_service.dart';
 import '../../../../services/github/github_service.dart';
-import '../../../../shared/widgets/app_button.dart';
+import '../../../../shared/widgets/custom_toast.dart';
 import 'package:uuid/uuid.dart';
 
 class AddEditProjectScreen extends ConsumerStatefulWidget {
@@ -71,8 +72,10 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
 
   Future<void> _generateAISummary() async {
     if (_titleCtrl.text.isEmpty || _descCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Fill in title and description first')),
+      CustomToast.show(
+        context,
+        message: 'Fill in title and description first',
+        type: ToastType.error,
       );
       return;
     }
@@ -88,17 +91,18 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
       );
       if (mounted) {
         _descCtrl.text = result.bullets.join('\n• ');
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('AI summary generated!'),
-            backgroundColor: AppColors.success,
-          ),
+        CustomToast.show(
+          context,
+          message: 'AI summary generated!',
+          type: ToastType.success,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.aiError)),
+        CustomToast.show(
+          context,
+          message: AppStrings.aiError,
+          type: ToastType.error,
         );
       }
     } finally {
@@ -121,13 +125,19 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: AppColors.surface,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          backgroundColor: const Color(0xFF1E1C28),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          ),
           title: const Row(
             children: [
               Icon(Icons.code_rounded, color: AppColors.accent),
               SizedBox(width: 8),
-              Text('GitHub Integration'),
+              Text(
+                'GitHub Integration',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+              ),
             ],
           ),
           content: Column(
@@ -136,20 +146,33 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
             children: [
               const Text(
                 'Direct importing is available when you sign in with GitHub on the Login screen.',
-                style: AppTypography.bodyMedium,
+                style: TextStyle(color: Colors.white70, fontSize: 14),
               ),
               const SizedBox(height: 12),
               Text(
                 'Alternatively, enter a GitHub Personal Access Token (PAT) below to fetch your repositories:',
-                style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: tokenCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
                   labelText: 'Personal Access Token',
+                  labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
                   hintText: 'ghp_...',
+                  hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.04),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+                  ),
                 ),
               ),
             ],
@@ -162,7 +185,7 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
             ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.accent,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
               onPressed: () {
                 final pat = tokenCtrl.text.trim();
@@ -172,7 +195,7 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
                   _showGitHubRepoPicker(pat);
                 }
               },
-              child: const Text('Connect PAT', style: TextStyle(color: Colors.white)),
+              child: const Text('Connect PAT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -183,9 +206,9 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
   void _showGitHubRepoPicker(String token) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      backgroundColor: const Color(0xFF13111C),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       isScrollControlled: true,
       builder: (context) {
@@ -193,8 +216,8 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
           builder: (context, ref, _) {
             final reposAsyncValue = ref.watch(gitHubReposProvider);
             return Container(
-              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-              height: MediaQuery.of(context).size.height * 0.7,
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+              height: MediaQuery.of(context).size.height * 0.75,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -203,10 +226,14 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
                     children: [
                       const Text(
                         'Select GitHub Repository',
-                        style: AppTypography.titleLarge,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close),
+                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
                         onPressed: () => Navigator.of(context).pop(),
                       ),
                     ],
@@ -214,9 +241,9 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
                   const SizedBox(height: 8),
                   Text(
                     'Tap a repository to automatically pre-fill your project details.',
-                    style: AppTypography.bodySmall.copyWith(color: AppColors.textSecondary),
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.50), fontSize: 13),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
                   Expanded(
                     child: reposAsyncValue.when(
                       data: (repos) {
@@ -225,16 +252,19 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.folder_open_rounded, size: 48, color: AppColors.textSecondary),
+                                Icon(Icons.folder_open_rounded, size: 48, color: Colors.white.withValues(alpha: 0.3)),
                                 const SizedBox(height: 12),
-                                Text('No repositories found', style: AppTypography.titleMedium),
+                                const Text(
+                                  'No repositories found',
+                                  style: TextStyle(color: Colors.white70, fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
                               ],
                             ),
                           );
                         }
                         return ListView.separated(
                           itemCount: repos.length,
-                          separatorBuilder: (_, __) => Divider(color: AppColors.border.withOpacity(0.1)),
+                          separatorBuilder: (_, __) => Divider(color: Colors.white.withValues(alpha: 0.06)),
                           itemBuilder: (context, index) {
                             final repo = repos[index];
                             return ListTile(
@@ -244,46 +274,49 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
                                   Expanded(
                                     child: Text(
                                       repo.name,
-                                      style: AppTypography.bodyLarge.copyWith(fontWeight: FontWeight.bold),
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  if (repo.language != null)
+                                  if (repo.language != null) ...[
+                                    const SizedBox(width: 8),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: AppColors.accentContainer,
+                                        color: AppColors.accent.withValues(alpha: 0.1),
                                         borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: AppColors.accent.withValues(alpha: 0.2)),
                                       ),
                                       child: Text(
                                         repo.language!,
-                                        style: AppTypography.caption.copyWith(color: AppColors.accent, fontWeight: FontWeight.bold),
+                                        style: const TextStyle(color: AppColors.accent, fontSize: 10, fontWeight: FontWeight.bold),
                                       ),
                                     ),
+                                  ],
                                 ],
                               ),
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   if (repo.description != null) ...[
-                                    const SizedBox(height: 4),
+                                    const SizedBox(height: 6),
                                     Text(
                                       repo.description!,
-                                      style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary),
+                                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 13),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
-                                  const SizedBox(height: 6),
+                                  const SizedBox(height: 8),
                                   Row(
                                     children: [
-                                      const Icon(Icons.star_outline_rounded, size: 14, color: AppColors.warning),
+                                      const Icon(Icons.star_rounded, size: 14, color: Colors.amber),
                                       const SizedBox(width: 4),
-                                      Text('${repo.stars}', style: AppTypography.caption),
+                                      Text('${repo.stars}', style: TextStyle(color: Colors.white.withValues(alpha: 0.5), fontSize: 12)),
                                       const SizedBox(width: 16),
                                       Text(
                                         'Pushed: ${repo.pushedAt != null ? "${repo.pushedAt!.year}-${repo.pushedAt!.month.toString().padLeft(2, '0')}-${repo.pushedAt!.day.toString().padLeft(2, '0')}" : "unknown"}',
-                                        style: AppTypography.caption,
+                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.4), fontSize: 12),
                                       ),
                                     ],
                                   ),
@@ -304,12 +337,11 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
                                   }
                                 });
                                 Navigator.of(context).pop();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Pre-filled details from "${repo.name}"! Use "AI Enhance" to write professional bullets.'),
-                                    backgroundColor: AppColors.success,
-                                    duration: const Duration(seconds: 4),
-                                  ),
+                                CustomToast.show(
+                                  context,
+                                  message: 'Pre-filled details from "${repo.name}"! Use "AI Enhance" to write professional bullets.',
+                                  type: ToastType.success,
+                                  duration: const Duration(seconds: 4),
                                 );
                               },
                             );
@@ -322,7 +354,7 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
                           children: [
                             CircularProgressIndicator(color: AppColors.accent),
                             SizedBox(height: 16),
-                            Text('Fetching your GitHub repositories...'),
+                            Text('Fetching your GitHub repositories...', style: TextStyle(color: Colors.white70)),
                           ],
                         ),
                       ),
@@ -334,9 +366,9 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
                             children: [
                               const Icon(Icons.error_outline_rounded, size: 48, color: AppColors.error),
                               const SizedBox(height: 12),
-                              Text('Failed to load repositories', style: AppTypography.titleMedium),
+                              const Text('Failed to load repositories', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
                               const SizedBox(height: 4),
-                              Text(err.toString(), style: AppTypography.caption, textAlign: TextAlign.center),
+                              Text(err.toString(), style: const TextStyle(color: Colors.white54, fontSize: 12), textAlign: TextAlign.center),
                               const SizedBox(height: 16),
                               ElevatedButton(
                                 onPressed: () => ref.invalidate(gitHubReposProvider),
@@ -385,8 +417,10 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text(AppStrings.genericError)),
+        CustomToast.show(
+          context,
+          message: AppStrings.genericError,
+          type: ToastType.error,
         );
       }
     } finally {
@@ -404,201 +438,440 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
     super.dispose();
   }
 
+  InputDecoration _inputStyle({
+    required String hintText,
+    Widget? prefixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+      prefixIcon: prefixIcon,
+      filled: true,
+      fillColor: Colors.white.withValues(alpha: 0.04),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.0),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.5),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F), // Rich dark indigo base
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Project' : AppStrings.addProject),
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
+        title: Text(
+          _isEditing ? 'Edit Project' : AppStrings.addProject,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 22,
+            letterSpacing: -0.5,
+          ),
+        ),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close_rounded),
-          onPressed: () => context.pop(),
+        scrolledUnderElevation: 0,
+        leadingWidth: 70,
+        leading: Center(
+          child: GestureDetector(
+            onTap: () => context.pop(),
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  width: 1.0,
+                ),
+              ),
+              child: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          ),
         ),
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            // Title
-            _FormField(
-              label: 'Project Title *',
-              child: TextFormField(
-                controller: _titleCtrl,
-                decoration: const InputDecoration(
-                    hintText: 'e.g., AI Resume Builder'),
-                validator: (v) =>
-                    v?.isEmpty == true ? 'Title is required' : null,
+      body: Stack(
+        children: [
+          // 1. Core Bright focal light source (top-left) - almost white-pink bloom
+          Positioned(
+            top: -60,
+            left: -60,
+            width: 220,
+            height: 220,
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFFF0F6), // White-pink core bloom
               ),
             ),
-            const SizedBox(height: 16),
+          ),
 
-            // Description
-            _FormField(
-              label: 'Description *',
-              action: _isGeneratingAI
-                  ? null
-                  : TextButton.icon(
-                      onPressed: _generateAISummary,
-                      icon: const Icon(Icons.auto_awesome_rounded,
-                          size: 14, color: AppColors.accent),
-                      label: Text(
-                        'AI Enhance',
-                        style: AppTypography.labelMedium.copyWith(
-                          color: AppColors.accent,
-                        ),
-                      ),
-                    ),
-              child: TextFormField(
-                controller: _descCtrl,
-                maxLines: 5,
-                decoration: const InputDecoration(
-                  hintText:
-                      'Describe what you built, your role, and impact...',
-                  alignLabelWithHint: true,
-                ),
-                validator: (v) =>
-                    v?.isEmpty == true ? 'Description is required' : null,
-              ),
-            ),
-            if (_isGeneratingAI)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: AppColors.accent),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      'AI is rewriting your bullets...',
-                      style: AppTypography.caption.copyWith(
-                          color: AppColors.accent),
-                    ),
+          // 2. Neon Sunlight effect (bright warm golden sunlight leak)
+          Positioned(
+            top: -100,
+            left: -100,
+            width: 260,
+            height: 260,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 0.85,
+                  colors: [
+                    const Color(0xFFFFFFE0), // Hot golden white sun core
+                    const Color(0xFFFFEE55).withValues(alpha: 0.5), // Vibrant neon yellow bloom
+                    const Color(0xFFFFB300).withValues(alpha: 0.25), // Neon amber halo
+                    Colors.transparent,
                   ],
+                  stops: const [0.0, 0.35, 0.7, 1.0],
                 ),
               ),
-            const SizedBox(height: 16),
+            ),
+          ),
 
-            // Technologies
-            _FormField(
-              label: 'Technologies',
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _techCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'Type tech and press Enter...',
-                          ),
-                          onSubmitted: _addTech,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () => _addTech(_techCtrl.text),
-                        child: Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: AppColors.accent,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.add,
-                              color: Colors.white, size: 20),
-                        ),
-                      ),
+          // 2. Volumetric Diagonal Light Leak / Spotlight beam
+          Positioned(
+            top: -120,
+            left: -120,
+            width: screenHeight * 0.55,
+            height: screenHeight * 0.45,
+            child: Transform.rotate(
+              angle: -0.15, // Soft diagonal sweep toward center-right
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFEC53B0).withValues(alpha: 0.6), // Magenta highlight
+                      const Color(0xFF723FFD).withValues(alpha: 0.45), // Purple highlight
+                      const Color(0xFF1E6AFF).withValues(alpha: 0.25), // Blue accent
+                      Colors.transparent,
                     ],
+                    stops: const [0.0, 0.4, 0.75, 1.0],
                   ),
-                  if (_technologies.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _technologies.map((tech) {
-                        return Chip(
-                          label: Text(tech),
-                          deleteIcon: const Icon(Icons.close, size: 14),
-                          onDeleted: () =>
-                              setState(() => _technologies.remove(tech)),
-                          backgroundColor: AppColors.accentContainer,
-                          labelStyle: AppTypography.labelMedium.copyWith(
-                            color: AppColors.accent,
-                          ),
-                          side: const BorderSide(
-                              color: AppColors.accentContainer),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        );
-                      }).toList(),
+                ),
+              ),
+            ),
+          ),
+
+          // 3. Layered ambient purple glow layer for surrounding bloom
+          Positioned(
+            top: -50,
+            left: -50,
+            width: screenHeight * 0.4,
+            height: screenHeight * 0.4,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF723FFD).withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+
+          // 4. Secondary soft blue highlight (extends center-right)
+          Positioned(
+            top: 60,
+            left: 100,
+            width: screenHeight * 0.4,
+            height: screenHeight * 0.3,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF1E6AFF).withValues(alpha: 0.22),
+              ),
+            ),
+          ),
+
+          // 5. Cinematic Blur overlay to blend layers into an immersive aurora bloom
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 95.0, sigmaY: 95.0),
+              child: Container(
+                color: const Color(0xFF07060F).withValues(alpha: 0.30), // Integrated background overlay
+              ),
+            ),
+          ),
+
+          // 6. Content Form Layer
+          SafeArea(
+            child: Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                children: [
+                  const SizedBox(height: 56),
+
+                  // Title
+                  _FormField(
+                    label: 'Project Title *',
+                    child: TextFormField(
+                      controller: _titleCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputStyle(hintText: 'e.g., AI Resume Builder'),
+                      validator: (v) =>
+                          v?.isEmpty == true ? 'Title is required' : null,
                     ),
-                  ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Description
+                  _FormField(
+                    label: 'Description *',
+                    action: _isGeneratingAI || _isEditing
+                        ? null
+                        : TextButton.icon(
+                            onPressed: _generateAISummary,
+                            icon: const Icon(Icons.auto_awesome_rounded,
+                                size: 14, color: AppColors.accent),
+                            label: const Text(
+                              'AI Enhance',
+                              style: TextStyle(
+                                color: AppColors.accent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                    child: TextFormField(
+                      controller: _descCtrl,
+                      maxLines: 5,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputStyle(
+                        hintText: 'Describe what you built, your role, and impact...',
+                      ),
+                      validator: (v) =>
+                          v?.isEmpty == true ? 'Description is required' : null,
+                    ),
+                  ),
+                  if (_isGeneratingAI)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 8),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.accent),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'AI is rewriting your bullets...',
+                            style: TextStyle(color: AppColors.accent, fontSize: 12),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+
+                  // Technologies
+                  _FormField(
+                    label: 'Technologies',
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _techCtrl,
+                                style: const TextStyle(color: Colors.white),
+                                decoration: _inputStyle(hintText: 'Type tech and press Enter...'),
+                                onSubmitted: _addTech,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () => _addTech(_techCtrl.text),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent,
+                                  borderRadius: BorderRadius.circular(14),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: AppColors.accent.withValues(alpha: 0.25),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(Icons.add,
+                                    color: Colors.black, size: 22),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_technologies.isNotEmpty) ...[
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _technologies.map((tech) {
+                              return Chip(
+                                label: Text(tech),
+                                deleteIcon: const Icon(Icons.close, size: 14, color: AppColors.accent),
+                                onDeleted: () =>
+                                    setState(() => _technologies.remove(tech)),
+                                backgroundColor: AppColors.accent.withValues(alpha: 0.08),
+                                labelStyle: const TextStyle(
+                                  color: AppColors.accent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                                side: BorderSide(
+                                    color: AppColors.accent.withValues(alpha: 0.20)),
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // GitHub
+                  _FormField(
+                    label: 'GitHub Repository URL',
+                    action: TextButton.icon(
+                      onPressed: _importFromGitHub,
+                      icon: const Icon(Icons.cloud_download_rounded,
+                          size: 14, color: AppColors.accent),
+                      label: const Text(
+                        'Import Repository',
+                        style: TextStyle(
+                          color: AppColors.accent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    child: TextFormField(
+                      controller: _githubCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputStyle(
+                        hintText: 'https://github.com/username/repo',
+                        prefixIcon: Icon(Icons.code, color: Colors.white.withValues(alpha: 0.4), size: 18),
+                      ),
+                      keyboardType: TextInputType.url,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Live URL
+                  _FormField(
+                    label: 'Live Demo URL',
+                    child: TextFormField(
+                      controller: _liveCtrl,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _inputStyle(
+                        hintText: 'https://myproject.com',
+                        prefixIcon: Icon(Icons.open_in_new, color: Colors.white.withValues(alpha: 0.4), size: 18),
+                      ),
+                      keyboardType: TextInputType.url,
+                    ),
+                  ),
+                  const SizedBox(height: 36),
+
+                  // Save Button
+                  GestureDetector(
+                    onTap: _isLoading ? null : _save,
+                    child: Container(
+                      width: double.infinity,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0052D4), Color(0xFF1E5FF5), Color(0xFF6FB1FC)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF0052D4).withValues(alpha: 0.4),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Center(
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _isEditing ? Icons.save_rounded : Icons.add_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    _isEditing ? AppStrings.saveChanges : 'Add Project',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Center(
+                    child: TextButton(
+                      onPressed: () => context.pop(),
+                      child: Text(
+                        AppStrings.cancel,
+                        style: GoogleFonts.outfit(
+                          color: Colors.white.withValues(alpha: 0.5),
+                          fontWeight: FontWeight.w600,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-
-            // GitHub
-            _FormField(
-              label: 'GitHub Repository URL',
-              action: TextButton.icon(
-                onPressed: _importFromGitHub,
-                icon: const Icon(Icons.cloud_download_rounded,
-                    size: 14, color: AppColors.accent),
-                label: Text(
-                  'Import Repository',
-                  style: AppTypography.labelMedium.copyWith(
-                    color: AppColors.accent,
-                  ),
-                ),
-              ),
-              child: TextFormField(
-                controller: _githubCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'https://github.com/username/repo',
-                  prefixIcon: Icon(Icons.code, size: 18),
-                ),
-                keyboardType: TextInputType.url,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Live URL
-            _FormField(
-              label: 'Live Demo URL',
-              child: TextFormField(
-                controller: _liveCtrl,
-                decoration: const InputDecoration(
-                  hintText: 'https://myproject.com',
-                  prefixIcon: Icon(Icons.open_in_new, size: 18),
-                ),
-                keyboardType: TextInputType.url,
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Save Button
-            AppButton(
-              label: _isEditing ? AppStrings.saveChanges : 'Add Project',
-              onTap: _isLoading ? null : _save,
-              isLoading: _isLoading,
-              variant: AppButtonVariant.primary,
-            ),
-            const SizedBox(height: 16),
-            AppButton(
-              label: AppStrings.cancel,
-              onTap: () => context.pop(),
-              variant: AppButtonVariant.ghost,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -623,7 +896,14 @@ class _FormField extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label, style: AppTypography.labelLarge),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 14,
+              ),
+            ),
             if (action != null) action!,
           ],
         ),

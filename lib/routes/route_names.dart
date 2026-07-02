@@ -26,6 +26,8 @@ class RouteNames {
   static const String projects = '/projects';
   static const String addProject = '/projects/add';
   static const String editProject = '/projects/edit/:projectId';
+  static const String addResearch = '/projects/add-research';
+  static const String editResearch = '/projects/edit-research/:projectId';
   static const String generate = '/generate';
   static const String generateAnalyze = '/generate/analyze';
   static const String generateSelectProjects = '/generate/select-projects';

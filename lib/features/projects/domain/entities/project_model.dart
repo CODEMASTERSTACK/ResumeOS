@@ -1,5 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// Contributor helper model for research work
+class Contributor {
+  final String name;
+  final String contribution;
+
+  const Contributor({
+    this.name = '',
+    this.contribution = '',
+  });
+
+  factory Contributor.fromJson(Map<String, dynamic> json) => Contributor(
+        name: json['name'] as String? ?? '',
+        contribution: json['contribution'] as String? ?? '',
+      );
+
+  Map<String, String> toJson() => {
+        'name': name,
+        'contribution': contribution,
+      };
+}
+
 /// Plain Dart ProjectModel — no freezed required
 class ProjectModel {
   final String id;
@@ -18,6 +39,11 @@ class ProjectModel {
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
+  // Research work extensions
+  final bool isResearch;
+  final String duration;
+  final List<Contributor> contributors;
+
   const ProjectModel({
     required this.id,
     required this.uid,
@@ -34,6 +60,9 @@ class ProjectModel {
     this.linkedSkills = const [],
     this.createdAt,
     this.updatedAt,
+    this.isResearch = false,
+    this.duration = '',
+    this.contributors = const [],
   });
 
   factory ProjectModel.fromJson(Map<String, dynamic> json) => ProjectModel(
@@ -52,6 +81,12 @@ class ProjectModel {
         linkedSkills: _toStringList(json['linkedSkills']),
         createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
         updatedAt: (json['updatedAt'] as Timestamp?)?.toDate(),
+        isResearch: json['isResearch'] as bool? ?? false,
+        duration: json['duration'] as String? ?? '',
+        contributors: (json['contributors'] as List<dynamic>?)
+                ?.map((e) => Contributor.fromJson(Map<String, dynamic>.from(e as Map)))
+                .toList() ??
+            const [],
       );
 
   factory ProjectModel.fromFirestore(DocumentSnapshot doc) {
@@ -72,6 +107,9 @@ class ProjectModel {
         'isGithubSynced': isGithubSynced,
         'isFeatured': isFeatured,
         'linkedSkills': linkedSkills,
+        'isResearch': isResearch,
+        'duration': duration,
+        'contributors': contributors.map((c) => c.toJson()).toList(),
       };
 
   static List<String> _toStringList(dynamic value) {

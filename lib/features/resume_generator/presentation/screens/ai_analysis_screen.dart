@@ -1,9 +1,10 @@
+import 'dart:math' as math;
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/constants/app_colors.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_strings.dart';
-import '../../../../core/constants/app_typography.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/projects/data/repositories/project_repository.dart';
 import '../../../../features/projects/domain/entities/project_model.dart';
@@ -17,9 +18,7 @@ import 'generate_screen.dart';
 final jdAnalysisProvider = FutureProvider<JdAnalysisResult?>((ref) async {
   final jd = ref.watch(jobDescriptionProvider);
   if (jd.isEmpty) return null;
-
   final ai = ref.read(geminiServiceImplProvider);
-
   final result = await ai.analyzeJobDescription(jd);
   return JdAnalysisResult.fromJson(result);
 });
@@ -28,19 +27,15 @@ final rankedProjectsProvider =
     FutureProvider<List<(ProjectModel, double)>>((ref) async {
   final uid = ref.watch(currentUserProvider)?.uid;
   if (uid == null) return <(ProjectModel, double)>[];
-
   final analysisAsync = ref.watch(jdAnalysisProvider);
   final analysis = analysisAsync.valueOrNull;
   if (analysis == null) return <(ProjectModel, double)>[];
-
   final projects =
       await ref.read(projectRepositoryProvider).getAllProjects(uid);
-
   final scored = projects.map((ProjectModel p) {
     final double score = p.scoreAgainst(analysis.allKeywords);
     return (p, score);
   }).toList();
-
   scored.sort((a, b) => b.$2.compareTo(a.$2));
   return scored;
 });
@@ -54,39 +49,133 @@ class AiAnalysisScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final analysisAsync = ref.watch(jdAnalysisProvider);
     final rankedAsync = ref.watch(rankedProjectsProvider);
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text('AI Analysis'),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          onPressed: () => context.pop(),
+        scrolledUnderElevation: 0,
+        leading: GestureDetector(
+          onTap: () => context.pop(),
+          child: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 20),
+          ),
+        ),
+        title: Text(
+          'AI Analysis',
+          style: GoogleFonts.outfit(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
         ),
       ),
-      body: analysisAsync.when(
-        loading: () => const _AnalyzingAnimation(),
-        error: (e, _) => _ErrorState(
-          message: e.toString(),
-          onRetry: () => ref.invalidate(jdAnalysisProvider),
-        ),
-        data: (analysis) {
-          if (analysis == null) {
-            return const Center(child: Text('No job description provided'));
-          }
-          return _AnalysisResult(
-            analysis: analysis,
-            rankedAsync: rankedAsync,
-          );
-        },
+      body: Stack(
+        children: [
+          // Aurora background (matches app theme)
+          Positioned(
+            top: -60, left: -60, width: 220, height: 220,
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFFF0F6),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -100, left: -100, width: 260, height: 260,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFFFFFE0),
+                    const Color(0xFFFFEE55).withValues(alpha: 0.5),
+                    const Color(0xFFFFB300).withValues(alpha: 0.25),
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.35, 0.7, 1.0],
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -120, left: -120,
+            width: screenHeight * 0.55, height: screenHeight * 0.45,
+            child: Transform.rotate(
+              angle: -0.15,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFEC53B0).withValues(alpha: 0.6),
+                      const Color(0xFF723FFD).withValues(alpha: 0.45),
+                      const Color(0xFF1E6AFF).withValues(alpha: 0.25),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.4, 0.75, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -50, left: -50,
+            width: screenHeight * 0.4, height: screenHeight * 0.4,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF723FFD).withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 95.0, sigmaY: 95.0),
+              child: Container(
+                color: const Color(0xFF07060F).withValues(alpha: 0.30),
+              ),
+            ),
+          ),
+
+          // Content
+          SafeArea(
+            child: analysisAsync.when(
+              loading: () => const _AnalyzingAnimation(),
+              error: (e, _) => _ErrorState(
+                message: e.toString(),
+                onRetry: () => ref.invalidate(jdAnalysisProvider),
+              ),
+              data: (analysis) {
+                if (analysis == null) {
+                  return const Center(
+                    child: Text(
+                      'No job description provided',
+                      style: TextStyle(color: Colors.white60),
+                    ),
+                  );
+                }
+                return _AnalysisResult(analysis: analysis, rankedAsync: rankedAsync);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ── Analyzing Animation ───────────────────────────────────
+// ── Analyzing Animation — compact, no overflow ─────────────
 
 class _AnalyzingAnimation extends StatefulWidget {
   const _AnalyzingAnimation();
@@ -96,123 +185,288 @@ class _AnalyzingAnimation extends StatefulWidget {
 }
 
 class _AnalyzingAnimationState extends State<_AnalyzingAnimation>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _rotation;
+    with TickerProviderStateMixin {
+  late AnimationController _orbitalCtrl;
+  late AnimationController _pulseCtrl;
+  late AnimationController _stepCtrl;
+
+  late Animation<double> _orbital;
+  late Animation<double> _pulse;
+  late Animation<double> _stepFade;
+
   int _step = 0;
 
-  final _steps = [
-    'Reading job description...',
-    'Extracting required skills...',
-    'Identifying keywords...',
-    'Analyzing experience level...',
-    'Ranking your profile...',
+  final List<Map<String, dynamic>> _steps = [
+    {'label': 'Reading job description', 'sub': 'Parsing structure and intent...', 'icon': Icons.article_outlined},
+    {'label': 'Extracting required skills', 'sub': 'Identifying technical requirements...', 'icon': Icons.psychology_outlined},
+    {'label': 'Identifying keywords', 'sub': 'Mapping ATS-critical terms...', 'icon': Icons.manage_search_rounded},
+    {'label': 'Analysing experience level', 'sub': 'Calibrating seniority signals...', 'icon': Icons.signal_cellular_alt_rounded},
+    {'label': 'Ranking your profile', 'sub': 'Computing best-fit score...', 'icon': Icons.leaderboard_rounded},
   ];
 
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      duration: const Duration(seconds: 2),
-      vsync: this,
-    )..repeat();
-
-    _rotation = Tween<double>(begin: 0, end: 1).animate(_ctrl);
-
-    // Cycle through steps
+    _orbitalCtrl = AnimationController(duration: const Duration(seconds: 4), vsync: this)..repeat();
+    _pulseCtrl = AnimationController(duration: const Duration(milliseconds: 1800), vsync: this)..repeat(reverse: true);
+    _stepCtrl = AnimationController(duration: const Duration(milliseconds: 400), vsync: this);
+    _orbital = Tween<double>(begin: 0, end: 1).animate(_orbitalCtrl);
+    _pulse = Tween<double>(begin: 0.88, end: 1.0).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
+    _stepFade = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _stepCtrl, curve: Curves.easeOut));
+    _stepCtrl.forward();
     _cycleSteps();
   }
 
   void _cycleSteps() async {
     while (mounted) {
-      await Future.delayed(const Duration(milliseconds: 900));
-      if (mounted) {
-        setState(() => _step = (_step + 1) % _steps.length);
-      }
+      await Future.delayed(const Duration(milliseconds: 1400));
+      if (!mounted) break;
+      await _stepCtrl.reverse();
+      if (!mounted) break;
+      setState(() => _step = (_step + 1) % _steps.length);
+      _stepCtrl.forward();
     }
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
+    _orbitalCtrl.dispose();
+    _pulseCtrl.dispose();
+    _stepCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Animated icon
-            RotationTransition(
-              turns: _rotation,
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  gradient: AppColors.accentGradient,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: AppColors.accentShadow,
-                ),
-                child: const Icon(
-                  Icons.auto_awesome_rounded,
-                  color: Colors.white,
-                  size: 32,
+    // Use LayoutBuilder to avoid overflow on small screens
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Scale the orbital size based on available height
+        final orbitSize = (constraints.maxHeight * 0.28).clamp(100.0, 140.0);
+
+        return SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: SizedBox(
+            height: constraints.maxHeight,
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 36),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Orbital animation
+                    SizedBox(
+                      width: orbitSize,
+                      height: orbitSize,
+                      child: AnimatedBuilder(
+                        animation: Listenable.merge([_orbital, _pulse]),
+                        builder: (context, _) {
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              CustomPaint(
+                                size: Size(orbitSize, orbitSize),
+                                painter: _OrbitPainter(progress: _orbital.value),
+                              ),
+                              Transform.scale(
+                                scale: _pulse.value,
+                                child: Container(
+                                  width: orbitSize * 0.45,
+                                  height: orbitSize * 0.45,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: RadialGradient(
+                                      colors: [
+                                        const Color(0xFFCBE349).withValues(alpha: 0.2),
+                                        const Color(0xFF723FFD).withValues(alpha: 0.1),
+                                        Colors.transparent,
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                width: orbitSize * 0.35,
+                                height: orbitSize * 0.35,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: const Color(0xFF13111C),
+                                  border: Border.all(
+                                    color: const Color(0xFFCBE349).withValues(alpha: 0.4),
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: const Color(0xFFCBE349).withValues(alpha: 0.18),
+                                      blurRadius: 14,
+                                      spreadRadius: 2,
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.auto_awesome_rounded,
+                                  color: Color(0xFFCBE349),
+                                  size: 22,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
+                    ),
+
+                    SizedBox(height: constraints.maxHeight * 0.045),
+
+                    // Step indicator
+                    FadeTransition(
+                      opacity: _stepFade,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _steps[_step]['label'] as String,
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 17,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            _steps[_step]['sub'] as String,
+                            style: GoogleFonts.outfit(
+                              color: Colors.white38,
+                              fontWeight: FontWeight.w400,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: constraints.maxHeight * 0.045),
+
+                    // Step dots
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(_steps.length, (i) {
+                        final isActive = i == _step;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          width: isActive ? 18 : 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(4),
+                            color: isActive
+                                ? const Color(0xFFCBE349)
+                                : Colors.white.withValues(alpha: 0.15),
+                          ),
+                        );
+                      }),
+                    ),
+
+                    SizedBox(height: constraints.maxHeight * 0.04),
+
+                    // Progress bar
+                    AnimatedBuilder(
+                      animation: _orbitalCtrl,
+                      builder: (_, __) {
+                        final progress = ((_step + _orbitalCtrl.value) / _steps.length).clamp(0.0, 1.0);
+                        return Column(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(4),
+                              child: SizedBox(
+                                height: 2,
+                                child: LinearProgressIndicator(
+                                  value: progress,
+                                  backgroundColor: Colors.white.withValues(alpha: 0.06),
+                                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFCBE349)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Step ${_step + 1} of ${_steps.length}',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white24,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 32),
-            Text(
-              AppStrings.aiAnalyzing,
-              style: AppTypography.headlineMedium,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              child: Text(
-                _steps[_step],
-                key: ValueKey(_step),
-                style: AppTypography.bodyMedium.copyWith(
-                  color: AppColors.accent,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(height: 32),
-            const SizedBox(
-              width: 200,
-              child: LinearProgressIndicator(
-                backgroundColor: AppColors.accentContainer,
-                color: AppColors.accent,
-              ),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
 
-// ── Analysis Result ───────────────────────────────────────
+// Custom painter for orbital ring
+class _OrbitPainter extends CustomPainter {
+  final double progress;
+  _OrbitPainter({required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 6;
+
+    final ringPaint = Paint()
+      ..color = const Color(0xFFCBE349).withValues(alpha: 0.1)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(center, radius, ringPaint);
+
+    final angle = progress * 2 * math.pi - math.pi / 2;
+    final dotX = center.dx + radius * math.cos(angle);
+    final dotY = center.dy + radius * math.sin(angle);
+    final dotCenter = Offset(dotX, dotY);
+
+    final glowPaint = Paint()
+      ..color = const Color(0xFFCBE349).withValues(alpha: 0.2)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawCircle(dotCenter, 8, glowPaint);
+
+    final dotPaint = Paint()..color = const Color(0xFFCBE349);
+    canvas.drawCircle(dotCenter, 4, dotPaint);
+
+    final angle2 = angle + math.pi;
+    final dot2X = center.dx + radius * math.cos(angle2);
+    final dot2Y = center.dy + radius * math.sin(angle2);
+    final dot2Paint = Paint()..color = const Color(0xFF723FFD).withValues(alpha: 0.5);
+    canvas.drawCircle(Offset(dot2X, dot2Y), 2.5, dot2Paint);
+  }
+
+  @override
+  bool shouldRepaint(_OrbitPainter old) => old.progress != progress;
+}
+
+// ── Analysis Result — Designer Edition ────────────────────
+// Design principles applied:
+//   • Typography does the heavy lifting — not boxes
+//   • One clear visual anchor (the score)
+//   • Whitespace is intentional, not just filler
+//   • Color is used sparingly — white for hierarchy, lime for CTAs only
+//   • Dividers instead of cards wherever possible
+//   • Skills are inline tags, not floating cards
+//   • No gratuitous icon-in-a-box pattern for every section
 
 class _AnalysisResult extends ConsumerWidget {
   final JdAnalysisResult analysis;
   final AsyncValue<List<(ProjectModel, double)>> rankedAsync;
 
-  const _AnalysisResult({
-    required this.analysis,
-    required this.rankedAsync,
-  });
-
-  Color _matchColor(int pct) {
-    if (pct >= 70) return AppColors.success;
-    if (pct >= 40) return AppColors.warning;
-    return AppColors.error;
-  }
+  const _AnalysisResult({required this.analysis, required this.rankedAsync});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -220,134 +474,95 @@ class _AnalysisResult extends ConsumerWidget {
       loading: () => const _AnalyzingAnimation(),
       error: (e, _) => _ErrorState(message: e.toString(), onRetry: () {}),
       data: (ranked) {
-        // Compute match percentage from ranked projects
-        final topScore =
-            ranked.isNotEmpty ? ranked.first.$2 : 0.0;
+        final topScore = ranked.isNotEmpty ? ranked.first.$2 : 0.0;
         final matchPct = (topScore * 100).round().clamp(0, 100);
-        final matchColor = _matchColor(matchPct);
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          physics: const BouncingScrollPhysics(),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Detected Role
-              _SectionHeader(title: AppStrings.detectedRole),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.accentContainer,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: AppColors.accent.withOpacity(0.3)),
-                ),
-                child: Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 6,
+              // ── HERO SCORE SECTION ─────────────────────────────────
+              // Full-bleed, no card — the score IS the design
+              _ScoreHero(percent: matchPct),
+
+              // ── BODY CONTENT ──────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.work_outline_rounded,
-                        size: 16, color: AppColors.accent),
-                    Text(
-                      analysis.role,
-                      style: AppTypography.titleMedium.copyWith(
-                        color: AppColors.accent,
-                        fontWeight: FontWeight.w600,
+                    // Role
+                    _BodySection(
+                      label: 'Detected Role',
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            analysis.role,
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 20,
+                              height: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            analysis.experienceLevel,
+                            style: GoogleFonts.outfit(
+                              color: Colors.white38,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 13,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppColors.accent.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(4),
+
+                    const _Divider(),
+
+                    // Required Skills
+                    _BodySection(
+                      label: 'Required Skills',
+                      trailing: '${analysis.requiredSkills.length}',
+                      child: _InlineSkillTags(
+                        skills: analysis.requiredSkills,
+                        color: const Color(0xFF10B981),
                       ),
-                      child: Text(
-                        analysis.experienceLevel.toUpperCase(),
-                        style: AppTypography.labelSmall.copyWith(
-                          color: AppColors.accent,
+                    ),
+
+                    if (analysis.preferredSkills.isNotEmpty) ...[
+                      const SizedBox(height: 20),
+                      _BodySection(
+                        label: 'Preferred Skills',
+                        trailing: '${analysis.preferredSkills.length}',
+                        child: _InlineSkillTags(
+                          skills: analysis.preferredSkills,
+                          color: const Color(0xFFF59E0B),
                         ),
                       ),
+                    ],
+
+                    const _Divider(),
+
+                    // ATS Keywords
+                    _BodySection(
+                      label: 'ATS Keywords',
+                      trailing: '${analysis.keywords.length} detected',
+                      child: _KeywordFlow(keywords: analysis.keywords),
+                    ),
+
+                    const SizedBox(height: 40),
+
+                    // CTA
+                    _CTAButton(
+                      onTap: () => context.push(RouteNames.generateSelectProjects),
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 24),
-
-              // Match Score
-              _SectionHeader(title: AppStrings.matchPercentage),
-              const SizedBox(height: 12),
-              _MatchScoreCard(
-                percent: matchPct,
-                color: matchColor,
-              ),
-
-              const SizedBox(height: 24),
-
-              // Required Skills
-              _SectionHeader(title: AppStrings.requiredSkills),
-              const SizedBox(height: 10),
-              _SkillsGrid(skills: analysis.requiredSkills, isRequired: true),
-
-              if (analysis.preferredSkills.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _SkillsGrid(
-                    skills: analysis.preferredSkills, isRequired: false),
-              ],
-
-              const SizedBox(height: 24),
-
-              // Keywords
-              _SectionHeader(title: 'Extracted Keywords'),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: analysis.keywords.map((kw) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceVariant,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Text(kw, style: AppTypography.labelSmall),
-                  );
-                }).toList(),
-              ),
-
-              const SizedBox(height: 32),
-
-              // CTA
-              ElevatedButton(
-                onPressed: () =>
-                    context.push(RouteNames.generateSelectProjects),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  minimumSize: const Size(double.infinity, 52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.arrow_forward_rounded, size: 18),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Select Projects',
-                      style: AppTypography.labelLarge.copyWith(
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
             ],
           ),
         );
@@ -356,17 +571,19 @@ class _AnalysisResult extends ConsumerWidget {
   }
 }
 
-class _MatchScoreCard extends StatefulWidget {
-  final int percent;
-  final Color color;
+// ── Score Hero — the visual anchor of the screen ──────────
+// No card. No border. Just the number, a thin arc, and a label.
+// Inspiration: Linear's metric displays, Apple Health, Stripe Dashboard.
 
-  const _MatchScoreCard({required this.percent, required this.color});
+class _ScoreHero extends StatefulWidget {
+  final int percent;
+  const _ScoreHero({required this.percent});
 
   @override
-  State<_MatchScoreCard> createState() => _MatchScoreCardState();
+  State<_ScoreHero> createState() => _ScoreHeroState();
 }
 
-class _MatchScoreCardState extends State<_MatchScoreCard>
+class _ScoreHeroState extends State<_ScoreHero>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _anim;
@@ -375,12 +592,10 @@ class _MatchScoreCardState extends State<_MatchScoreCard>
   void initState() {
     super.initState();
     _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1600),
       vsync: this,
     );
-    _anim = Tween<double>(begin: 0, end: widget.percent / 100).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutCubic),
-    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeOutExpo);
     _ctrl.forward();
   }
 
@@ -390,122 +605,288 @@ class _MatchScoreCardState extends State<_MatchScoreCard>
     super.dispose();
   }
 
+  Color get _scoreColor {
+    if (widget.percent >= 70) return const Color(0xFF10B981);
+    if (widget.percent >= 40) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
+  }
+
+  String get _verdict {
+    if (widget.percent >= 70) return 'Strong match for this role';
+    if (widget.percent >= 40) return 'Good match — AI will optimise';
+    return 'Partial match — AI highlights your strengths';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppColors.cardShadow,
-      ),
-      child: AnimatedBuilder(
-        animation: _anim,
-        builder: (context, _) {
-          final displayPct = (_anim.value * 100).round();
-          return Row(
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (context, _) {
+        final displayPct = (widget.percent * _anim.value).round();
+        final arcValue = _anim.value * widget.percent / 100;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withValues(alpha: 0.06),
+                width: 1,
+              ),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              // Left: large number
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Label
                     Text(
-                      '$displayPct%',
-                      style: AppTypography.displayMedium.copyWith(
-                        color: widget.color,
-                        fontWeight: FontWeight.w800,
+                      'Match Score',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white38,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    // The number
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: '$displayPct',
+                            style: GoogleFonts.outfit(
+                              color: _scoreColor,
+                              fontSize: 72,
+                              fontWeight: FontWeight.w900,
+                              height: 0.95,
+                              letterSpacing: -2,
+                            ),
+                          ),
+                          TextSpan(
+                            text: '%',
+                            style: GoogleFonts.outfit(
+                              color: _scoreColor.withValues(alpha: 0.5),
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // Thin progress line — minimal, not a card
+                    SizedBox(
+                      width: 160,
+                      child: Stack(
+                        children: [
+                          Container(
+                            height: 2,
+                            color: Colors.white.withValues(alpha: 0.08),
+                          ),
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 100),
+                            height: 2,
+                            width: 160 * arcValue,
+                            decoration: BoxDecoration(
+                              color: _scoreColor,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Text(
-                      displayPct >= 70
-                          ? 'Strong match! Great fit for this role.'
-                          : displayPct >= 40
-                              ? 'Good match. AI will optimize for best fit.'
-                              : 'Some gaps. AI will highlight your strengths.',
-                      style: AppTypography.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
+                      _verdict,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white54,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        height: 1.4,
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+
+              const SizedBox(width: 24),
+
+              // Right: arc indicator — clean, not a card
               SizedBox(
                 width: 80,
                 height: 80,
-                child: Stack(
-                  children: [
-                    CircularProgressIndicator(
-                      value: _anim.value,
-                      strokeWidth: 8,
-                      backgroundColor:
-                          widget.color.withOpacity(0.15),
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(widget.color),
+                child: CustomPaint(
+                  painter: _ArcPainter(
+                    progress: arcValue,
+                    color: _scoreColor,
+                  ),
+                  child: Center(
+                    child: Icon(
+                      widget.percent >= 70
+                          ? Icons.verified_rounded
+                          : widget.percent >= 40
+                              ? Icons.trending_up_rounded
+                              : Icons.show_chart_rounded,
+                      color: _scoreColor.withValues(alpha: 0.7),
+                      size: 22,
                     ),
-                    Center(
-                      child: Icon(
-                        displayPct >= 70
-                            ? Icons.check_circle_rounded
-                            : displayPct >= 40
-                                ? Icons.auto_awesome_rounded
-                                : Icons.trending_up_rounded,
-                        color: widget.color,
-                        size: 28,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+}
+
+// Clean arc painter — just a thin stroke, no card
+class _ArcPainter extends CustomPainter {
+  final double progress;
+  final Color color;
+  _ArcPainter({required this.progress, required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - 4;
+    const startAngle = -math.pi * 0.75;
+    const sweepFull = math.pi * 1.5;
+
+    // Track
+    final trackPaint = Paint()
+      ..color = color.withValues(alpha: 0.1)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: radius),
+      startAngle, sweepFull, false, trackPaint,
+    );
+
+    // Fill
+    if (progress > 0) {
+      final fillPaint = Paint()
+        ..color = color
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+      canvas.drawArc(
+        Rect.fromCircle(center: center, radius: radius),
+        startAngle, sweepFull * progress, false, fillPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ArcPainter old) =>
+      old.progress != progress || old.color != color;
+}
+
+// ── Body Section — label + content, no card ───────────────
+
+class _BodySection extends StatelessWidget {
+  final String label;
+  final String? trailing;
+  final Widget child;
+
+  const _BodySection({
+    required this.label,
+    required this.child,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: GoogleFonts.outfit(
+                color: Colors.white30,
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: 8),
+              Text(
+                '· $trailing',
+                style: GoogleFonts.outfit(
+                  color: Colors.white24,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        child,
+      ],
+    );
+  }
+}
+
+// ── Thin divider ──────────────────────────────────────────
+
+class _Divider extends StatelessWidget {
+  const _Divider();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Container(
+        height: 1,
+        color: Colors.white.withValues(alpha: 0.06),
       ),
     );
   }
 }
 
-class _SkillsGrid extends StatelessWidget {
-  final List<String> skills;
-  final bool isRequired;
+// ── Skill Tags — inline, not boxed ────────────────────────
+// Each skill is a tight pill with the color as a left accent line.
 
-  const _SkillsGrid({required this.skills, required this.isRequired});
+class _InlineSkillTags extends StatelessWidget {
+  final List<String> skills;
+  final Color color;
+
+  const _InlineSkillTags({required this.skills, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    final color = isRequired ? AppColors.success : AppColors.warning;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
       children: skills.map((skill) {
         return Container(
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: 0.3)),
+            color: color.withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(6),
+            border: Border(
+              left: BorderSide(color: color, width: 2),
+            ),
           ),
-          child: Text.rich(
-            TextSpan(
-              children: [
-                WidgetSpan(
-                  alignment: PlaceholderAlignment.middle,
-                  child: Icon(
-                    isRequired
-                        ? Icons.star_rounded
-                        : Icons.add_circle_outline_rounded,
-                    size: 12,
-                    color: color,
-                  ),
-                ),
-                const WidgetSpan(child: SizedBox(width: 4)),
-                TextSpan(
-                  text: skill,
-                  style: AppTypography.labelMedium.copyWith(color: color),
-                ),
-              ],
+          child: Text(
+            skill,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.8),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
         );
@@ -514,15 +895,98 @@ class _SkillsGrid extends StatelessWidget {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader({required this.title});
+// ── Keyword Flow — plain text flow, very minimal ──────────
+// Keywords rendered as a flowing line of comma-separated spans
+// with the accent color on the keyword itself. No borders.
+
+class _KeywordFlow extends StatelessWidget {
+  final List<String> keywords;
+  const _KeywordFlow({required this.keywords});
 
   @override
   Widget build(BuildContext context) {
-    return Text(title, style: AppTypography.headlineSmall);
+    if (keywords.isEmpty) {
+      return const Text(
+        'No keywords detected.',
+        style: TextStyle(color: Colors.white24, fontSize: 13),
+      );
+    }
+
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: keywords.map((kw) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(5),
+          ),
+          child: Text(
+            kw,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0.2,
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 }
+
+// ── CTA Button ────────────────────────────────────────────
+
+class _CTAButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _CTAButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 18),
+        decoration: BoxDecoration(
+          color: const Color(0xFFCBE349),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFCBE349).withValues(alpha: 0.25),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Select Projects',
+              style: GoogleFonts.outfit(
+                color: const Color(0xFF07060F),
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.2,
+              ),
+            ),
+            const SizedBox(width: 10),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              color: Color(0xFF07060F),
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Error State ───────────────────────────────────────────
 
 class _ErrorState extends StatelessWidget {
   final String message;
@@ -534,23 +998,47 @@ class _ErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.all(40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline_rounded,
-                size: 48, color: AppColors.error),
-            const SizedBox(height: 16),
-            Text(AppStrings.aiError, style: AppTypography.headlineSmall),
+            const Icon(Icons.error_outline_rounded, size: 40, color: Color(0xFFEF4444)),
+            const SizedBox(height: 20),
+            Text(
+              AppStrings.aiError,
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 18,
+              ),
+            ),
             const SizedBox(height: 8),
             Text(
               'Trying fallback AI provider...',
-              style: AppTypography.bodySmall,
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.4),
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
+            const SizedBox(height: 32),
+            GestureDetector(
+              onTap: onRetry,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBE349),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  'Retry',
+                  style: GoogleFonts.outfit(
+                    color: const Color(0xFF07060F),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
             ),
           ],
         ),

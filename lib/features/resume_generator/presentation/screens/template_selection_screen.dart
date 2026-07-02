@@ -1,9 +1,10 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
-import '../../../../core/constants/app_typography.dart';
 import '../../../../features/resume_generator/domain/entities/resume_model.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../services/ai/gemini_service.dart';
@@ -68,33 +69,47 @@ class _TemplateSelectionScreenState
       // AI: rewrite bullets for each project
       final rewrittenProjects = <ResumeProject>[];
       for (final ProjectModel project in selectedProjects) {
-        final result = await ai.rewriteProjectBullets(
-          projectTitle: project.title,
-          projectDescription: project.description,
-          technologies: project.technologies,
-          targetRole: analysis.role,
-          keywords: analysis.allKeywords,
-          linkedSkills: project.linkedSkills,
-        );
-        
-        final combinedTech = <String>{
-          ...result.selectedSkills,
-          ...project.technologies,
-        }.toList();
+        if (project.isResearch) {
+          rewrittenProjects.add(ResumeProject(
+            title: project.title,
+            technologies: project.technologies,
+            bullets: project.bulletPoints,
+            githubUrl: project.githubRepo,
+            liveUrl: project.liveUrl,
+          ));
+        } else {
+          final result = await ai.rewriteProjectBullets(
+            projectTitle: project.title,
+            projectDescription: project.description,
+            technologies: project.technologies,
+            targetRole: analysis.role,
+            keywords: analysis.allKeywords,
+            linkedSkills: project.linkedSkills,
+          );
 
-        rewrittenProjects.add(ResumeProject(
-          title: project.title,
-          technologies: combinedTech,
-          bullets: result.bullets,
-          githubUrl: project.githubRepo,
-          liveUrl: project.liveUrl,
-        ));
+          final combinedTech = <String>{
+            ...result.selectedSkills,
+            ...project.technologies,
+          }.toList();
+
+          rewrittenProjects.add(ResumeProject(
+            title: project.title,
+            technologies: combinedTech,
+            bullets: result.bullets,
+            githubUrl: project.githubRepo,
+            liveUrl: project.liveUrl,
+          ));
+        }
       }
 
       // AI: generate professional summary
       final summary = await ai.generateProfessionalSummary(
-        candidateBackground: user.summary.trim().isNotEmpty ? user.summary : 'Experienced software developer / IT professional',
-        targetRole: analysis.role.trim().isNotEmpty ? analysis.role : 'Software Professional',
+        candidateBackground: user.summary.trim().isNotEmpty
+            ? user.summary
+            : 'Experienced software developer / IT professional',
+        targetRole: analysis.role.trim().isNotEmpty
+            ? analysis.role
+            : 'Software Professional',
         keywords: analysis.allKeywords,
         topSkills: selectedProjects
             .expand((ProjectModel p) => p.technologies)
@@ -104,8 +119,9 @@ class _TemplateSelectionScreenState
             .toList(),
       );
 
-      // Fetch user profile sub-collections (skills, education, experience, certifications, achievements)
-      final skillsSnap = await ref.read(firestoreProvider)
+      // Fetch user profile sub-collections
+      final skillsSnap = await ref
+          .read(firestoreProvider)
           .collection('users')
           .doc(uid)
           .collection('skills')
@@ -124,39 +140,41 @@ class _TemplateSelectionScreenState
           .map((e) => ResumeSkillGroup(category: e.key, skills: e.value))
           .toList();
 
-      final eduSnap = await ref.read(firestoreProvider)
+      final eduSnap = await ref
+          .read(firestoreProvider)
           .collection('users')
           .doc(uid)
           .collection('education')
           .get();
       final educationList = eduSnap.docs.map((doc) {
         final m = doc.data();
-        final cgpaVal = m['cgpa'] as String? ?? m['percentage'] as String? ?? '';
+        final cgpaVal =
+            m['cgpa'] as String? ?? m['percentage'] as String? ?? '';
         final startMonth = m['startMonth'] as String? ?? '';
         final startYear = m['startYear'] as String? ?? '';
         final endMonth = m['endMonth'] as String? ?? '';
         final endYear = m['endYear'] as String? ?? '';
-        
-        // Format duration nicely
-        String dur = "";
-        final hasStart = startMonth.isNotEmpty || startYear.isNotEmpty;
+
+        String dur = '';
+        final hasStart =
+            startMonth.isNotEmpty || startYear.isNotEmpty;
         final hasEnd = endMonth.isNotEmpty || endYear.isNotEmpty;
         if (hasStart && hasEnd) {
-          final startPart = "$startMonth $startYear".trim();
-          final endPart = "$endMonth $endYear".trim();
-          dur = "$startPart - $endPart";
+          final startPart = '$startMonth $startYear'.trim();
+          final endPart = '$endMonth $endYear'.trim();
+          dur = '$startPart - $endPart';
         } else if (hasStart) {
-          dur = "$startMonth $startYear".trim();
+          dur = '$startMonth $startYear'.trim();
         } else if (hasEnd) {
-          dur = "$endMonth $endYear".trim();
+          dur = '$endMonth $endYear'.trim();
         }
-        
+
         String inst = m['institution'] as String? ?? '';
         final loc = m['location'] as String? ?? '';
         if (loc.isNotEmpty && !inst.contains(loc)) {
-          inst = "$inst, $loc";
+          inst = '$inst, $loc';
         }
-        
+
         return ResumeEducation(
           institution: inst,
           degree: m['degree'] as String? ?? '',
@@ -166,29 +184,32 @@ class _TemplateSelectionScreenState
         );
       }).toList();
 
-      final expSnap = await ref.read(firestoreProvider)
+      final expSnap = await ref
+          .read(firestoreProvider)
           .collection('users')
           .doc(uid)
           .collection('experience')
           .get();
       final experienceList = expSnap.docs.map((doc) {
         final m = doc.data();
-        final bulletsList = m['bullets'] != null ? List<String>.from(m['bullets'] as List) : <String>[];
+        final bulletsList = m['bullets'] != null
+            ? List<String>.from(m['bullets'] as List)
+            : <String>[];
         final startMonth = m['startMonth'] as String? ?? '';
         final startYear = m['startYear'] as String? ?? '';
         final endMonth = m['endMonth'] as String? ?? '';
         final endYear = m['endYear'] as String? ?? '';
-        
-        String dur = "";
+
+        String dur = '';
         if (startMonth.isNotEmpty || startYear.isNotEmpty) {
-          dur = "$startMonth $startYear".trim();
+          dur = '$startMonth $startYear'.trim();
           if (endMonth.isNotEmpty || endYear.isNotEmpty) {
-            dur += " - $endMonth $endYear".trim();
+            dur += ' - $endMonth $endYear'.trim();
           } else {
-            dur += " - Present";
+            dur += ' - Present';
           }
         }
-        
+
         return ResumeExperience(
           company: m['company'] as String? ?? '',
           role: m['role'] as String? ?? '',
@@ -197,7 +218,8 @@ class _TemplateSelectionScreenState
         );
       }).toList();
 
-      final certsSnap = await ref.read(firestoreProvider)
+      final certsSnap = await ref
+          .read(firestoreProvider)
           .collection('users')
           .doc(uid)
           .collection('certifications')
@@ -212,7 +234,8 @@ class _TemplateSelectionScreenState
         );
       }).toList();
 
-      final achsSnap = await ref.read(firestoreProvider)
+      final achsSnap = await ref
+          .read(firestoreProvider)
           .collection('users')
           .doc(uid)
           .collection('achievements')
@@ -233,6 +256,8 @@ class _TemplateSelectionScreenState
         portfolioUrl: user.portfolioUrl,
         summary: summary.isNotEmpty ? summary : user.summary,
         projects: rewrittenProjects,
+        research: const [],
+        showResearch: true,
         skillGroups: skillGroupsList,
         education: educationList,
         experience: experienceList,
@@ -240,13 +265,14 @@ class _TemplateSelectionScreenState
         achievements: achievementsList,
       );
 
-      // Compute ATS score (code, not AI)
+      // Compute ATS score
       final resumeText = _resumeToText(resumeData);
       final atsScore = _computeAtsScore(resumeText, analysis.allKeywords);
 
       // Save to Firestore
       final resumeId = const Uuid().v4();
-      await ref.read(firestoreProvider)
+      await ref
+          .read(firestoreProvider)
           .collection('users')
           .doc(uid)
           .collection('resumes')
@@ -257,13 +283,12 @@ class _TemplateSelectionScreenState
         'detectedKeywords': analysis.keywords,
         'requiredSkills': analysis.requiredSkills,
         'matchedProjectIds': selectedIds.toList(),
-        'matchPercentage':
-            (selectedProjects.isNotEmpty ? 70 : 30),
+        'matchPercentage': (selectedProjects.isNotEmpty ? 70 : 30),
         'generatedResumeData': resumeData.toJson(),
         'templateUsed': template.name,
         'atsScore': atsScore,
-        'missingKeywords': _findMissingKeywords(
-            resumeText, analysis.allKeywords),
+        'missingKeywords':
+            _findMissingKeywords(resumeText, analysis.allKeywords),
         'status': 'complete',
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -315,122 +340,183 @@ class _TemplateSelectionScreenState
         .toList();
   }
 
+  // ── Build ────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final selected = ref.watch(selectedTemplateProvider);
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F),
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text(AppStrings.selectTemplate),
+        backgroundColor: Colors.transparent,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        leading: GestureDetector(
+          onTap: () => context.pop(),
+          child: Container(
+            margin: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.05),
+              borderRadius: BorderRadius.circular(12),
+              border:
+                  Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: const Icon(Icons.arrow_back_rounded,
+                color: Colors.white, size: 20),
+          ),
+        ),
+        title: Text(
+          'Choose Template',
+          style: GoogleFonts.outfit(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 18,
+          ),
+        ),
       ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 20, vertical: 4),
-            child: Text(
-              'Choose a resume template that fits your style.',
-              style: AppTypography.bodyMedium.copyWith(
-                color: AppColors.textSecondary,
+          // Aurora background
+          Positioned(
+            top: -60, left: -60, width: 200, height: 200,
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFFF0F6),
               ),
             ),
           ),
-          const SizedBox(height: 8),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
+          Positioned(
+            top: -120, left: -120,
+            width: screenHeight * 0.5, height: screenHeight * 0.4,
+            child: Transform.rotate(
+              angle: -0.15,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFEC53B0).withValues(alpha: 0.5),
+                      const Color(0xFF723FFD).withValues(alpha: 0.35),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -50, left: -50,
+            width: screenHeight * 0.35, height: screenHeight * 0.35,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF723FFD).withValues(alpha: 0.25),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 80.0, sigmaY: 80.0),
+              child: Container(
+                color: const Color(0xFF07060F).withValues(alpha: 0.35),
+              ),
+            ),
+          ),
+
+          // Content
+          SafeArea(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _TemplateCard(
-                  template: ResumeTemplate.atsProfessional,
-                  title: AppStrings.templateAts,
-                  subtitle: AppStrings.templateAtsSub,
-                  icon: Icons.check_circle_outline_rounded,
-                  description:
-                      'Single column, clean formatting — maximally parseable by ATS systems. Best for corporate roles.',
-                  isSelected:
-                      selected == ResumeTemplate.atsProfessional,
-                  accentColor: AppColors.success,
-                  onTap: () => ref
-                      .read(selectedTemplateProvider.notifier)
-                      .state = ResumeTemplate.atsProfessional,
+                // ── Header subtitle ─────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Each template is ATS-optimised.\nPick the layout that fits your industry.',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white38,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 1,
+                        color: Colors.white.withValues(alpha: 0.06),
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _TemplateCard(
-                  template: ResumeTemplate.modernMinimal,
-                  title: AppStrings.templateModern,
-                  subtitle: AppStrings.templateModernSub,
-                  icon: Icons.grid_view_rounded,
-                  description:
-                      'Two-column layout with sidebar. Elegant for design and tech roles. Balances visual appeal with ATS.',
-                  isSelected:
-                      selected == ResumeTemplate.modernMinimal,
-                  accentColor: AppColors.accent,
-                  onTap: () => ref
-                      .read(selectedTemplateProvider.notifier)
-                      .state = ResumeTemplate.modernMinimal,
+
+                // ── Template list ───────────────────────────
+                Expanded(
+                  child: ListView(
+                    physics: const BouncingScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                    children: [
+                      _TemplateCard(
+                        template: ResumeTemplate.atsProfessional,
+                        title: AppStrings.templateAts,
+                        tag: 'Most Compatible',
+                        tagColor: const Color(0xFF10B981),
+                        description:
+                            'Single column, clean formatting — maximally parseable by ATS systems. Best for corporate and enterprise roles.',
+                        accentColor: const Color(0xFF10B981),
+                        isSelected:
+                            selected == ResumeTemplate.atsProfessional,
+                        onTap: () => ref
+                            .read(selectedTemplateProvider.notifier)
+                            .state = ResumeTemplate.atsProfessional,
+                      ),
+                      const SizedBox(height: 12),
+                      _TemplateCard(
+                        template: ResumeTemplate.modernMinimal,
+                        title: AppStrings.templateModern,
+                        tag: 'Design & Tech',
+                        tagColor: const Color(0xFFCBE349),
+                        description:
+                            'Two-column layout with sidebar. Elegant for creative and technical roles. Balances visual appeal with ATS.',
+                        accentColor: const Color(0xFFCBE349),
+                        isSelected:
+                            selected == ResumeTemplate.modernMinimal,
+                        onTap: () => ref
+                            .read(selectedTemplateProvider.notifier)
+                            .state = ResumeTemplate.modernMinimal,
+                      ),
+                      const SizedBox(height: 12),
+                      _TemplateCard(
+                        template: ResumeTemplate.compactClean,
+                        title: AppStrings.templateCompact,
+                        tag: 'Space Efficient',
+                        tagColor: const Color(0xFFF59E0B),
+                        description:
+                            'Dense but highly readable. Smart truncation keeps everything on one page.',
+                        accentColor: const Color(0xFFF59E0B),
+                        isSelected:
+                            selected == ResumeTemplate.compactClean,
+                        onTap: () => ref
+                            .read(selectedTemplateProvider.notifier)
+                            .state = ResumeTemplate.compactClean,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 12),
-                _TemplateCard(
-                  template: ResumeTemplate.compactClean,
-                  title: AppStrings.templateCompact,
-                  subtitle: AppStrings.templateCompactSub,
-                  icon: Icons.compress_rounded,
-                  description:
-                      'Dense but highly readable. Smart truncation keeps everything to 1 page.',
-                  isSelected: selected == ResumeTemplate.compactClean,
-                  accentColor: AppColors.warning,
-                  onTap: () => ref
-                      .read(selectedTemplateProvider.notifier)
-                      .state = ResumeTemplate.compactClean,
+
+                // ── Generate CTA ────────────────────────────
+                _GenerateCTA(
+                  isGenerating: _isGenerating,
+                  onTap: _isGenerating ? null : _generateResume,
                 ),
               ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: ElevatedButton(
-              onPressed: _isGenerating ? null : _generateResume,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.accent,
-                minimumSize: const Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-              child: _isGenerating
-                  ? const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(width: 12),
-                        Text('AI is crafting your resume...'),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.auto_awesome_rounded,
-                            size: 18),
-                        const SizedBox(width: 8),
-                        Text(
-                          AppStrings.generateNow,
-                          style: AppTypography.labelLarge.copyWith(
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
             ),
           ),
         ],
@@ -439,12 +525,16 @@ class _TemplateSelectionScreenState
   }
 }
 
+
+
+// ── Template Card ──────────────────────────────────────────
+
 class _TemplateCard extends StatelessWidget {
   final ResumeTemplate template;
   final String title;
-  final String subtitle;
+  final String tag;
+  final Color tagColor;
   final String description;
-  final IconData icon;
   final bool isSelected;
   final Color accentColor;
   final VoidCallback onTap;
@@ -452,9 +542,9 @@ class _TemplateCard extends StatelessWidget {
   const _TemplateCard({
     required this.template,
     required this.title,
-    required this.subtitle,
+    required this.tag,
+    required this.tagColor,
     required this.description,
-    required this.icon,
     required this.isSelected,
     required this.accentColor,
     required this.onTap,
@@ -464,102 +554,227 @@ class _TemplateCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? accentColor.withOpacity(0.04)
-              : AppColors.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? accentColor : AppColors.border,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: accentColor.withOpacity(0.15),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  )
-                ]
-              : AppColors.cardShadow,
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: accentColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        children: [
+          // Card body — uniform border
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : Colors.white.withValues(alpha: 0.02),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.06),
+                width: 1,
               ),
-              child: Icon(icon, color: accentColor, size: 22),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Text(title, style: AppTypography.headlineSmall),
-                      if (isSelected) ...[
-                        const SizedBox(width: 8),
+
+                  // Info column
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Title + selected indicator
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                title,
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                  height: 1.2,
+                                ),
+                              ),
+                            ),
+                            if (isSelected) ...[
+                              const SizedBox(width: 8),
+                              AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                width: 18,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: accentColor,
+                                ),
+                                child: const Icon(
+                                  Icons.check_rounded,
+                                  size: 11,
+                                  color: Color(0xFF07060F),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                        const SizedBox(height: 5),
+                        // Tag pill
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: accentColor.withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            color: tagColor.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: tagColor.withValues(alpha: 0.2),
+                              width: 1,
+                            ),
                           ),
                           child: Text(
-                            'Selected',
-                            style: AppTypography.labelSmall.copyWith(
-                              color: accentColor,
+                            tag,
+                            style: TextStyle(
+                              color: tagColor,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
                             ),
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        // Description
+                        Text(
+                          description,
+                          style: GoogleFonts.outfit(
+                            color: Colors.white.withValues(alpha: 0.38),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w400,
+                            height: 1.5,
+                          ),
+                        ),
                       ],
-                    ],
-                  ),
-                  Text(
-                    subtitle,
-                    style: AppTypography.labelMedium.copyWith(
-                      color: accentColor,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    description,
-                    style: AppTypography.bodySmall.copyWith(
-                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-            // Selection indicator
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 20,
-              height: 20,
+          ),
+
+          // Left accent bar — separate overlay
+          Positioned(
+            top: 0, bottom: 0, left: 0,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
+              width: isSelected ? 3.0 : 0.0,
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isSelected ? accentColor : Colors.transparent,
-                border: Border.all(
-                  color: isSelected ? accentColor : AppColors.border,
-                  width: 1.5,
+                color: accentColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
                 ),
               ),
-              child: isSelected
-                  ? const Icon(Icons.check_rounded,
-                      size: 12, color: Colors.white)
-                  : null,
             ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+
+// ── Generate CTA ──────────────────────────────────────────
+
+class _GenerateCTA extends StatelessWidget {
+  final bool isGenerating;
+  final VoidCallback? onTap;
+
+  const _GenerateCTA({required this.isGenerating, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          padding: EdgeInsets.fromLTRB(
+            20, 12, 20,
+            MediaQuery.of(context).padding.bottom + 20,
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFF07060F).withValues(alpha: 0.7),
+            border: Border(
+              top: BorderSide(
+                color: Colors.white.withValues(alpha: 0.07),
+                width: 1,
+              ),
+            ),
+          ),
+          child: GestureDetector(
+            onTap: onTap,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 250),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 17),
+              decoration: BoxDecoration(
+                color: isGenerating
+                    ? Colors.white.withValues(alpha: 0.06)
+                    : const Color(0xFFCBE349),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: isGenerating
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: const Color(0xFFCBE349)
+                              .withValues(alpha: 0.25),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+              ),
+              child: isGenerating
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white.withValues(alpha: 0.5),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'AI is crafting your resume...',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white38,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome_rounded,
+                          color: Color(0xFF07060F),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          AppStrings.generateNow,
+                          style: GoogleFonts.outfit(
+                            color: const Color(0xFF07060F),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+          ),
         ),
       ),
     );

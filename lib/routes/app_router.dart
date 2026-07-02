@@ -15,6 +15,7 @@ import '../features/dashboard/presentation/screens/dashboard_screen.dart';
 import '../features/projects/presentation/screens/projects_screen.dart';
 import '../features/projects/presentation/screens/add_edit_project_screen.dart';
 import '../features/projects/presentation/screens/github_repo_view_screen.dart';
+import '../features/projects/presentation/screens/add_edit_research_screen.dart';
 import '../features/resume_generator/presentation/screens/generate_screen.dart';
 import '../features/resume_generator/presentation/screens/ai_analysis_screen.dart';
 import '../features/resume_generator/presentation/screens/project_selection_screen.dart';
@@ -27,7 +28,9 @@ import '../features/profile/presentation/screens/profile_section_edit_screen.dar
 import '../features/profile/presentation/screens/profile_skills_edit_screen.dart';
 import '../features/profile/presentation/screens/profile_summary_ai_enhance_screen.dart';
 import '../features/profile/presentation/screens/settings_screen.dart';
+import '../features/profile/presentation/screens/points_screen.dart';
 import '../features/jobs/presentation/screens/job_openings_screen.dart';
+import '../features/dashboard/presentation/screens/resume_guide_screen.dart';
 import '../shared/widgets/app_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -233,6 +236,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   ),
                 ),
               ),
+              GoRoute(
+                path: 'add-research',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) => _slideUpTransition(
+                  state,
+                  const AddEditResearchScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'edit-research/:projectId',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) => _slideUpTransition(
+                  state,
+                  AddEditResearchScreen(
+                    projectId: state.pathParameters['projectId'],
+                  ),
+                ),
+              ),
             ],
           ),
           GoRoute(
@@ -344,6 +365,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   return _slideTransition(
                     state,
                     const SettingsScreen(),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'points',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) {
+                  return _slideTransition(
+                    state,
+                    const PointsScreen(),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'resume-guide/:type',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) {
+                  final type = state.pathParameters['type'] ?? 'technical';
+                  return _slideTransition(
+                    state,
+                    ResumeGuideScreen(type: type),
                   );
                 },
               ),

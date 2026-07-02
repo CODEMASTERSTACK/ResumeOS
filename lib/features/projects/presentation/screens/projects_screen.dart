@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -14,6 +16,7 @@ import '../../../../services/github/github_service.dart';
 import '../../../../services/github/github_sync_limiter.dart';
 import '../../../../features/dashboard/presentation/screens/dashboard_screen.dart'; // for userProfileProvider
 import '../../../../routes/route_names.dart';
+import '../../../../shared/widgets/custom_toast.dart';
 
 // ── Provider ───────────────────────────────────────────────
 
@@ -77,23 +80,56 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   String? _parseGitHubUsername(String url) {
     if (url.isEmpty) return null;
     var cleanUrl = url.trim();
+    
+    // Remove query parameters and hash fragments
+    if (cleanUrl.contains('?')) {
+      cleanUrl = cleanUrl.split('?')[0];
+    }
+    if (cleanUrl.contains('#')) {
+      cleanUrl = cleanUrl.split('#')[0];
+    }
+
+    List<String> segments;
     if (cleanUrl.contains('github.com/')) {
       final parts = cleanUrl.split('github.com/');
       if (parts.length > 1) {
-        var username = parts[1].trim();
-        if (username.contains('/')) {
-          username = username.split('/')[0];
-        }
-        if (username.contains('?')) {
-          username = username.split('?')[0];
-        }
-        return username.isNotEmpty ? username : null;
+        segments = parts[1].split('/').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+      } else {
+        return null;
       }
+    } else {
+      segments = cleanUrl.split('/').map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
     }
-    // If it's a raw username (no dots, no slashes)
-    if (!cleanUrl.contains('/') && !cleanUrl.contains('.')) {
-      return cleanUrl;
+
+    if (segments.isEmpty) return null;
+
+    // Reserved words that might precede a username or be part of a non-user URL
+    const reservedPrefixes = {'users', 'orgs', 'teams'};
+    const reservedWords = {
+      'settings', 'notifications', 'search', 'trending', 'sponsors', 'features', 
+      'enterprise', 'explore', 'marketplace', 'topics', 'collections', 'events', 
+      'about', 'contact', 'careers', 'press', 'blog', 'shop', 'pulls', 'issues', 
+      'discussions', 'codespaces', 'copilot', 'security', 'cookies', 'site', 
+      'privacy', 'terms', 'dashboard'
+    };
+
+    int index = 0;
+    while (index < segments.length) {
+      final segment = segments[index];
+      final lowerSegment = segment.toLowerCase();
+      
+      if (reservedPrefixes.contains(lowerSegment)) {
+        index++; // Skip "users", "orgs", "teams" and look at the next segment
+        continue;
+      }
+      
+      if (reservedWords.contains(lowerSegment)) {
+        return null; // This is a general GitHub page, not a user profile
+      }
+      
+      return segment; // This segment is the username
     }
+
     return null;
   }
 
@@ -106,8 +142,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
     final user = ref.read(userProfileProvider).value;
     if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile is still loading. Please wait a moment...')),
+      CustomToast.show(
+        context,
+        message: 'Profile is still loading. Please wait a moment...',
+        type: ToastType.info,
       );
       return;
     }
@@ -120,8 +158,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
     final username = _parseGitHubUsername(githubUrl);
     if (username == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not parse a valid GitHub username from your profile URL. Please verify your profile details.')),
+      CustomToast.show(
+        context,
+        message: 'Could not parse a valid GitHub username from your profile URL. Please verify your profile details.',
+        type: ToastType.error,
       );
       return;
     }
@@ -198,11 +238,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
       if (newRepos.isEmpty) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('All public repositories are already in your project list!'),
-              backgroundColor: AppColors.success,
-            ),
+          CustomToast.show(
+            context,
+            message: 'All public repositories are already in your project list!',
+            type: ToastType.success,
           );
         }
         return;
@@ -216,11 +255,14 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         Navigator.of(dialogContext!).pop();
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error syncing with GitHub: $e'),
-            backgroundColor: AppColors.error,
-          ),
+        String errorMsg = e.toString();
+        if (errorMsg.contains('404')) {
+          errorMsg = 'GitHub user "$username" not found. Please check your profile details.';
+        }
+        CustomToast.show(
+          context,
+          message: 'Error syncing with GitHub: $errorMsg',
+          type: ToastType.error,
         );
       }
     } finally {
@@ -685,11 +727,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Successfully imported ${toImport.length} project(s) from GitHub!'),
-            backgroundColor: AppColors.success,
-          ),
+        CustomToast.show(
+          context,
+          message: 'Successfully imported ${toImport.length} project(s) from GitHub!',
+          type: ToastType.success,
         );
       }
     } catch (e) {
@@ -697,11 +738,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         Navigator.of(dialogContext!).pop();
       }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to import projects: $e'),
-            backgroundColor: AppColors.error,
-          ),
+        CustomToast.show(
+          context,
+          message: 'Failed to import projects: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -711,11 +751,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     final status = _limitStatus!;
     final isBlocked = status.isBlocked;
     final bgColor = isBlocked
-        ? AppColors.error.withOpacity(0.06)
-        : AppColors.warning.withOpacity(0.06);
+        ? AppColors.error.withValues(alpha: 0.06)
+        : AppColors.warning.withValues(alpha: 0.06);
     final borderColor = isBlocked
-        ? AppColors.error.withOpacity(0.3)
-        : AppColors.warning.withOpacity(0.3);
+        ? AppColors.error.withValues(alpha: 0.3)
+        : AppColors.warning.withValues(alpha: 0.3);
     final textColor = isBlocked ? AppColors.error : AppColors.warning;
     final icon = isBlocked ? Icons.hourglass_bottom_rounded : Icons.warning_amber_rounded;
 
@@ -750,224 +790,531 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
   }
 
+  void _showAddSelectionBottomSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF13111C).withValues(alpha: 0.95),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Add New Work',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(ctx),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.05),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close_rounded, color: Colors.white70, size: 16),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Choose the type of entry you want to add to your profile.',
+                style: GoogleFonts.outfit(
+                  color: Colors.white.withValues(alpha: 0.5),
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 24),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/projects/add');
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.accent.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.code_rounded, color: AppColors.accent, size: 22),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Technical Project',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Applications, websites, software tools, open source repos.',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white.withValues(alpha: 0.5),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, color: Colors.white30),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(ctx);
+                  context.push('/projects/add-research');
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      width: 1.0,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF6FB1FC).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.biotech_rounded, color: Color(0xFF6FB1FC), size: 22),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Research Work',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Papers, studies, scientific articles, lab work, publications.',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white.withValues(alpha: 0.5),
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded, color: Colors.white30),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final projectsAsync = ref.watch(projectsProvider);
     final filter = ref.watch(projectFilterProvider);
     final search = ref.watch(projectSearchProvider);
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F), // Rich dark indigo base
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: const Text(AppStrings.myProjects),
+        backgroundColor: Colors.transparent,
+        title: const FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Projects & Research Work',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 20,
+              letterSpacing: -0.5,
+            ),
+          ),
+        ),
         elevation: 0,
         scrolledUnderElevation: 0,
         actions: [
           // GitHub Sync Button with Rate-Limiting indicator
-          IconButton(
-            onPressed: _isSyncing ? null : _handleGitHubSync,
-            tooltip: _limitStatus?.isBlocked == true
-                ? 'Rate limit active. Please wait.'
-                : 'Sync from GitHub profile',
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: _limitStatus?.isBlocked == true
-                        ? AppColors.surfaceVariant
-                        : AppColors.surface,
-                    border: Border.all(
-                      color: _limitStatus?.showWarning == true
-                          ? AppColors.warning
-                          : _limitStatus?.isBlocked == true
-                              ? AppColors.border
-                              : AppColors.border,
-                      width: _limitStatus?.showWarning == true ? 1.5 : 1,
+          GestureDetector(
+            onTap: _isSyncing ? null : _handleGitHubSync,
+            child: Tooltip(
+              message: _limitStatus?.isBlocked == true
+                  ? 'Rate limit active. Please wait.'
+                  : 'Sync from GitHub profile',
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: _limitStatus?.showWarning == true
+                            ? AppColors.warning
+                            : _limitStatus?.isBlocked == true
+                                ? AppColors.error.withValues(alpha: 0.5)
+                                : Colors.white.withValues(alpha: 0.08),
+                        width: _limitStatus?.showWarning == true || _limitStatus?.isBlocked == true ? 1.5 : 1,
+                      ),
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _isSyncing
-                      ? const Padding(
-                          padding: EdgeInsets.all(7.0),
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.accent,
+                    child: _isSyncing
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.accent,
+                            ),
+                          )
+                        : Icon(
+                            Icons.sync_rounded,
+                            color: _limitStatus?.isBlocked == true
+                               ? AppColors.error
+                                : _limitStatus?.showWarning == true
+                                    ? AppColors.warning
+                                    : Colors.white,
+                            size: 20,
                           ),
-                        )
-                      : Icon(
-                          Icons.sync_rounded,
-                          color: _limitStatus?.isBlocked == true
-                              ? AppColors.textDisabled
-                              : _limitStatus?.showWarning == true
-                                  ? AppColors.warning
-                                  : AppColors.textPrimary,
-                          size: 18,
+                  ),
+                  if (_limitStatus?.showWarning == true)
+                    Positioned(
+                      top: -1,
+                      right: -1,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.warning,
+                          shape: BoxShape.circle,
                         ),
-                ),
-                if (_limitStatus?.showWarning == true)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.warning,
-                        shape: BoxShape.circle,
                       ),
                     ),
-                  ),
-                if (_limitStatus?.isBlocked == true)
-                  Positioned(
-                    top: -2,
-                    right: -2,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: AppColors.error,
-                        shape: BoxShape.circle,
+                  if (_limitStatus?.isBlocked == true)
+                    Positioned(
+                      top: -1,
+                      right: -1,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AppColors.error,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
-          IconButton(
-            onPressed: () => context.push('/projects/add'),
-            icon: Container(
-              width: 32,
-              height: 32,
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: () => _showAddSelectionBottomSheet(context),
+            child: Container(
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: AppColors.accent,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.25),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-              child: const Icon(Icons.add, color: Colors.white, size: 18),
+              child: const Icon(Icons.add, color: Colors.black, size: 20),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 20),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          // Rate-Limit/Cooldown warning banner
-          if (_limitStatus != null && (_limitStatus!.showWarning || _limitStatus!.isBlocked))
-            _buildRateLimitBanner(),
-
-          // Search + Filters
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Column(
-              children: [
-                _SearchBar(
-                  onChanged: (v) =>
-                      ref.read(projectSearchProvider.notifier).state = v,
-                ),
-                const SizedBox(height: 12),
-                _FilterChips(
-                  selected: filter,
-                  onSelect: (v) =>
-                      ref.read(projectFilterProvider.notifier).state = v,
-                ),
-              ],
+          // 1. Core Bright focal light source (top-left) - almost white-pink bloom
+          Positioned(
+            top: -60,
+            left: -60,
+            width: 220,
+            height: 220,
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFFF0F6), // White-pink core bloom
+              ),
             ),
           ),
 
-          // Projects List
-          Expanded(
-            child: projectsAsync.when(
-              data: (projects) {
-                var filtered = projects;
-                if (search.isNotEmpty) {
-                  filtered = filtered
-                      .where((p) =>
-                          p.title.toLowerCase().contains(search.toLowerCase()) ||
-                          p.technologies.any((t) =>
-                              t.toLowerCase().contains(search.toLowerCase())))
-                      .toList();
-                }
-                if (filter == 'github') {
-                  filtered =
-                      filtered.where((p) => p.isGithubSynced).toList();
-                } else if (filter == 'manual') {
-                  filtered =
-                      filtered.where((p) => !p.isGithubSynced).toList();
-                }
+          // 2. Neon Sunlight effect (bright warm golden sunlight leak)
+          Positioned(
+            top: -100,
+            left: -100,
+            width: 260,
+            height: 260,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  center: Alignment.center,
+                  radius: 0.85,
+                  colors: [
+                    const Color(0xFFFFFFE0), // Hot golden white sun core
+                    const Color(0xFFFFEE55).withValues(alpha: 0.5), // Vibrant neon yellow bloom
+                    const Color(0xFFFFB300).withValues(alpha: 0.25), // Neon amber halo
+                    Colors.transparent,
+                  ],
+                  stops: const [0.0, 0.35, 0.7, 1.0],
+                ),
+              ),
+            ),
+          ),
 
-                if (filtered.isEmpty) {
-                  return _EmptyProjects(
-                    hasProjects: projects.isNotEmpty,
-                    onAdd: () => context.push('/projects/add'),
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.only(
-                      left: 20, right: 20, top: 8, bottom: 108),
-                  itemCount: filtered.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (context, i) => _ProjectCard(
-                    project: filtered[i],
-                    onTap: () {
-                      if (filtered[i].isGithubSynced) {
-                        context.push('/projects/github-view/${filtered[i].id}');
-                      } else {
-                        context.push('/projects/edit/${filtered[i].id}');
-                      }
-                    },
+          // 2. Volumetric Diagonal Light Leak / Spotlight beam
+          Positioned(
+            top: -120,
+            left: -120,
+            width: screenHeight * 0.55,
+            height: screenHeight * 0.45,
+            child: Transform.rotate(
+              angle: -0.15, // Soft diagonal sweep toward center-right
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFEC53B0).withValues(alpha: 0.6), // Magenta highlight
+                      const Color(0xFF723FFD).withValues(alpha: 0.45), // Purple highlight
+                      const Color(0xFF1E6AFF).withValues(alpha: 0.25), // Blue accent
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.4, 0.75, 1.0],
                   ),
-                );
-              },
-              loading: () => const _ProjectsShimmer(),
-              error: (e, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
+                ),
+              ),
+            ),
+          ),
+
+          // 3. Layered ambient purple glow layer for surrounding bloom
+          Positioned(
+            top: -50,
+            left: -50,
+            width: screenHeight * 0.4,
+            height: screenHeight * 0.4,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF723FFD).withValues(alpha: 0.3),
+              ),
+            ),
+          ),
+
+          // 4. Secondary soft blue highlight (extends center-right)
+          Positioned(
+            top: 60,
+            left: 100,
+            width: screenHeight * 0.4,
+            height: screenHeight * 0.3,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF1E6AFF).withValues(alpha: 0.22),
+              ),
+            ),
+          ),
+
+          // 5. Cinematic Blur overlay to blend layers into an immersive aurora bloom
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 95.0, sigmaY: 95.0),
+              child: Container(
+                color: const Color(0xFF07060F).withValues(alpha: 0.30), // Integrated background overlay
+              ),
+            ),
+          ),
+
+          // 6. Content List Layer
+          SafeArea(
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                // Rate-Limit/Cooldown warning banner
+                if (_limitStatus != null && (_limitStatus!.showWarning || _limitStatus!.isBlocked))
+                  _buildRateLimitBanner(),
+
+                // Search + Filters
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: AppColors.error.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: const Icon(
-                          Icons.error_outline_rounded,
-                          size: 36,
-                          color: AppColors.error,
-                        ),
+                      _SearchBar(
+                        onChanged: (v) =>
+                            ref.read(projectSearchProvider.notifier).state = v,
                       ),
-                      const SizedBox(height: 20),
-                      Text(
-                        'Unable to Sync Projects',
-                        style: AppTypography.headlineMedium,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'We couldn\'t load your projects due to a temporary database sync issue.',
-                        style: AppTypography.bodyMedium.copyWith(
-                          color: AppColors.textSecondary,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 24),
-                      AppButton(
-                        label: 'Retry Connection',
-                        fullWidth: false,
-                        variant: AppButtonVariant.secondary,
-                        icon: Icons.refresh_rounded,
-                        onTap: () => ref.invalidate(projectsProvider),
+                      const SizedBox(height: 12),
+                      _FilterChips(
+                        selected: filter,
+                        onSelect: (v) =>
+                            ref.read(projectFilterProvider.notifier).state = v,
                       ),
                     ],
                   ),
                 ),
-              ),
+
+                // Projects List
+                Expanded(
+                  child: projectsAsync.when(
+                    data: (projects) {
+                      var filtered = projects;
+                      if (search.isNotEmpty) {
+                        filtered = filtered
+                            .where((p) =>
+                                p.title.toLowerCase().contains(search.toLowerCase()) ||
+                                p.technologies.any((t) =>
+                                    t.toLowerCase().contains(search.toLowerCase())))
+                            .toList();
+                      }
+                      if (filter == 'projects') {
+                        filtered =
+                            filtered.where((p) => !p.isResearch).toList();
+                      } else if (filter == 'research') {
+                        filtered =
+                            filtered.where((p) => p.isResearch).toList();
+                      }
+
+                      if (filtered.isEmpty) {
+                        return _EmptyProjects(
+                          hasProjects: projects.isNotEmpty,
+                          onAdd: () => _showAddSelectionBottomSheet(context),
+                        );
+                      }
+
+                      return ListView.separated(
+                        padding: const EdgeInsets.only(
+                            left: 20, right: 20, top: 8, bottom: 108),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, i) => _ProjectCard(
+                          project: filtered[i],
+                          onTap: () {
+                            if (filtered[i].isResearch) {
+                              context.push('/projects/edit-research/${filtered[i].id}');
+                            } else if (filtered[i].isGithubSynced) {
+                              context.push('/projects/github-view/${filtered[i].id}');
+                            } else {
+                              context.push('/projects/edit/${filtered[i].id}');
+                            }
+                          },
+                        ),
+                      );
+                    },
+                    loading: () => const _ProjectsShimmer(),
+                    error: (e, _) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                color: AppColors.error.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Icon(
+                                Icons.error_outline_rounded,
+                                size: 36,
+                                color: AppColors.error,
+                              ),
+                            ),
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Unable to Sync Projects',
+                              style: AppTypography.headlineMedium,
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'We couldn\'t load your projects due to a temporary database sync issue.',
+                              style: AppTypography.bodyMedium.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            AppButton(
+                              label: 'Retry Connection',
+                              fullWidth: false,
+                              variant: AppButtonVariant.secondary,
+                              icon: Icons.refresh_rounded,
+                              onTap: () => ref.invalidate(projectsProvider),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -987,12 +1334,24 @@ class _SearchBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       onChanged: onChanged,
+      style: const TextStyle(color: Colors.white),
       decoration: InputDecoration(
         hintText: AppStrings.searchProjects,
-        prefixIcon: const Icon(Icons.search_rounded,
-            color: AppColors.textMuted, size: 20),
+        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.4)),
+        prefixIcon: Icon(Icons.search_rounded,
+            color: Colors.white.withValues(alpha: 0.4), size: 20),
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.04),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppColors.accent, width: 1.5),
+        ),
       ),
     );
   }
@@ -1009,9 +1368,9 @@ class _FilterChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final options = [
-      ('all', AppStrings.allProjects),
-      ('github', AppStrings.githubProjects),
-      ('manual', AppStrings.manualProjects),
+      ('all', 'All'),
+      ('projects', 'Projects'),
+      ('research', 'Research Work'),
     ];
 
     return SizedBox(
@@ -1030,13 +1389,14 @@ class _FilterChips extends StatelessWidget {
                     horizontal: 14, vertical: 6),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? AppColors.primary
-                      : AppColors.surface,
+                      ? AppColors.accent.withValues(alpha: 0.12)
+                      : Colors.white.withValues(alpha: 0.04),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
                     color: isSelected
-                        ? AppColors.primary
-                        : AppColors.border,
+                        ? AppColors.accent.withValues(alpha: 0.35)
+                        : Colors.white.withValues(alpha: 0.08),
+                    width: 1.0,
                   ),
                 ),
                 child: Text(
@@ -1044,9 +1404,9 @@ class _FilterChips extends StatelessWidget {
                   style: AppTypography.labelMedium.copyWith(
                     color: isSelected
                         ? Colors.white
-                        : AppColors.textSecondary,
+                        : Colors.white.withValues(alpha: 0.50),
                     fontWeight: isSelected
-                        ? FontWeight.w600
+                        ? FontWeight.w700
                         : FontWeight.w400,
                   ),
                 ),
@@ -1082,7 +1442,8 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.surface,
+      useRootNavigator: true,
+      backgroundColor: const Color(0xFF13111C),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -1100,7 +1461,7 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
+        backgroundColor: const Color(0xFF1E1C28),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
@@ -1168,17 +1529,25 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
+            color: const Color(0xFF13111C).withValues(alpha: 0.50),
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(
-              color: _hovered ? AppColors.accent : AppColors.border,
-              width: _hovered ? 1.5 : 1,
+              color: _hovered
+                  ? AppColors.accent.withValues(alpha: 0.6)
+                  : Colors.white.withValues(alpha: 0.05),
+              width: 1.0,
             ),
-            boxShadow: _hovered
-                ? AppColors.elevatedShadow
-                : AppColors.cardShadow,
+            boxShadow: [
+              BoxShadow(
+                color: _hovered
+                    ? AppColors.accent.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.15),
+                blurRadius: _hovered ? 20 : 12,
+                offset: const Offset(0, 6),
+              ),
+            ],
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1189,7 +1558,12 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
                   Expanded(
                     child: Text(
                       p.title,
-                      style: AppTypography.headlineSmall,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 18,
+                        letterSpacing: -0.3,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1204,10 +1578,10 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.accent.withOpacity(0.1),
+                          color: AppColors.accent.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: AppColors.accent.withOpacity(0.3),
+                            color: AppColors.accent.withValues(alpha: 0.25),
                             width: 1,
                           ),
                         ),
@@ -1239,10 +1613,10 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: AppColors.error.withOpacity(0.1),
+                          color: AppColors.error.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: AppColors.error.withOpacity(0.3),
+                            color: AppColors.error.withValues(alpha: 0.25),
                             width: 1,
                           ),
                         ),
@@ -1254,7 +1628,34 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
                       ),
                     ),
                   ),
-                  if (p.isGithubSynced) ...[
+                  if (p.isResearch) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6FB1FC).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: const Color(0xFF6FB1FC).withValues(alpha: 0.2)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.biotech_rounded,
+                              size: 10, color: Color(0xFF6FB1FC)),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Research',
+                            style: GoogleFonts.outfit(
+                              color: const Color(0xFF6FB1FC),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else if (p.isGithubSynced) ...[
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -1262,6 +1663,7 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF0D1117),
                         borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -1280,22 +1682,81 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
                 ],
               ),
 
-              if (p.description.isNotEmpty) ...[
+              if (p.isResearch && p.duration.isNotEmpty) ...[
                 const SizedBox(height: 6),
-                Text(
-                  p.description,
-                  style: AppTypography.bodySmall.copyWith(
-                    color: AppColors.textSecondary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today_rounded,
+                        size: 12, color: Colors.white.withValues(alpha: 0.4)),
+                    const SizedBox(width: 6),
+                    Text(
+                      p.duration,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white.withValues(alpha: 0.6),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ],
 
-              const SizedBox(height: 12),
+              if (p.isResearch) ...[
+                if (p.bulletPoints.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Column(
+                    children: p.bulletPoints.map((bullet) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6.0, right: 8),
+                              child: Container(
+                                width: 5,
+                                height: 5,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF6FB1FC),
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Text(
+                                bullet,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                  fontSize: 12.5,
+                                  height: 1.45,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ] else ...[
+                if (p.description.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    p.description,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.65),
+                      fontSize: 13,
+                      height: 1.45,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
 
               // Tech stack chips
-              if (p.technologies.isNotEmpty) ...[
+              if (!p.isResearch && p.technologies.isNotEmpty) ...[
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
@@ -1304,14 +1765,18 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
+                        color: Colors.white.withValues(alpha: 0.04),
                         borderRadius: BorderRadius.circular(6),
                         border:
-                            Border.all(color: AppColors.border),
+                            Border.all(color: Colors.white.withValues(alpha: 0.08)),
                       ),
                       child: Text(
                         tech,
-                        style: AppTypography.labelSmall,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.70),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     );
                   }).toList(),
@@ -1319,25 +1784,28 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
               ],
 
               // AI summary preview
-              if (p.aiSummary.isNotEmpty) ...[
-                const SizedBox(height: 10),
+              if (!p.isResearch && p.aiSummary.isNotEmpty) ...[
+                const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: AppColors.accentContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    color: AppColors.accent.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.accent.withValues(alpha: 0.20)),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Icon(Icons.auto_awesome_rounded,
                           size: 14, color: AppColors.accent),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           p.aiSummary,
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.accent,
+                          style: TextStyle(
+                            color: AppColors.accent.withValues(alpha: 0.9),
+                            fontSize: 12,
+                            height: 1.4,
                           ),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
@@ -1348,21 +1816,89 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
                 ),
               ],
 
+              // Contributors List
+              if (p.isResearch && p.contributors.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.02),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'CONTRIBUTORS',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: p.contributors.map((c) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.04),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  c.name,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (c.contribution.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    c.contribution,
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white.withValues(alpha: 0.5),
+                                      fontSize: 10.5,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               // Linked Skills Section
               if (p.linkedSkills.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
                   children: p.linkedSkills.map((skill) {
                     return Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
-                        color: AppColors.accentContainer.withOpacity(0.4),
-                        borderRadius: BorderRadius.circular(6),
+                        color: AppColors.accent.withValues(alpha: 0.05),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(
-                          color: AppColors.accent.withOpacity(0.2),
+                          color: AppColors.accent.withValues(alpha: 0.15),
                         ),
                       ),
                       child: Row(
@@ -1594,20 +2130,18 @@ class _LinkSkillsBottomSheetContentState extends ConsumerState<_LinkSkillsBottom
                           );
                           if (context.mounted) {
                             Navigator.pop(context);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Linked skills updated successfully!'),
-                                backgroundColor: AppColors.success,
-                              ),
+                            CustomToast.show(
+                              context,
+                              message: 'Linked skills updated successfully!',
+                              type: ToastType.success,
                             );
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to update skills: $e'),
-                                backgroundColor: AppColors.error,
-                              ),
+                            CustomToast.show(
+                              context,
+                              message: 'Failed to update skills: $e',
+                              type: ToastType.error,
                             );
                           }
                         }
@@ -1650,8 +2184,9 @@ class _EmptyProjects extends StatelessWidget {
               width: 72,
               height: 72,
               decoration: BoxDecoration(
-                color: AppColors.accentContainer,
+                color: AppColors.accent.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
               ),
               child: const Icon(Icons.code_rounded,
                   size: 32, color: AppColors.accent),
@@ -1661,14 +2196,21 @@ class _EmptyProjects extends StatelessWidget {
               hasProjects
                   ? 'No projects match your search'
                   : AppStrings.noProjectsYet,
-              style: AppTypography.headlineSmall,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             if (!hasProjects)
               Text(
                 AppStrings.noProjectsYetSub,
-                style: AppTypography.bodySmall,
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.6),
+                  fontSize: 13,
+                ),
                 textAlign: TextAlign.center,
               ),
             const SizedBox(height: 24),
@@ -1676,18 +2218,38 @@ class _EmptyProjects extends StatelessWidget {
               GestureDetector(
                 onTap: onAdd,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 20, vertical: 12),
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxWidth: 240),
+                  height: 48,
                   decoration: BoxDecoration(
-                    color: AppColors.accent,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: AppColors.accentShadow,
-                  ),
-                  child: Text(
-                    AppStrings.addProject,
-                    style: AppTypography.labelLarge.copyWith(
-                      color: Colors.white,
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF0052D4), Color(0xFF1E5FF5), Color(0xFF6FB1FC)],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF0052D4).withValues(alpha: 0.4),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.add, color: Colors.white, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Add Work',
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -1712,8 +2274,9 @@ class _ProjectsShimmer extends StatelessWidget {
       itemBuilder: (_, __) => Container(
         height: 140,
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(16),
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
         ),
       ),
     );

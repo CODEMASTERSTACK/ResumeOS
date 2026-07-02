@@ -56,15 +56,19 @@ class AppShell extends StatelessWidget {
     final location = GoRouterState.of(context).uri.toString();
     final currentIndex = _currentIndex(location);
 
+    final hideNav = location == RouteNames.generate;
+
     return Scaffold(
       extendBody: true,
       backgroundColor: const Color(0xFF07060F),
       body: child,
-      bottomNavigationBar: _AppBottomNav(
-        currentIndex: currentIndex,
-        destinations: _destinations,
-        onTap: (index) => context.go(_destinations[index].route),
-      ),
+      bottomNavigationBar: hideNav
+          ? null
+          : _AppBottomNav(
+              currentIndex: currentIndex,
+              destinations: _destinations,
+              onTap: (index) => context.go(_destinations[index].route),
+            ),
     );
   }
 }

@@ -74,7 +74,7 @@ class AppStrings {
   static const String delete = 'Delete';
 
   // Projects
-  static const String myProjects = 'My Projects';
+  static const String myProjects = 'Project and Research Work';
   static const String searchProjects = 'Search projects...';
   static const String allProjects = 'All';
   static const String githubProjects = 'GitHub';
@@ -82,9 +82,9 @@ class AppStrings {
   static const String syncGitHub = 'Sync GitHub';
   static const String aiSummary = 'AI Summary';
   static const String generateAiSummary = 'Generate AI Summary';
-  static const String noProjectsYet = 'No projects added yet';
+  static const String noProjectsYet = 'No projects or research work added yet';
   static const String noProjectsYetSub =
-      'Add your projects to let AI pick the best ones for each job.';
+      'Add your projects and research work to let AI pick the best ones for each job.';
 
   // Generate
   static const String generateResume = 'Generate Resume';

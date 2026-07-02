@@ -7,8 +7,6 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../features/dashboard/presentation/screens/dashboard_screen.dart'; // for userProfileProvider
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
-import '../../../../shared/widgets/app_button.dart';
-
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -18,24 +16,34 @@ class ProfileScreen extends ConsumerWidget {
     final userAsync = ref.watch(userProfileProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F), // Rich dark indigo base
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        title: Text(AppStrings.navProfile),
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
+        title: const Text(
+          'Profile',
+          style: TextStyle(
+            color: Colors.white,
+            fontFamily: 'Outfit',
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
+        ),
         actions: [
           IconButton(
             onPressed: () => context.push('/profile/settings'),
-            icon: const Icon(Icons.settings_rounded, color: AppColors.textMuted, size: 22),
+            icon: const Icon(Icons.settings_rounded, color: Colors.white70, size: 22),
             tooltip: 'Settings',
           ),
           const SizedBox(width: 12),
         ],
       ),
       body: userAsync.when(
-        loading: () =>
-            const Center(child: CircularProgressIndicator()),
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: Color(0xFFD26EAB)),
+        ),
         error: (e, _) => Center(
           child: Padding(
             padding: const EdgeInsets.all(32.0),
@@ -46,36 +54,62 @@ class ProfileScreen extends ConsumerWidget {
                   width: 72,
                   height: 72,
                   decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
+                    color: const Color(0xFFFF5B5C).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Icon(
                     Icons.error_outline_rounded,
                     size: 36,
-                    color: AppColors.error,
+                    color: Color(0xFFFF5B5C),
                   ),
                 ),
                 const SizedBox(height: 20),
-                Text(
+                const Text(
                   'Profile Sync Incomplete',
-                  style: AppTypography.headlineMedium,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontFamily: 'Outfit',
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'We couldn\'t fetch your career data due to a temporary database sync issue.',
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 13,
+                    height: 1.4,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 24),
-                AppButton(
-                  label: 'Retry Connection',
-                  fullWidth: false,
-                  variant: AppButtonVariant.secondary,
-                  icon: Icons.refresh_rounded,
+                GestureDetector(
                   onTap: () => ref.invalidate(userProfileProvider),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
+                        SizedBox(width: 8),
+                        Text(
+                          'Retry Connection',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -83,7 +117,12 @@ class ProfileScreen extends ConsumerWidget {
         ),
         data: (user) {
           if (user == null) {
-            return const Center(child: Text('Profile not found'));
+            return const Center(
+              child: Text(
+                'Profile not found',
+                style: TextStyle(color: Colors.white70),
+              ),
+            );
           }
           return _ProfileContent(user: user);
         },
@@ -102,72 +141,71 @@ class _ProfileContent extends ConsumerWidget {
     final uid = user.uid;
 
     return ListView(
-      padding: const EdgeInsets.only(
-          left: 20, right: 20, top: 20, bottom: 108),
+      padding: const EdgeInsets.only(left: 20, right: 20, top: 16, bottom: 108),
       children: [
-        // Avatar + Name
+        // Avatar + Name Header
         _ProfileHeader(user: user),
         const SizedBox(height: 24),
 
         // Personal Info Section
         _ProfileSection(
-          title: AppStrings.personalInfo,
+          title: 'Personal Info',
           icon: Icons.person_outline_rounded,
           child: _PersonalInfoContent(user: user),
         ),
         const SizedBox(height: 12),
 
-        // Summary
+        // Summary Section
         _ProfileSection(
-          title: AppStrings.professionalSummary,
+          title: 'Professional Summary',
           icon: Icons.description_outlined,
           child: _SummaryContent(user: user),
         ),
         const SizedBox(height: 12),
 
-        // Skills
+        // Skills Section
         _ProfileSection(
-          title: AppStrings.skills,
+          title: 'Skills',
           icon: Icons.bolt_outlined,
           child: _SkillsContent(uid: uid, ref: ref),
         ),
         const SizedBox(height: 12),
 
-        // Education
+        // Education Section
         _ProfileSection(
-          title: AppStrings.education,
+          title: 'Education',
           icon: Icons.school_outlined,
           child: _EducationContent(uid: uid, ref: ref),
         ),
         const SizedBox(height: 12),
 
-        // Experience
+        // Experience Section
         _ProfileSection(
-          title: AppStrings.experience,
+          title: 'Experience',
           icon: Icons.work_outline_rounded,
           child: _ExperienceContent(uid: uid, ref: ref),
         ),
         const SizedBox(height: 12),
 
-        // Projects
+        // Projects Section
         _ProfileSection(
-          title: AppStrings.projects,
+          title: 'Projects',
           icon: Icons.code_outlined,
           child: _ProjectsLinkContent(uid: uid),
         ),
         const SizedBox(height: 12),
 
-        // Certifications
+        // Certifications Section
         _ProfileSection(
-          title: AppStrings.certifications,
+          title: 'Certifications',
           icon: Icons.verified_outlined,
           child: _CertificationsContent(uid: uid, ref: ref),
         ),
         const SizedBox(height: 12),
 
-        // Achievements
+        // Achievements Section
         _ProfileSection(
-          title: AppStrings.achievements,
+          title: 'Achievements',
           icon: Icons.emoji_events_outlined,
           child: _AchievementsContent(uid: uid, ref: ref),
         ),
@@ -185,22 +223,42 @@ class _ProfileHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Exact Profile image fallback matching dashboard/sidebar logic
+    final profileImageUrl = user.profileImageUrl;
+    ImageProvider? avatarImage;
+    if (profileImageUrl.isNotEmpty) {
+      avatarImage = NetworkImage(profileImageUrl);
+    } else if (user.gender.toLowerCase() == 'female') {
+      avatarImage = const AssetImage('assets/images/female.png');
+    } else if (user.gender.toLowerCase() == 'male') {
+      avatarImage = const AssetImage('assets/images/male.png');
+    }
+
     return Row(
       children: [
-        CircleAvatar(
-          radius: 36,
-          backgroundColor: AppColors.accentContainer,
-          backgroundImage: user.profileImageUrl.isNotEmpty
-              ? NetworkImage(user.profileImageUrl)
-              : null,
-          child: user.profileImageUrl.isEmpty
-              ? Text(
-                  user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-                  style: AppTypography.displaySmall.copyWith(
-                    color: AppColors.accent,
-                  ),
-                )
-              : null,
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 2.0,
+            ),
+          ),
+          child: CircleAvatar(
+            radius: 36,
+            backgroundColor: const Color(0xFF723FFD).withValues(alpha: 0.15),
+            backgroundImage: avatarImage,
+            child: avatarImage == null
+                ? Text(
+                    user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                : null,
+          ),
         ),
         const SizedBox(width: 16),
         Expanded(
@@ -209,30 +267,49 @@ class _ProfileHeader extends ConsumerWidget {
             children: [
               Text(
                 user.name.isNotEmpty ? user.name : 'Your Name',
-                style: AppTypography.headlineLarge,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontFamily: 'Outfit',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.5,
+                ),
               ),
+              const SizedBox(height: 2),
               if (user.currentRole.isNotEmpty)
                 Text(
                   user.currentRole,
-                  style: AppTypography.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.6),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              if (user.email.isNotEmpty)
-                Text(user.email, style: AppTypography.bodySmall),
+              if (user.email.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                Text(
+                  user.email,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.35),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
         IconButton(
           onPressed: () => context.push('/profile/edit/personal_info', extra: user.toJson()),
           icon: Container(
-            width: 36,
-            height: 36,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: AppColors.surfaceVariant,
+              color: Colors.white.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
-            child: const Icon(Icons.edit_outlined, size: 18),
+            child: const Icon(Icons.edit_outlined, size: 18, color: Colors.white70),
           ),
         ),
       ],
@@ -264,41 +341,51 @@ class _ProfileSectionState extends State<_ProfileSection> {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppColors.cardShadow,
+        color: Colors.white.withValues(alpha: 0.03), // Modern dark glassmorphic surface
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1.0,
+        ),
       ),
       child: Column(
         children: [
           InkWell(
             onTap: () => setState(() => _expanded = !_expanded),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
               child: Row(
                 children: [
                   Container(
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: AppColors.accentContainer,
+                      color: Colors.white.withValues(alpha: 0.04),
                       borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                     ),
-                    child: Icon(widget.icon,
-                        size: 16, color: AppColors.accent),
+                    child: Icon(widget.icon, size: 16, color: const Color(0xFFCBE349)), // Neon green highlight
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Text(widget.title,
-                        style: AppTypography.headlineSmall),
+                    child: Text(
+                      widget.title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontFamily: 'Poppins',
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                   AnimatedRotation(
                     turns: _expanded ? 0 : -0.25,
                     duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.expand_more_rounded,
-                        color: AppColors.textMuted),
+                    child: const Icon(
+                      Icons.expand_more_rounded,
+                      color: Colors.white38,
+                    ),
                   ),
                 ],
               ),
@@ -307,7 +394,7 @@ class _ProfileSectionState extends State<_ProfileSection> {
           AnimatedCrossFade(
             firstChild: const SizedBox.shrink(),
             secondChild: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
               child: widget.child,
             ),
             crossFadeState: _expanded
@@ -351,24 +438,36 @@ class _InfoRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasValue = value.isNotEmpty;
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: AppColors.textMuted),
-          const SizedBox(width: 10),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Icon(icon, size: 16, color: Colors.white38),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: AppTypography.caption),
                 Text(
-                  value.isNotEmpty ? value : 'Not set',
-                  style: AppTypography.bodySmall.copyWith(
-                    color: value.isNotEmpty
-                        ? AppColors.textPrimary
-                        : AppColors.textDisabled,
+                  label,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.3),
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hasValue ? value : 'Not set',
+                  style: TextStyle(
+                    color: hasValue ? Colors.white : Colors.white24,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ],
@@ -391,29 +490,34 @@ class _SummaryContent extends ConsumerStatefulWidget {
 class _SummaryContentState extends ConsumerState<_SummaryContent> {
   @override
   Widget build(BuildContext context) {
+    final hasSummary = widget.user.summary.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          widget.user.summary.isNotEmpty
+          hasSummary
               ? widget.user.summary
               : 'Add a professional summary to improve AI resume quality.',
-          style: AppTypography.bodyMedium.copyWith(
-            color: widget.user.summary.isNotEmpty
-                ? AppColors.textPrimary
-                : AppColors.textMuted,
+          style: TextStyle(
+            color: hasSummary ? Colors.white70 : Colors.white30,
+            fontSize: 13,
             height: 1.6,
+            fontWeight: FontWeight.w500,
           ),
         ),
         const SizedBox(height: 8),
         TextButton.icon(
           onPressed: () => context.push('/profile/summary-enhance'),
-          icon: const Icon(Icons.auto_awesome_rounded,
-              size: 14, color: AppColors.accent),
-          label: Text(AppStrings.aiEnhance,
-              style: AppTypography.labelMedium.copyWith(
-                color: AppColors.accent,
-              )),
+          icon: const Icon(Icons.auto_awesome_rounded, size: 14, color: Color(0xFFD26EAB)),
+          label: const Text(
+            'AI Enhance',
+            style: TextStyle(
+              color: Color(0xFFD26EAB),
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         const SizedBox(height: 12),
         Align(
@@ -430,9 +534,6 @@ class _SummaryContentState extends ConsumerState<_SummaryContent> {
 
 // ── Skills ────────────────────────────────────────────────
 
-/// The four fixed skill categories used throughout the app.
-/// These exact strings are stored as the `category` field in Firestore
-/// and are used by the PDF renderer to produce the labelled resume rows.
 const List<_SkillCategory> _kSkillCategories = [
   _SkillCategory(
     name: 'Languages',
@@ -529,7 +630,7 @@ class _SkillCategoryRowState extends State<_SkillCategoryRow> {
     final skills = widget.skills;
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -553,9 +654,10 @@ class _SkillCategoryRowState extends State<_SkillCategoryRow> {
                   const SizedBox(width: 8),
                   Text(
                     cat.name,
-                    style: AppTypography.labelMedium.copyWith(
+                    style: TextStyle(
                       color: cat.color,
-                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   if (skills.isNotEmpty) ...[
@@ -568,7 +670,7 @@ class _SkillCategoryRowState extends State<_SkillCategoryRow> {
                       ),
                       child: Text(
                         '${skills.length}',
-                        style: AppTypography.caption.copyWith(color: cat.color),
+                        style: TextStyle(color: cat.color, fontSize: 10, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -576,8 +678,7 @@ class _SkillCategoryRowState extends State<_SkillCategoryRow> {
                   AnimatedRotation(
                     turns: _expanded ? 0 : -0.25,
                     duration: const Duration(milliseconds: 180),
-                    child: Icon(Icons.expand_more_rounded,
-                        size: 18, color: AppColors.textMuted),
+                    child: const Icon(Icons.expand_more_rounded, size: 18, color: Colors.white38),
                   ),
                 ],
               ),
@@ -592,7 +693,7 @@ class _SkillCategoryRowState extends State<_SkillCategoryRow> {
                 : CrossFadeState.showFirst,
             firstChild: const SizedBox.shrink(),
             secondChild: Padding(
-              padding: const EdgeInsets.only(top: 6, left: 4),
+              padding: const EdgeInsets.only(top: 8, left: 4),
               child: Wrap(
                 spacing: 7,
                 runSpacing: 7,
@@ -606,25 +707,20 @@ class _SkillCategoryRowState extends State<_SkillCategoryRow> {
                   GestureDetector(
                     onTap: () => context.push('/profile/skills'),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 5),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                       decoration: BoxDecoration(
                         color: cat.color.withValues(alpha: 0.08),
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                            color: cat.color.withValues(alpha: 0.35),
-                            width: 1),
+                        border: Border.all(color: cat.color.withValues(alpha: 0.35), width: 1),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.add_rounded,
-                              size: 13, color: cat.color),
+                          Icon(Icons.add_rounded, size: 13, color: cat.color),
                           const SizedBox(width: 3),
                           Text(
                             'Add',
-                            style: AppTypography.labelSmall
-                                .copyWith(color: cat.color),
+                            style: TextStyle(color: cat.color, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -635,7 +731,8 @@ class _SkillCategoryRowState extends State<_SkillCategoryRow> {
             ),
           ),
 
-          Divider(height: 16, color: AppColors.border.withValues(alpha: 0.5)),
+          const SizedBox(height: 4),
+          Divider(height: 16, color: Colors.white.withValues(alpha: 0.04)),
         ],
       ),
     );
@@ -660,11 +757,14 @@ class _SkillChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
+          color: Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
-        child: Text(name, style: AppTypography.labelSmall),
+        child: Text(
+          name,
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 11, fontWeight: FontWeight.w600),
+        ),
       ),
     );
   }
@@ -705,7 +805,7 @@ class _EducationContent extends StatelessWidget {
               );
             }),
             _AddButton(
-              label: AppStrings.addEducation,
+              label: 'Add Education',
               onTap: () => _showAddDialog(context, uid, ref, items),
             ),
           ],
@@ -718,18 +818,23 @@ class _EducationContent extends StatelessWidget {
     showDialog(
       context: ctx,
       builder: (dCtx) => AlertDialog(
-        title: const Text('Delete Education'),
-        content: Text('Delete "$title"?'),
+        backgroundColor: const Color(0xFF0C0B10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Education', style: TextStyle(color: Colors.white)),
+        content: Text('Delete "$title"?', style: const TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF5B5C)),
             onPressed: () async {
               final navigator = Navigator.of(dCtx);
               await ref.read(profileRepositoryProvider).deleteEducation(uid, id);
               navigator.pop();
             },
-            child: const Text('Delete'),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -746,15 +851,21 @@ class _EducationContent extends StatelessWidget {
       showDialog(
         context: ctx,
         builder: (dialogCtx) => AlertDialog(
-          title: const Text('Add Education'),
+          backgroundColor: const Color(0xFF0C0B10),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Add Education', style: TextStyle(color: Colors.white)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (!has10th) ...[
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.school_outlined),
-                  label: const Text('Add 10th Standard'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  icon: const Icon(Icons.school_outlined, color: Colors.white70),
+                  label: const Text('Add 10th Standard', style: TextStyle(color: Colors.white70)),
                   onPressed: () {
                     Navigator.pop(dialogCtx);
                     ctx.push('/profile/edit/education', extra: {'degree': '10th Standard'});
@@ -764,8 +875,12 @@ class _EducationContent extends StatelessWidget {
               ],
               if (!has12th) ...[
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.school_rounded),
-                  label: const Text('Add 12th Standard'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
+                    side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                  ),
+                  icon: const Icon(Icons.school_rounded, color: Colors.white70),
+                  label: const Text('Add 12th Standard', style: TextStyle(color: Colors.white70)),
                   onPressed: () {
                     Navigator.pop(dialogCtx);
                     ctx.push('/profile/edit/education', extra: {'degree': '12th Standard'});
@@ -774,8 +889,11 @@ class _EducationContent extends StatelessWidget {
                 const SizedBox(height: 10),
               ],
               OutlinedButton.icon(
-                icon: const Icon(Icons.menu_book_rounded),
-                label: const Text('Add Higher Education'),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                icon: const Icon(Icons.menu_book_rounded, color: Colors.white70),
+                label: const Text('Add Higher Education', style: TextStyle(color: Colors.white70)),
                 onPressed: () {
                   Navigator.pop(dialogCtx);
                   ctx.push('/profile/edit/education', extra: {'degree': 'Higher Education'});
@@ -786,7 +904,7 @@ class _EducationContent extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Close'),
+              child: const Text('Close', style: TextStyle(color: Colors.white38)),
             ),
           ],
         ),
@@ -818,7 +936,7 @@ class _ExperienceContent extends StatelessWidget {
                   onDelete: () => _confirmDelete(context, uid, e['id'] as String, e['role'] as String? ?? 'this entry'),
                 )),
             _AddButton(
-              label: AppStrings.addExperience,
+              label: 'Add Experience',
               onTap: () => context.push('/profile/edit/experience'),
             ),
           ],
@@ -831,18 +949,23 @@ class _ExperienceContent extends StatelessWidget {
     showDialog(
       context: ctx,
       builder: (dCtx) => AlertDialog(
-        title: const Text('Delete Experience'),
-        content: Text('Delete "$title"?'),
+        backgroundColor: const Color(0xFF0C0B10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Experience', style: TextStyle(color: Colors.white)),
+        content: Text('Delete "$title"?', style: const TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF5B5C)),
             onPressed: () async {
               final navigator = Navigator.of(dCtx);
               await ref.read(profileRepositoryProvider).deleteExperience(uid, id);
               navigator.pop();
             },
-            child: const Text('Delete'),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -873,7 +996,7 @@ class _CertificationsContent extends StatelessWidget {
                   onDelete: () => _confirmDelete(context, uid, c['id'] as String, c['title'] as String? ?? 'this entry'),
                 )),
             _AddButton(
-              label: AppStrings.addCertification,
+              label: 'Add Certification',
               onTap: () => context.push('/profile/edit/certifications'),
             ),
           ],
@@ -886,18 +1009,23 @@ class _CertificationsContent extends StatelessWidget {
     showDialog(
       context: ctx,
       builder: (dCtx) => AlertDialog(
-        title: const Text('Delete Certification'),
-        content: Text('Delete "$title"?'),
+        backgroundColor: const Color(0xFF0C0B10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Certification', style: TextStyle(color: Colors.white)),
+        content: Text('Delete "$title"?', style: const TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF5B5C)),
             onPressed: () async {
               final navigator = Navigator.of(dCtx);
               await ref.read(profileRepositoryProvider).deleteCertification(uid, id);
               navigator.pop();
             },
-            child: const Text('Delete'),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -926,7 +1054,7 @@ class _AchievementsContent extends StatelessWidget {
                   onDelete: () => _confirmDelete(context, uid, a['id'] as String, a['title'] as String? ?? 'this entry'),
                 )),
             _AddButton(
-              label: AppStrings.addAchievement,
+              label: 'Add Achievement',
               onTap: () => context.push('/profile/edit/achievements'),
             ),
           ],
@@ -939,18 +1067,23 @@ class _AchievementsContent extends StatelessWidget {
     showDialog(
       context: ctx,
       builder: (dCtx) => AlertDialog(
-        title: const Text('Delete Achievement'),
-        content: Text('Delete "$title"?'),
+        backgroundColor: const Color(0xFF0C0B10),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Achievement', style: TextStyle(color: Colors.white)),
+        content: Text('Delete "$title"?', style: const TextStyle(color: Colors.white70)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(dCtx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.white38)),
+          ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF5B5C)),
             onPressed: () async {
               final navigator = Navigator.of(dCtx);
               await ref.read(profileRepositoryProvider).deleteAchievement(uid, id);
               navigator.pop();
             },
-            child: const Text('Delete'),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -968,12 +1101,13 @@ class _ProjectsLinkContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        const Icon(Icons.info_outline_rounded,
-            size: 14, color: AppColors.textMuted),
+        const Icon(Icons.info_outline_rounded, size: 14, color: Colors.white38),
         const SizedBox(width: 8),
-        Text(
-          'Manage your projects from the Projects tab',
-          style: AppTypography.bodySmall,
+        const Expanded(
+          child: Text(
+            'Manage your projects and research from the Projects tab',
+            style: TextStyle(color: Colors.white38, fontSize: 12),
+          ),
         ),
       ],
     );
@@ -982,7 +1116,6 @@ class _ProjectsLinkContent extends StatelessWidget {
 
 // ── Shared Sub-Widgets ─────────────────────────────────────
 
-/// A timeline item with edit and delete icons in the trailing area.
 class _EditableTimelineItem extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -1012,10 +1145,14 @@ class _EditableTimelineItem extends StatelessWidget {
                 height: 8,
                 decoration: const BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.accent,
+                  color: Color(0xFFCBE349), // Neon Lime Green
                 ),
               ),
-              Container(width: 1, height: 32, color: AppColors.border),
+              Container(
+                width: 1,
+                height: 32,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
             ],
           ),
           const SizedBox(width: 12),
@@ -1023,14 +1160,37 @@ class _EditableTimelineItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: AppTypography.titleMedium),
-                Text(subtitle, style: AppTypography.bodySmall),
-                if (trailing.isNotEmpty)
-                  Text(trailing, style: AppTypography.caption),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (trailing.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    trailing,
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
-          // Edit / Delete action buttons
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1040,11 +1200,11 @@ class _EditableTimelineItem extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: AppColors.accentContainer,
+                    color: Colors.white.withValues(alpha: 0.04),
                     borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
                   ),
-                  child: const Icon(Icons.edit_outlined,
-                      size: 14, color: AppColors.accent),
+                  child: const Icon(Icons.edit_outlined, size: 14, color: Colors.white70),
                 ),
               ),
               const SizedBox(width: 6),
@@ -1054,11 +1214,11 @@ class _EditableTimelineItem extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: AppColors.error.withOpacity(0.1),
+                    color: const Color(0xFFFF5B5C).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: const Color(0xFFFF5B5C).withValues(alpha: 0.2)),
                   ),
-                  child: Icon(Icons.delete_outline_rounded,
-                      size: 14, color: AppColors.error),
+                  child: const Icon(Icons.delete_outline_rounded, size: 14, color: Color(0xFFFF5B5C)),
                 ),
               ),
             ],
@@ -1069,7 +1229,6 @@ class _EditableTimelineItem extends StatelessWidget {
   }
 }
 
-/// An achievement row with edit and delete icons.
 class _EditableAchievementItem extends StatelessWidget {
   final String title;
   final VoidCallback onEdit;
@@ -1088,22 +1247,33 @@ class _EditableAchievementItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.star_rounded, size: 14, color: AppColors.accent),
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(Icons.star_rounded, size: 14, color: Color(0xFFCBE349)),
+          ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(title, style: AppTypography.bodySmall),
+            child: Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
+          const SizedBox(width: 8),
           GestureDetector(
             onTap: onEdit,
             child: Container(
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: AppColors.accentContainer,
+                color: Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
-              child: const Icon(Icons.edit_outlined,
-                  size: 14, color: AppColors.accent),
+              child: const Icon(Icons.edit_outlined, size: 14, color: Colors.white70),
             ),
           ),
           const SizedBox(width: 6),
@@ -1113,11 +1283,11 @@ class _EditableAchievementItem extends StatelessWidget {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: AppColors.error.withOpacity(0.1),
+                color: const Color(0xFFFF5B5C).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: const Color(0xFFFF5B5C).withValues(alpha: 0.2)),
               ),
-              child: Icon(Icons.delete_outline_rounded,
-                  size: 14, color: AppColors.error),
+              child: const Icon(Icons.delete_outline_rounded, size: 14, color: Color(0xFFFF5B5C)),
             ),
           ),
         ],
@@ -1137,20 +1307,25 @@ class _AddButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.add_rounded,
-                size: 14, color: AppColors.textSecondary),
+            const Icon(Icons.add_rounded, size: 14, color: Colors.white70),
             const SizedBox(width: 6),
-            Text(label, style: AppTypography.labelMedium),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -1169,20 +1344,25 @@ class _EditButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.border),
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.edit_outlined,
-                size: 14, color: AppColors.textSecondary),
+            const Icon(Icons.edit_outlined, size: 14, color: Colors.white70),
             const SizedBox(width: 6),
-            Text(label, style: AppTypography.labelMedium),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),

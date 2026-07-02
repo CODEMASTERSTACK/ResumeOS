@@ -84,6 +84,14 @@ class PdfService {
             ...data.projects.map((p) => _atsProject(p, sizeScale)),
           ],
 
+          // Research Work
+          if (data.showResearch && data.research.isNotEmpty) ...[
+            pw.SizedBox(height: 6),
+            _atsSection('RESEARCH WORK', sizeScale),
+            pw.SizedBox(height: 6),
+            ...data.research.map((r) => _atsResearch(r, sizeScale)),
+          ],
+
           // Education
           if (data.education.isNotEmpty) ...[
             pw.SizedBox(height: 6),
@@ -253,6 +261,55 @@ class PdfService {
           ),
           pw.SizedBox(height: 3),
           ...project.bullets.map(
+            (b) => pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 2),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('• ',
+                      style: pw.TextStyle(fontSize: 10 * sizeScale)),
+                  pw.Expanded(
+                    child: pw.Text(b,
+                        style: pw.TextStyle(
+                            fontSize: 10 * sizeScale, lineSpacing: 1.3)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _atsResearch(ResumeProject research, double sizeScale) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 10),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                research.title,
+                style: pw.TextStyle(
+                  fontSize: 10 * sizeScale,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              if (research.githubUrl.isNotEmpty)
+                pw.Text(
+                  research.githubUrl,
+                  style: pw.TextStyle(
+                    fontSize: 9 * sizeScale,
+                    color: PdfColors.grey700,
+                  ),
+                ),
+            ],
+          ),
+          pw.SizedBox(height: 3),
+          ...research.bullets.take(3).map(
             (b) => pw.Padding(
               padding: const pw.EdgeInsets.only(bottom: 2),
               child: pw.Row(
@@ -622,6 +679,41 @@ class PdfService {
     );
   }
 
+  pw.Widget _modernResearch(ResumeProject r, PdfColor primaryColor, double sizeScale) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 8),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                r.title,
+                style: pw.TextStyle(
+                  fontSize: 9 * sizeScale,
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.black,
+                ),
+              ),
+              if (r.githubUrl.isNotEmpty)
+                pw.Text(
+                  r.githubUrl,
+                  style: pw.TextStyle(
+                    fontSize: 8.5 * sizeScale,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColors.black,
+                  ),
+                ),
+            ],
+          ),
+          pw.SizedBox(height: 2),
+          ...r.bullets.take(3).map((b) => _renderBulletPoint(b, primaryColor, sizeScale)),
+        ],
+      ),
+    );
+  }
+
   pw.Widget _modernCertificate(ResumeCertification c, PdfColor primaryColor, double sizeScale) {
     return pw.Padding(
       padding: pw.EdgeInsets.only(bottom: c.credentialUrl.isNotEmpty ? 4.0 : 3.0),
@@ -837,6 +929,13 @@ class PdfService {
             pw.SizedBox(height: 8),
           ],
 
+          // Research Work
+          if (data.showResearch && data.research.isNotEmpty) ...[
+            _modernSectionTitle('RESEARCH WORK', primaryColor, sizeScale),
+            ...data.research.map((r) => _modernResearch(r, primaryColor, sizeScale)),
+            pw.SizedBox(height: 8),
+          ],
+
           // Certificates
           if (data.certifications.isNotEmpty) ...[
             _modernSectionTitle('CERTIFICATE & CREDENTIALS', primaryColor, sizeScale),
@@ -943,6 +1042,13 @@ class PdfService {
           if (data.projects.isNotEmpty) ...[
             _compactSection('PROJECTS', primaryColor, sizeScale),
             ...data.projects.map((p) => _compactProject(p, primaryColor, sizeScale)),
+            pw.SizedBox(height: 8),
+          ],
+
+          // Research Work
+          if (data.showResearch && data.research.isNotEmpty) ...[
+            _compactSection('RESEARCH WORK', primaryColor, sizeScale),
+            ...data.research.map((r) => _compactResearch(r, primaryColor, sizeScale)),
             pw.SizedBox(height: 8),
           ],
 
@@ -1309,6 +1415,40 @@ class PdfService {
           // Exactly third is the link for that project
           if (p.liveUrl.isNotEmpty || p.githubUrl.isNotEmpty)
             _renderBulletPoint('Project Link: ${p.liveUrl.isNotEmpty ? p.liveUrl : p.githubUrl}', primaryColor, sizeScale),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _compactResearch(ResumeProject r, PdfColor primaryColor, double sizeScale) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 6),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                r.title,
+                style: pw.TextStyle(
+                  fontSize: 9 * sizeScale,
+                  fontWeight: pw.FontWeight.bold,
+                  color: primaryColor,
+                ),
+              ),
+              if (r.githubUrl.isNotEmpty)
+                pw.Text(
+                  r.githubUrl,
+                  style: pw.TextStyle(
+                    fontSize: 8.5 * sizeScale,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+            ],
+          ),
+          pw.SizedBox(height: 2),
+          ...r.bullets.take(3).map((b) => _renderBulletPoint(b, primaryColor, sizeScale)),
         ],
       ),
     );

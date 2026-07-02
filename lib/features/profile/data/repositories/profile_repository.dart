@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../shared/providers/firebase_providers.dart';
@@ -250,6 +251,7 @@ class ProfileRepository {
 
   // ── Profile Completion Score ──────────────────────────
 
+  /// One-shot fetch (kept for backward compatibility)
   Future<int> getProfileCompletionPercent(String uid) async {
     int score = 0;
     const maxScore = 100;
@@ -290,6 +292,99 @@ class ProfileRepository {
     if ((proj.count ?? 0) >= 3) score += 10;
 
     return (score * 100 / maxScore).round().clamp(0, 100);
+  }
+
+  /// Real-time stream — emits a fresh score whenever the user document,
+  /// skills, education, or projects subcollection changes.
+  /// Uses a pure-Dart [StreamController] to combine all 4 live Firestore
+  /// streams without any extra packages.
+  Stream<int> watchProfileCompletionPercent(String uid) {
+    final userRef = _db.collection('users').doc(uid);
+    final skillsRef = userRef.collection('skills');
+    final eduRef = userRef.collection('education');
+    final projRef = userRef.collection('projects');
+
+    // Mutable holders for the latest snapshot from each stream
+    DocumentSnapshot? latestUser;
+    QuerySnapshot? latestSkills;
+    QuerySnapshot? latestEdu;
+    QuerySnapshot? latestProj;
+
+    late StreamController<int> controller;
+
+    // Compute score from whatever snapshots are currently available
+    int compute() {
+      int score = 0;
+      if (latestUser != null && latestUser!.exists) {
+        final d = latestUser!.data() as Map<String, dynamic>? ?? {};
+        if ((d['name'] as String? ?? '').isNotEmpty) score += 10;
+        if ((d['email'] as String? ?? '').isNotEmpty) score += 5;
+        if ((d['phone'] as String? ?? '').isNotEmpty) score += 5;
+        if ((d['summary'] as String? ?? '').isNotEmpty) score += 15;
+        if ((d['githubUrl'] as String? ?? '').isNotEmpty) score += 5;
+        if ((d['linkedinUrl'] as String? ?? '').isNotEmpty) score += 5;
+      }
+      final skillCount = latestSkills?.docs.length ?? 0;
+      if (skillCount >= 5) score += 15;
+      final eduCount = latestEdu?.docs.length ?? 0;
+      if (eduCount >= 1) score += 15;
+      final projCount = latestProj?.docs.length ?? 0;
+      if (projCount >= 1) score += 15;
+      if (projCount >= 3) score += 10;
+      return score.clamp(0, 100);
+    }
+
+    // Subscriptions for each source stream
+    StreamSubscription<DocumentSnapshot>? userSub;
+    StreamSubscription<QuerySnapshot>? skillsSub;
+    StreamSubscription<QuerySnapshot>? eduSub;
+    StreamSubscription<QuerySnapshot>? projSub;
+
+    void cancelAll() {
+      userSub?.cancel();
+      skillsSub?.cancel();
+      eduSub?.cancel();
+      projSub?.cancel();
+    }
+
+    controller = StreamController<int>.broadcast(
+      onListen: () {
+        userSub = userRef.snapshots().listen(
+          (snap) {
+            latestUser = snap;
+            if (!controller.isClosed) controller.add(compute());
+          },
+          onError: (e) { if (!controller.isClosed) controller.addError(e); },
+        );
+        skillsSub = skillsRef.snapshots().listen(
+          (snap) {
+            latestSkills = snap;
+            if (!controller.isClosed) controller.add(compute());
+          },
+          onError: (e) { if (!controller.isClosed) controller.addError(e); },
+        );
+        eduSub = eduRef.snapshots().listen(
+          (snap) {
+            latestEdu = snap;
+            if (!controller.isClosed) controller.add(compute());
+          },
+          onError: (e) { if (!controller.isClosed) controller.addError(e); },
+        );
+        projSub = projRef.snapshots().listen(
+          (snap) {
+            latestProj = snap;
+            if (!controller.isClosed) controller.add(compute());
+          },
+          onError: (e) { if (!controller.isClosed) controller.addError(e); },
+        );
+      },
+      onCancel: () {
+        cancelAll();
+        controller.close();
+      },
+    );
+
+    return controller.stream;
   }
 }
 

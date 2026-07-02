@@ -17,6 +17,10 @@ class UserModel {
   final ResumePreferences resumePreferences;
   final DateTime? createdAt;
   final bool isEmailVerified;
+  final String domainBackground;
+  final String gender;
+  final int points;
+  final List<String> claimedMilestones;
 
   const UserModel({
     required this.uid,
@@ -34,6 +38,10 @@ class UserModel {
     this.resumePreferences = const ResumePreferences(),
     this.createdAt,
     this.isEmailVerified = true,
+    this.domainBackground = '',
+    this.gender = '',
+    this.points = 10,
+    this.claimedMilestones = const [],
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -55,6 +63,13 @@ class UserModel {
             : const ResumePreferences(),
         createdAt: (json['createdAt'] as Timestamp?)?.toDate(),
         isEmailVerified: json['isEmailVerified'] as bool? ?? true,
+        domainBackground: json['domainBackground'] as String? ?? '',
+        gender: json['gender'] as String? ?? '',
+        points: json['points'] as int? ?? 10,
+        claimedMilestones: (json['claimedMilestones'] as List<dynamic>?)
+                ?.map((e) => e as String)
+                .toList() ??
+            const [],
       );
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -77,6 +92,10 @@ class UserModel {
         'resumePreferences': resumePreferences.toJson(),
         'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
         'isEmailVerified': isEmailVerified,
+        'domainBackground': domainBackground,
+        'gender': gender,
+        'points': points,
+        'claimedMilestones': claimedMilestones,
       };
 
   UserModel copyWith({
@@ -94,6 +113,10 @@ class UserModel {
     bool? onboardingComplete,
     ResumePreferences? resumePreferences,
     bool? isEmailVerified,
+    String? domainBackground,
+    String? gender,
+    int? points,
+    List<String>? claimedMilestones,
   }) =>
       UserModel(
         uid: uid ?? this.uid,
@@ -111,6 +134,10 @@ class UserModel {
         resumePreferences: resumePreferences ?? this.resumePreferences,
         createdAt: createdAt,
         isEmailVerified: isEmailVerified ?? this.isEmailVerified,
+        domainBackground: domainBackground ?? this.domainBackground,
+        gender: gender ?? this.gender,
+        points: points ?? this.points,
+        claimedMilestones: claimedMilestones ?? this.claimedMilestones,
       );
 }
 
