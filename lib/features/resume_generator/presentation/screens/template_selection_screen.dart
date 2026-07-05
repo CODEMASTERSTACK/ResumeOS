@@ -66,39 +66,49 @@ class _TemplateSelectionScreenState
           .where((ProjectModel p) => selectedIds.contains(p.id))
           .toList();
 
-      // AI: rewrite bullets for each project
+      // AI: rewrite bullets for each project and research item
       final rewrittenProjects = <ResumeProject>[];
+      final rewrittenResearch = <ResumeProject>[];
       for (final ProjectModel project in selectedProjects) {
+        // Fallback target role
+        final targetRole = analysis.role.trim().isNotEmpty
+            ? analysis.role
+            : 'Software Developer';
+
+        // Fallback description context (ensures never empty)
+        final projectDesc = project.description.trim().isNotEmpty
+            ? project.description
+            : (project.bulletPoints.isNotEmpty
+                ? project.bulletPoints.join('\n')
+                : 'A project titled "${project.title}" utilizing ${project.technologies.join(', ')}.');
+
+        final result = await ai.rewriteProjectBullets(
+          projectTitle: project.title,
+          projectDescription: projectDesc,
+          technologies: project.technologies,
+          targetRole: targetRole,
+          keywords: analysis.allKeywords,
+          linkedSkills: project.linkedSkills,
+        );
+
+        final combinedTech = <String>{
+          ...result.selectedSkills,
+          ...project.technologies,
+        }.toList();
+
+        final resumeProj = ResumeProject(
+          title: project.title,
+          technologies: combinedTech,
+          bullets: result.bullets,
+          githubUrl: project.githubRepo,
+          liveUrl: project.liveUrl,
+          duration: project.duration,
+        );
+
         if (project.isResearch) {
-          rewrittenProjects.add(ResumeProject(
-            title: project.title,
-            technologies: project.technologies,
-            bullets: project.bulletPoints,
-            githubUrl: project.githubRepo,
-            liveUrl: project.liveUrl,
-          ));
+          rewrittenResearch.add(resumeProj);
         } else {
-          final result = await ai.rewriteProjectBullets(
-            projectTitle: project.title,
-            projectDescription: project.description,
-            technologies: project.technologies,
-            targetRole: analysis.role,
-            keywords: analysis.allKeywords,
-            linkedSkills: project.linkedSkills,
-          );
-
-          final combinedTech = <String>{
-            ...result.selectedSkills,
-            ...project.technologies,
-          }.toList();
-
-          rewrittenProjects.add(ResumeProject(
-            title: project.title,
-            technologies: combinedTech,
-            bullets: result.bullets,
-            githubUrl: project.githubRepo,
-            liveUrl: project.liveUrl,
-          ));
+          rewrittenProjects.add(resumeProj);
         }
       }
 
@@ -256,7 +266,7 @@ class _TemplateSelectionScreenState
         portfolioUrl: user.portfolioUrl,
         summary: summary.isNotEmpty ? summary : user.summary,
         projects: rewrittenProjects,
-        research: const [],
+        research: rewrittenResearch,
         showResearch: true,
         skillGroups: skillGroupsList,
         education: educationList,
@@ -283,7 +293,7 @@ class _TemplateSelectionScreenState
         'detectedKeywords': analysis.keywords,
         'requiredSkills': analysis.requiredSkills,
         'matchedProjectIds': selectedIds.toList(),
-        'matchPercentage': (selectedProjects.isNotEmpty ? 70 : 30),
+        'matchPercentage': atsScore,
         'generatedResumeData': resumeData.toJson(),
         'templateUsed': template.name,
         'atsScore': atsScore,
@@ -319,6 +329,11 @@ class _TemplateSelectionScreenState
       buf.write(' ${p.title}');
       buf.write(' ${p.technologies.join(' ')}');
       buf.write(' ${p.bullets.join(' ')}');
+    }
+    for (final r in data.research) {
+      buf.write(' ${r.title}');
+      buf.write(' ${r.technologies.join(' ')}');
+      buf.write(' ${r.bullets.join(' ')}');
     }
     return buf.toString().toLowerCase();
   }

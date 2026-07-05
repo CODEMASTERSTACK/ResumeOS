@@ -186,56 +186,69 @@ function buildPrompt(action, data) {
   if (action === 'analyzeJobDescription') {
     const { jobDescription } = data;
     if (!jobDescription) throw new Error('Missing jobDescription');
-    return `Analyze the following job description and extract structured information.
-Return ONLY valid JSON matching this exact schema:
-{
-  "role": "string (job title)",
-  "experienceLevel": "junior|mid|senior",
-  "requiredSkills": ["skill1", "skill2"],
-  "preferredSkills": ["skill1"],
-  "keywords": ["keyword1", "keyword2"],
-  "domainKeywords": ["domain1"]
-}
-
-Rules:
-- keywords should be technical terms, tools, frameworks found in the JD
-- domainKeywords should be business/domain terms (e.g., "fintech", "e-commerce")  
-- Do NOT add skills not mentioned in the JD
-- requiredSkills = explicitly required, preferredSkills = nice-to-have
+    return `You are an expert Technical Recruiter, Sourcer, and ATS (Applicant Tracking System) Optimization Engineer with 15+ years of experience placing candidates at Tier-1 technology companies.
+Your task is to analyze the provided job description (JD) with extreme precision and extract a comprehensive, structured dataset that will be used to calibrate and tailor resumes for the position.
 
 Job Description:
-${jobDescription}`;
+"""
+${jobDescription}
+"""
+
+Instructions:
+1. **Analyze target role title**: Extract the precise, standard industry job title (e.g., "Senior Full-Stack Engineer" rather than a generic or internal title like "Software Engineer II").
+2. **Determine experience level**: Calibrate the seniority based on indicators like years of experience required, scope of ownership, leadership requirements, and titles mentioned. Classify strictly as "junior", "mid", or "senior".
+3. **Identify required skills**: Extract all explicit and hard skills required to perform the job, including programming languages, frameworks, developer tools, database systems, APIs, cloud environments, and core concepts. Do not list generic interpersonal qualities.
+4. **Identify preferred skills**: Extract nice-to-have skills, secondary technologies, optional experience, certifications, or specialized domain expertise mentioned as a plus or preferred.
+5. **Extract ATS keywords**: Identify the exact technical terminology, methodologies (e.g., Agile, CI/CD, TDD), standards, and systems that recruiters search for or ATS software scans for. Be comprehensive.
+6. **Identify domain keywords**: Pinpoint the business context, industry vertical, and operational domains (e.g., "SaaS", "FinTech", "Distributed Systems", "E-commerce", "High-Frequency Trading", "Mobile Application Development").
+
+Return ONLY a valid JSON object matching this exact schema (do not wrap in additional JSON keys, do not return any other text, only the raw JSON block):
+{
+  "role": "string (job title)",
+  "experienceLevel": "junior | mid | senior",
+  "requiredSkills": ["skill1", "skill2", "skill3"],
+  "preferredSkills": ["skill1", "skill2"],
+  "keywords": ["keyword1", "keyword2", "keyword3"],
+  "domainKeywords": ["domain1", "domain2"]
+}`;
   }
 
   if (action === 'rewriteProjectBullets') {
-    const { projectTitle, projectDescription, technologies = [], targetRole, keywords = [], linkedSkills = [] } = data;
-    if (!projectTitle || !projectDescription || !targetRole) {
+    const { projectTitle, projectDescription = '', technologies = [], targetRole, keywords = [], linkedSkills = [] } = data;
+    if (!projectTitle || !targetRole) {
       throw new Error('Missing required fields for rewriteProjectBullets');
     }
     const skillsPrompt = linkedSkills.length > 0
         ? `Linked skills to naturally incorporate and highlight: ${linkedSkills.join(', ')}\n`
         : '';
-    return `Rewrite the following project description as 3-4 ATS-optimized resume bullet points.
+    return `You are a Senior Product & Resume Designer with 15+ years of experience optimizing candidates for Tier-1 technology companies.
+Your task is to rewrite the project/research description into exactly 3 ATS-optimized professional resume bullet points.
 
-Target role: ${targetRole}
-Project: ${projectTitle}
-Description: ${projectDescription}
-Technologies: ${technologies.join(', ')}
+Target Role: ${targetRole}
+Project Title: ${projectTitle}
+Description / Raw Input: ${projectDescription}
+Technologies / Tech Stack: ${technologies.join(', ')}
 ${skillsPrompt}
-Keywords to incorporate naturally: ${keywords.slice(0, 8).join(', ')}
+Keywords to naturally incorporate (crucial for passing ATS filters): ${keywords.slice(0, 10).join(', ')}
 
-Rules:
-- Start each bullet with a strong action verb (Built, Developed, Engineered, Designed, Optimized, etc.)
-- Be specific with numbers/metrics where possible (use realistic estimates if not provided)
-- Keep each bullet to 1-2 lines maximum
-- Sound human and professional, not robotic
-- Never invent technologies or experiences not present in the description
-- ATS-friendly: no symbols, special characters, or graphics
-- Select the 3-4 most relevant linked skills (from the linked list above, if any) or project technologies for a ${targetRole} role.
+Strict Prompting Rules:
+1. **Exactly 3 Bullet Points**: You must generate exactly 3 bullet points. No more, no less.
+2. **Absolute Authenticity & No Fictional Content**: Base the bullet points strictly on the user's raw input description. **NEVER fabricate fake features, metrics, business scale, or outcomes** that are not stated in the raw input. Do not make up achievements or numbers (e.g. do not say "boosted revenue by 40%" or "scaled to 1M users" unless the user's input explicitly states that).
+3. **Context + Tech Stack + Outcome Formula**: Every bullet point must tell a complete, structured story. Weave the technologies, libraries, or tools used directly into the action.
+   - Format: [Strong Action Verb] + [What you built/engineered/implemented using specific tech/tools] + [Why/Outcome].
+   - Example: "Engineered a microcontroller-based node system using ESP32 and Arduino, integrating relay modules to automate hardware recovery and reduce system downtime."
+4. **Vocabulary & Keyword Alignment**: Rephrase the candidate's actual work using high-impact, professional, ATS-optimized vocabulary that aligns with the target role and naturally incorporates relevant keywords from the list above. Change the phrasing, not the facts (e.g. translate "wrote python code to read data" to "Developed automated Python scripts to parse and process datasets").
+5. **Translate Research into Hard Skills**: If the project represents academic research, translate the abstract theory into concrete technical application. Detail the engineering methodology, dataset parsing, and programming tools used (e.g. Python, Pandas, PyTorch).
+6. **Clean ATS Formatting**: Keep the language professional, direct, and human-designed. Do not use special formatting symbols, emojis, or vague corporate clichés ("Built a simple app", "Helped team do X").
+7. **No Fake Tech**: Never mention tools or tech stacks that are not explicitly relevant or listed in the inputs.
 
-Return ONLY valid JSON:
+Return ONLY valid JSON with this exact structure:
 {
-  "bullets": ["bullet 1", "bullet 2", "bullet 3"],
+  "bullets": [
+    "Bullet point 1 detailing technical execution and outcomes",
+    "Bullet point 2 detailing tech stack application and metrics",
+    "Bullet point 3 detailing additional system integration and results"
+  ],
   "selectedSkills": ["skill 1", "skill 2", "skill 3"]
 }`;
   }
@@ -245,24 +258,32 @@ Return ONLY valid JSON:
     if (!candidateBackground || !targetRole) {
       throw new Error('Missing required fields for generateProfessionalSummary');
     }
-    return `Write a 2-3 sentence professional summary for a resume.
+    return `You are a professional ATS resume writer. Write an optimized professional summary for a resume.
 
-Target role: ${targetRole}
-Candidate background: ${candidateBackground}
-Key skills: ${topSkills.slice(0, 6).join(', ')}
-Keywords to incorporate: ${keywords.slice(0, 6).join(', ')}
+Target Role: ${targetRole}
+Candidate Background/Context: ${candidateBackground}
+Key Skills to Naturally Highlight: ${topSkills.slice(0, 6).join(', ')}
+ATS Keywords to Naturally Incorporate: ${keywords.slice(0, 6).join(', ')}
 
-Rules:
-- Write in third person (no "I" or "me")
-- Sound confident but not arrogant
-- Be specific and technical where appropriate
-- ATS-optimized: include role title and 2-3 key skills naturally
-- No clichés ("passionate", "team player", "go-getter")
-- 40-60 words maximum
+Strict Guidelines:
+
+Things to Consider (The Do's):
+1. **Lead with Your Professional Identity**: Start strong by defining the candidate's professional identity and experience level. State the core focus right away (e.g., data engineering, full-stack development, AI/ML integration).
+2. **Highlight Your Core Stack**: Mention specific, high-demand technologies the candidate excels in. Specifically name the strongest tools (e.g., Flutter, Next.js, PySpark, etc.) rather than generic terms.
+3. **Showcase Quantifiable Achievements**: Whenever possible, point to the results of their work (e.g. optimized a data pipeline, launched an application serving a specific user base). Action-driven results are highly persuasive.
+4. **Tailor for the Target Role**: Emphasize technical skills and focus areas that directly align with the target role: ${targetRole}.
+5. **Keep it Concise**: Aim for exactly 3 to 5 sentences. Keep it easily skimmable.
+
+Things to Avoid (The Don'ts):
+1. **Avoid First-Person Pronouns**: NEVER use first-person pronouns like "I", "me", "my", or "we". Write in active professional voice (e.g., "Developed an AI-driven travel platform..." instead of "I developed...").
+2. **Skip the Fluff and Clichés**: Avoid generic terms like "hard worker", "team player", "highly motivated", or "detail-oriented". Let projects and experiences demonstrate these traits.
+3. **Don't List Everything**: Do not turn the summary into a skills dump or list every single tool or library. Highlight only the primary core stack.
+4. **Avoid the Traditional "Objective Statement"**: Do not state what the candidate wants from the company. Focus entirely on the value and solutions they provide.
+5. **Don't Exaggerate**: Keep every claim professional, realistic, and strictly backed by their background.
 
 Return ONLY valid JSON:
 {
-  "summary": "Your generated summary here."
+  "summary": "Your generated professional summary here."
 }`;
   }
 
@@ -325,15 +346,21 @@ ${certsList}
 Achievements:
 ${achsList}
 
-Strict Rules for Generation:
-1. **Length Constraints**: The generated summary MUST be strictly between 100 and 150 words. Do not make it shorter than 100 words or longer than 150 words.
-2. **Authenticity & Tone**: Keep the professional summary authentic and human-sounding. Do NOT make it sound like a typical corporate AI brochure or generic marketing fluff.
-3. **Forbid Clichés**: Avoid buzzword clichés like "seasoned," "dynamic," "visionary," "passionate," "detail-oriented," "results-driven," "highly motivated," "thought leader," or "expert."
-4. **Strip Filler Adjectives**: Strip out generic filler adjectives in favor of varied, natural sentence structures.
-5. **Rely on Hard Facts & Metrics**: Instead of inventing melodramatic fluff or generic job titles, rely strictly on hard facts, specific metrics, measurable achievements, and actual work philosophy from the provided user data (experience, education, and projects). Do not exaggerate or fabricate numbers or experiences.
-6. **Varied, Natural Sentence Structure**: Use clean, straightforward, varied sentence structures. Avoid repetitive paragraph patterns.
-7. **Implicit First-Person/Active Voice**: Write in the active professional voice (e.g., starting with the role name, like "Software engineer building..." or "Backend developer focusing on..."). Do not use third-person biography pronouns ("he", "she", "they").
-8. **The "Read Out Loud" / Coffee Test**: Always apply the "read out loud" test to self-correct the draft. If the candidate would feel pretentious saying the summary directly to a recruiter over a cup of coffee, simplify the language until it sounds like a straightforward, confident professional describing their actual value.
+Strict Guidelines:
+
+Things to Consider (The Do's):
+1. **Lead with Your Professional Identity**: Start strong by defining the candidate's professional identity and experience level. State the core focus right away (e.g., data engineering, full-stack development, AI/ML integration).
+2. **Highlight Your Core Stack**: Mention specific, high-demand technologies the candidate excels in. Specifically name their strongest tools (e.g., Flutter, Next.js, PySpark, etc.) rather than generic terms.
+3. **Showcase Quantifiable Achievements**: Point to the results of their work based on the provided experience and projects. Action-driven results are highly persuasive.
+4. **Tailor for the Target Role**: Emphasize technical skills and focus areas that directly align with the target role: ${currentRole}.
+5. **Keep it Concise**: Aim for exactly 3 to 5 sentences. Keep it easily skimmable.
+
+Things to Avoid (The Don'ts):
+1. **Avoid First-Person Pronouns**: NEVER use first-person pronouns like "I", "me", "my", or "we". Write in active professional voice (e.g., starting with the role name, like "Software engineer building..." or "Backend developer focusing on..."). Do not use third-person biography pronouns ("he", "she", "they").
+2. **Skip the Fluff and Clichés**: Avoid generic terms like "hard worker", "team player", "highly motivated", "results-driven", or "detail-oriented". Let projects and experiences demonstrate these traits naturally.
+3. **Don't List Everything**: Do not turn the summary into a skills dump. Highlight only their primary core stack.
+4. **Avoid the Traditional "Objective Statement"**: Do not state what the candidate wants from the company. Focus entirely on the value and solutions they provide.
+5. **Don't Exaggerate**: Do not fabricate or exaggerate numbers, metrics, or experiences.
 
 Return ONLY valid JSON:
 {

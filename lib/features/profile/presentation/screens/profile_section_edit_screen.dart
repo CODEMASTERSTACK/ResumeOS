@@ -11,6 +11,66 @@ const List<String> _kMonths = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
+Map<String, String> _parseCertDate(String dateStr) {
+  dateStr = dateStr.trim();
+  String month = 'Jan';
+  String year = '2025';
+  
+  if (dateStr.isEmpty) {
+    return {'month': month, 'year': year};
+  }
+
+  if (dateStr.contains("'")) {
+    final parts = dateStr.split("'");
+    if (parts.length == 2) {
+      final mPart = parts[0].trim();
+      final yPart = parts[1].trim();
+      
+      const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      for (final m in shortMonths) {
+        if (m.toLowerCase() == mPart.toLowerCase()) {
+          month = m;
+          break;
+        }
+      }
+      
+      if (yPart.length == 2) {
+        year = '20$yPart';
+      } else if (yPart.length == 4) {
+        year = yPart;
+      }
+    }
+  } else {
+    final parts = dateStr.split(RegExp(r'\s+'));
+    if (parts.length == 2) {
+      final mPart = parts[0].trim();
+      final yPart = parts[1].trim();
+      
+      const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      final matchLength = mPart.length >= 3 ? 3 : mPart.length;
+      final matchPrefix = mPart.toLowerCase().substring(0, matchLength);
+      for (final m in shortMonths) {
+        if (m.toLowerCase().startsWith(matchPrefix)) {
+          month = m;
+          break;
+        }
+      }
+      
+      if (yPart.length == 4) {
+        year = yPart;
+      } else if (yPart.length == 2) {
+        year = '20$yPart';
+      }
+    } else if (parts.length == 1) {
+      final val = parts[0];
+      if (val.length == 4 && int.tryParse(val) != null) {
+        year = val;
+      }
+    }
+  }
+  return {'month': month, 'year': year};
+}
+
 class ProfileSectionEditScreen extends ConsumerStatefulWidget {
   final String section;
   final Map<String, dynamic>? editItem;
@@ -99,6 +159,26 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
     _startMonth = item['startMonth'] as String?;
     _endMonth = item['endMonth'] as String?;
     _isCurrent = item['isCurrent'] as bool? ?? (item['endDate'] == 'Present' || item['endYear'] == 'Present');
+
+    if (widget.section == 'certifications') {
+      final existingDate = item['date'] as String? ?? '';
+      final parsed = _parseCertDate(existingDate);
+      _startMonth = parsed['month'];
+      _startYearCtrl.text = parsed['year']!;
+    }
+
+    if (widget.section == 'achievements') {
+      final existingTitle = item['title'] as String? ?? '';
+      final parts = existingTitle.split('|');
+      final descPart = parts[0].trim();
+      final datePart = parts.length > 1 ? parts[1].trim() : '';
+
+      _titleCtrl.text = descPart;
+
+      final parsed = _parseCertDate(datePart);
+      _startMonth = parsed['month'];
+      _startYearCtrl.text = parsed['year']!;
+    }
 
     // Backward compatibility check for duration fields like "2024 - Present" or "Jan 2024 - May 2025"
     final duration = item['duration'] as String? ?? '';
@@ -306,17 +386,18 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
           break;
 
         case 'certifications':
-          final startStr = '${_startMonth ?? 'Jan'} ${_startYearCtrl.text.trim()}';
-          final endStr = '${_endMonth ?? 'Dec'} ${_endYearCtrl.text.trim()}';
-          final durationStr = '$startStr - $endStr';
+          final month = _startMonth ?? 'Jan';
+          final year = _startYearCtrl.text.trim().isEmpty ? '2025' : _startYearCtrl.text.trim();
+          final yrShort = year.substring(year.length - 2);
+          final durationStr = "$month'$yrShort";
 
           final data = {
             'title': _titleCtrl.text.trim(),
             'issuer': _instCtrl.text.trim(),
-            'startMonth': _startMonth ?? '',
-            'startYear': _startYearCtrl.text.trim(),
-            'endMonth': _endMonth ?? '',
-            'endYear': _endYearCtrl.text.trim(),
+            'startMonth': month,
+            'startYear': year,
+            'endMonth': '',
+            'endYear': '',
             'date': durationStr,
           };
 
@@ -328,8 +409,13 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
           break;
 
         case 'achievements':
+          final month = _startMonth ?? 'Jan';
+          final year = _startYearCtrl.text.trim().isEmpty ? '2025' : _startYearCtrl.text.trim();
+          final yrShort = year.substring(year.length - 2);
+          final titleWithDate = "${_titleCtrl.text.trim()}|$month'$yrShort";
+
           final data = {
-            'title': _titleCtrl.text.trim(),
+            'title': titleWithDate,
           };
 
           if (isEdit) {
@@ -718,14 +804,35 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
   }
 
   Widget _buildCertificationsForm() {
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final years = List.generate(21, (index) => (2015 + index).toString());
+    
+    String? matchedMonth;
+    if (_startMonth != null) {
+      for (final m in shortMonths) {
+        if (m.toLowerCase() == _startMonth!.toLowerCase() || 
+            _startMonth!.toLowerCase().startsWith(m.toLowerCase())) {
+          matchedMonth = m;
+          break;
+        }
+      }
+    }
+    matchedMonth ??= 'Jan';
+    _startMonth = matchedMonth;
+
+    String currentYear = _startYearCtrl.text.trim();
+    if (currentYear.isEmpty || !years.contains(currentYear)) {
+      currentYear = '2025';
+      _startYearCtrl.text = currentYear;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildTextField(_titleCtrl, 'Certification Name', isCompulsory: true),
         _buildTextField(_instCtrl, 'Issuer', isCompulsory: true),
         
-        // Start Month / Year picker row
-        const Text('Start Date', style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold)),
+        const Text('Date Earned / Expiry', style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -739,16 +846,16 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
                   value: _startMonth,
                   style: const TextStyle(color: Colors.white, fontSize: 15),
                   decoration: InputDecoration(
-                    labelText: 'Month',
-                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-                    floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.03),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
-                    focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
+                     labelText: 'Month',
+                     labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                     floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                     filled: true,
+                     fillColor: Colors.white.withValues(alpha: 0.03),
+                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                     enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
+                     focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
                   ),
-                  items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                  items: shortMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
                   onChanged: (val) => setState(() => _startMonth = val),
                   validator: (val) => val == null ? 'Select Month' : null,
                 ),
@@ -756,14 +863,75 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField(_startYearCtrl, 'Year', isCompulsory: true, type: TextInputType.number),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  canvasColor: const Color(0xFF0C0B10),
+                ),
+                child: DropdownButtonFormField<String>(
+                  dropdownColor: const Color(0xFF0C0B10),
+                  value: _startYearCtrl.text.trim().isEmpty ? '2025' : _startYearCtrl.text.trim(),
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  decoration: InputDecoration(
+                     labelText: 'Year',
+                     labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                     floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                     filled: true,
+                     fillColor: Colors.white.withValues(alpha: 0.03),
+                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                     enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
+                     focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
+                  onChanged: (val) => setState(() {
+                    if (val != null) {
+                      _startYearCtrl.text = val;
+                    }
+                  }),
+                  validator: (val) => val == null ? 'Select Year' : null,
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 12),
+      ],
+    );
+  }
 
-        // End Month / Year picker row
-        const Text('End Date (or Expiry)', style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold)),
+  Widget _buildAchievementsForm() {
+    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final years = List.generate(21, (index) => (2015 + index).toString());
+    
+    String? matchedMonth;
+    if (_startMonth != null) {
+      for (final m in shortMonths) {
+        if (m.toLowerCase() == _startMonth!.toLowerCase() || 
+            _startMonth!.toLowerCase().startsWith(m.toLowerCase())) {
+          matchedMonth = m;
+          break;
+        }
+      }
+    }
+    matchedMonth ??= 'Jan';
+    _startMonth = matchedMonth;
+
+    String currentYear = _startYearCtrl.text.trim();
+    if (currentYear.isEmpty || !years.contains(currentYear)) {
+      currentYear = '2025';
+      _startYearCtrl.text = currentYear;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildTextField(
+          _titleCtrl,
+          'Achievement Details',
+          isCompulsory: true,
+          maxLines: 4,
+          hint: 'e.g. Secured 1st place in National Hackathon against 100+ competing engineering teams.',
+        ),
+        
+        const Text('Date Earned / Achieved', style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -774,43 +942,55 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
                 ),
                 child: DropdownButtonFormField<String>(
                   dropdownColor: const Color(0xFF0C0B10),
-                  value: _endMonth,
+                  value: _startMonth,
                   style: const TextStyle(color: Colors.white, fontSize: 15),
                   decoration: InputDecoration(
-                    labelText: 'Month',
-                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-                    floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.03),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
-                    focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
+                     labelText: 'Month',
+                     labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                     floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                     filled: true,
+                     fillColor: Colors.white.withValues(alpha: 0.03),
+                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                     enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
+                     focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
                   ),
-                  items: _kMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                  onChanged: (val) => setState(() => _endMonth = val),
+                  items: shortMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                  onChanged: (val) => setState(() => _startMonth = val),
                   validator: (val) => val == null ? 'Select Month' : null,
                 ),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _buildTextField(_endYearCtrl, 'Year', isCompulsory: true, type: TextInputType.number),
+              child: Theme(
+                data: Theme.of(context).copyWith(
+                  canvasColor: const Color(0xFF0C0B10),
+                ),
+                child: DropdownButtonFormField<String>(
+                  dropdownColor: const Color(0xFF0C0B10),
+                  value: _startYearCtrl.text.trim().isEmpty ? '2025' : _startYearCtrl.text.trim(),
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                  decoration: InputDecoration(
+                     labelText: 'Year',
+                     labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                     floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                     filled: true,
+                     fillColor: Colors.white.withValues(alpha: 0.03),
+                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                     enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)), borderRadius: BorderRadius.circular(12)),
+                     focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5), borderRadius: BorderRadius.circular(12)),
+                  ),
+                  items: years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
+                  onChanged: (val) => setState(() {
+                    if (val != null) {
+                      _startYearCtrl.text = val;
+                    }
+                  }),
+                  validator: (val) => val == null ? 'Select Year' : null,
+                ),
+              ),
             ),
           ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAchievementsForm() {
-    return Column(
-      children: [
-        _buildTextField(
-          _titleCtrl,
-          'Achievement Details',
-          isCompulsory: true,
-          maxLines: 4,
-          hint: 'e.g. Secured 1st place in National Hackathon against 100+ competing engineering teams.',
         ),
       ],
     );

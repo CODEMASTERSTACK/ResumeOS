@@ -43,16 +43,17 @@ class OnboardingWrapper extends ConsumerWidget {
         child: SafeArea(
           child: Column(
             children: [
-              // Progress indicator
-              if (step > 0 && step < steps.length - 1)
-                Padding(
-                  padding: const EdgeInsets.only(
-                      left: 24, right: 24, top: 12, bottom: 4),
-                  child: Column(
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
+              // Top Header Bar containing Back button, Step progress indicator, Skip, and Logout button
+              Padding(
+                padding: const EdgeInsets.only(
+                    left: 24, right: 24, top: 12, bottom: 4),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Left Side: Step count and Back button
+                        if (step > 0 && step < steps.length - 1)
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
@@ -92,39 +93,84 @@ class OnboardingWrapper extends ConsumerWidget {
                                 ),
                               ),
                             ],
-                          ),
-                          if (step > 2)
-                            TextButton(
-                              onPressed: () async {
-                                final notifier = ref.read(onboardingStepProvider.notifier);
-                                if (step == steps.length - 2) {
-                                  final uid = ref.read(currentUserProvider)?.uid;
-                                  if (uid != null) {
-                                    try {
-                                      await ref.read(profileRepositoryProvider).updateUser(uid, {
-                                        'onboardingComplete': true,
-                                      });
-                                    } catch (e) {
-                                      debugPrint('Error updating onboardingComplete: $e');
+                          )
+                        else
+                          const SizedBox.shrink(),
+
+                        // Right Side: Skip button (if applicable) & Logout button
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (step > 2 && step < steps.length - 1) ...[
+                              TextButton(
+                                onPressed: () async {
+                                  final notifier = ref.read(onboardingStepProvider.notifier);
+                                  if (step == steps.length - 2) {
+                                    final uid = ref.read(currentUserProvider)?.uid;
+                                    if (uid != null) {
+                                      try {
+                                        await ref.read(profileRepositoryProvider).updateUser(uid, {
+                                          'onboardingComplete': true,
+                                        });
+                                      } catch (e) {
+                                        debugPrint('Error updating onboardingComplete: $e');
+                                      }
                                     }
                                   }
+                                  notifier.state++;
+                                },
+                                child: const Text(
+                                  'Skip',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF8B6B58),
+                                    fontWeight: FontWeight.w700,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                            ],
+                            
+                            // Logout Button
+                            TextButton.icon(
+                              onPressed: () async {
+                                await ref.read(authNotifierProvider.notifier).signOut();
+                                if (context.mounted) {
+                                  context.go(RouteNames.login);
                                 }
-                                notifier.state++;
                               },
-                              child: const Text(
-                                'Skip',
+                              icon: const Icon(
+                                Icons.logout_rounded,
+                                size: 14,
+                                color: Color(0xFF8B6B58),
+                              ),
+                              label: const Text(
+                                'Logout',
                                 style: TextStyle(
                                   fontSize: 12,
                                   color: Color(0xFF8B6B58),
                                   fontWeight: FontWeight.w700,
-                                  decoration: TextDecoration.underline,
                                 ),
                               ),
-                            )
-                          else
-                            const SizedBox(width: 48),
-                        ],
-                      ),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                backgroundColor: const Color(0xFFFAF8F5),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: BorderSide(
+                                    color: const Color(0xFFE5D5C8).withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (step > 0 && step < steps.length - 1) ...[
                       const SizedBox(height: 8),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(3),
@@ -137,8 +183,9 @@ class OnboardingWrapper extends ConsumerWidget {
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
+              ),
               // Step content
               Expanded(
                 child: Center(

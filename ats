@@ -1,0 +1,25 @@
+ (What to Consider (Best Practices)
+Standardized Headers and Titles: Use clear, predictable section headers like "Technical Projects," "Academic Research," or "Publications." For each entry, format the title consistently.
+
+Example format: Self-Healing IoT Infrastructure | Hardware Programmer | Jan 2026 – Present
+
+The "Context + Tech Stack + Outcome" Formula: Every bullet point should tell a complete story. The ATS is scanning for hard skills, so seamlessly weave the tools you used into the action.
+
+Example: "Engineered a microcontroller-based node system using ESP32 and Arduino, integrating relay modules to automate hardware recovery and reduce system downtime."
+
+Translate Research into Hard Skills: If you are listing research work (like investigating LLM hallucinations or emotion-aware agents), don't just state the topic. Detail the methodology and the tools used. Did you use Python for data analysis? Did you parse large datasets? The ATS wants to see the technical application behind the theory.
+
+Include Plain-Text URLs: While the ATS doesn't care about your live deployment or GitHub repository, the human recruiter who gets past the ATS will. Include clean, plain-text links (e.g., [github.com/username/repo](https://github.com/username/repo)) next to the project title.
+
+Group by Relevance, Not Just Chronology: If you are applying for a data-heavy role, put your data engineering and analytics projects at the top of the section. If you are applying for full-stack development, prioritize your web applications (Next.js, PHP, etc.) first.
+
+Mistakes to Avoid
+Vague, "Non-Technical" Summaries: The ATS cannot infer your skills. Avoid descriptions like "Built a university dating app." Instead, write: "Developed a full-stack web application utilizing Next.js and SQL to manage concurrent user sessions and database queries."
+
+Burying the Technologies: Do not just list your tech stack in a separate "Skills" section and leave it out of the project bullets. The ATS scores you higher when a keyword (like Flutter, NodeMCU, or Big Data Analytics) is contextualized within an actual experience or project.
+
+Overloading with Academic Jargon (for corporate roles): If you are applying for an industry job (like a System Engineer or Key Account Manager), avoid making your research sound like a purely theoretical thesis. Focus on the data collection, problem-solving, and analytical frameworks used rather than just the academic theory.
+
+Listing Incomplete Projects Without Results: If a project is ongoing, focus on what has been accomplished so far. Don't say "Currently working on X." Instead, write "Architecting the initial database structure for X using Y to achieve Z.") , Also it should have words that fits best according to the job description user has given.  
+
+

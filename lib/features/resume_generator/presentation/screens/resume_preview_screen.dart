@@ -1,9 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
 import 'package:go_router/go_router.dart';
-import 'dart:ui';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/resume_generator/domain/entities/resume_model.dart';
@@ -20,8 +20,7 @@ class ResumePreviewScreen extends ConsumerStatefulWidget {
       _ResumePreviewScreenState();
 }
 
-class _ResumePreviewScreenState
-    extends ConsumerState<ResumePreviewScreen> {
+class _ResumePreviewScreenState extends ConsumerState<ResumePreviewScreen> {
   bool _isDownloading = false;
   ResumeModel? _resume;
   bool _loading = true;
@@ -94,7 +93,7 @@ class _ResumePreviewScreenState
 
   void _showFullScreenResume() {
     if (_resume?.generatedResumeData == null) return;
-    
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -104,15 +103,23 @@ class _ResumePreviewScreenState
           appBar: AppBar(
             backgroundColor: Colors.transparent,
             elevation: 0,
-            leading: IconButton(
-              icon: const Icon(Icons.close_rounded, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+            leading: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                child: const Icon(Icons.close_rounded, color: Colors.white, size: 18),
+              ),
             ),
             title: Text(
               '${_resume!.generatedResumeData!.name}\'s Resume',
-              style: const TextStyle(
+              style: GoogleFonts.outfit(
                 color: Colors.white,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w700,
                 fontSize: 16,
               ),
             ),
@@ -132,9 +139,10 @@ class _ResumePreviewScreenState
               canChangeOrientation: false,
               canDebug: false,
               loadingWidget: const Center(
-                child: CircularProgressIndicator(color: AppColors.accent),
+                child: CircularProgressIndicator(color: Color(0xFFCBE349)),
               ),
-              pdfFileName: '${_resume!.generatedResumeData!.name.replaceAll(' ', '_')}_Resume.pdf',
+              pdfFileName:
+                  '${_resume!.generatedResumeData!.name.replaceAll(' ', '_')}_Resume.pdf',
             ),
           ),
         ),
@@ -146,438 +154,432 @@ class _ResumePreviewScreenState
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
 
+    // Resolve template file name label
+    String templateFileLabel = 'ats_professional.tpl';
+    if (_resume != null) {
+      templateFileLabel = '${_resume!.templateUsed.name.replaceAll(RegExp(r'(?=[A-Z])'), '_').toLowerCase()}.tpl';
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFF07060F), // Rich dark indigo base matching home screen
+      backgroundColor: const Color(0xFF07060F),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 0,
+        leadingWidth: 70,
         leading: Padding(
-          padding: const EdgeInsets.only(left: 16, top: 8, bottom: 8),
+          padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
           child: GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
               ),
               child: const Icon(
-                Icons.chevron_left_rounded,
+                Icons.arrow_back_ios_new_rounded,
                 color: Colors.white,
-                size: 24,
+                size: 14,
               ),
             ),
           ),
         ),
-        title: const Text(
-          'Resume Preview',
-          style: TextStyle(
+        title: Text(
+          'Preview & Audit',
+          style: GoogleFonts.outfit(
             color: Colors.white,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w800,
             fontSize: 18,
+            letterSpacing: -0.2,
           ),
         ),
-      ),
-      body: Stack(
-        children: [
-          // 1. Core Bright focal light source (top-left) - almost white-pink bloom
-          Positioned(
-            top: -60,
-            left: -60,
-            width: 220,
-            height: 220,
-            child: Container(
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: Color(0xFFFFF0F6), // White-pink core bloom
-              ),
-            ),
-          ),
-
-          // 2. Neon Sunlight effect (bright warm golden sunlight leak)
-          Positioned(
-            top: -100,
-            left: -100,
-            width: 260,
-            height: 260,
-            child: Container(
+        centerTitle: false,
+        actions: [
+          if (_resume != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              margin: const EdgeInsets.only(right: 20),
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: RadialGradient(
-                  center: Alignment.center,
-                  radius: 0.85,
-                  colors: [
-                    const Color(0xFFFFFFE0), // Hot golden white sun core
-                    const Color(0xFFFFEE55).withValues(alpha: 0.5), // Vibrant neon yellow bloom
-                    const Color(0xFFFFB300).withValues(alpha: 0.25), // Neon amber halo
-                    Colors.transparent,
-                  ],
-                  stops: const [0.0, 0.35, 0.7, 1.0],
+                color: Colors.white.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Text(
+                templateFileLabel,
+                style: GoogleFonts.firaCode(
+                  color: Colors.white60,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
-          ),
-
-          // 3. Volumetric Diagonal Light Leak / Spotlight beam
+          ]
+        ],
+      ),
+      body: Stack(
+        children: [
+          // ── Ambient Background Glows ──
           Positioned(
-            top: -120,
-            left: -120,
-            width: screenHeight * 0.55,
-            height: screenHeight * 0.45,
+            top: -60, left: -60, width: 220, height: 220,
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFFF0F6),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -120, left: -120,
+            width: screenHeight * 0.5, height: screenHeight * 0.4,
             child: Transform.rotate(
-              angle: -0.15, // Soft diagonal sweep toward center-right
+              angle: -0.15,
               child: Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                     colors: [
-                      const Color(0xFFEC53B0).withValues(alpha: 0.6), // Magenta highlight
-                      const Color(0xFF723FFD).withValues(alpha: 0.45), // Purple highlight
-                      const Color(0xFF1E6AFF).withValues(alpha: 0.25), // Blue accent
+                      const Color(0xFFEC53B0).withValues(alpha: 0.5),
+                      const Color(0xFF723FFD).withValues(alpha: 0.35),
                       Colors.transparent,
                     ],
-                    stops: const [0.0, 0.4, 0.75, 1.0],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
                 ),
               ),
             ),
           ),
-
-          // 4. Layered ambient purple glow layer for surrounding bloom
           Positioned(
-            top: -50,
-            left: -50,
-            width: screenHeight * 0.4,
-            height: screenHeight * 0.4,
+            top: -50, left: -50,
+            width: screenHeight * 0.35, height: screenHeight * 0.35,
             child: Container(
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF723FFD).withValues(alpha: 0.3),
+                color: const Color(0xFF723FFD).withValues(alpha: 0.22),
               ),
             ),
           ),
-
-          // 5. Secondary soft blue highlight (extends center-right)
-          Positioned(
-            top: 60,
-            left: 100,
-            width: screenHeight * 0.4,
-            height: screenHeight * 0.3,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF1E6AFF).withValues(alpha: 0.22),
-              ),
-            ),
-          ),
-
-          // 6. Cinematic Blur overlay to blend layers into an immersive aurora bloom
           Positioned.fill(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 95.0, sigmaY: 95.0),
+              filter: ImageFilter.blur(sigmaX: 90, sigmaY: 90),
               child: Container(
-                color: const Color(0xFF07060F).withValues(alpha: 0.30), // Integrated background overlay
+                color: const Color(0xFF07060F).withValues(alpha: 0.35),
               ),
             ),
           ),
 
-          // Main Layout Structure: Expanded scroll area and Sticky action buttons at bottom
+          // ── Content Area ──
           _loading
-              ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
+              ? const Center(
+                  child: CircularProgressIndicator(color: Color(0xFFCBE349)))
               : _resume == null
-                  ? const Center(child: Text('Resume not found', style: TextStyle(color: Colors.white)))
+                  ? Center(
+                      child: Text(
+                        'Resume not found',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white60,
+                          fontSize: 15,
+                        ),
+                      ),
+                    )
                   : Column(
                       children: [
-                        // Scrollable section for cards
                         Expanded(
                           child: SingleChildScrollView(
                             physics: const BouncingScrollPhysics(),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
                             child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                // ATS Score + Missing Keywords Insights Card
+                                // ATS Audit / Insight Section
                                 if (_resume!.atsScore > 0) ...[
-                                  _AtsInsightCard(resume: _resume!),
-                                  const SizedBox(height: 16),
+                                  _AtsInsightSection(resume: _resume!),
+                                  const SizedBox(height: 24),
                                 ],
-                                
-                                // Resume Document Card
-                                Container(
-                                  height: 520, // Fixed height inside scrollview to prevent layout constraints issues
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.03), // theme matched card background
-                                    borderRadius: BorderRadius.circular(28), // matched with home screen cards
-                                    border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.1),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                    ],
-                                  ),
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    children: [
-                                      // Custom PDF Header Row
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.all(6),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white.withValues(alpha: 0.05),
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                child: const Icon(
-                                                  Icons.description_outlined,
-                                                  color: Colors.white,
-                                                  size: 16,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              const Text(
-                                                'Resume Document',
-                                                style: TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          Row(
-                                            children: [
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.white.withValues(alpha: 0.05),
-                                                  borderRadius: BorderRadius.circular(20),
-                                                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                                                ),
-                                                child: const Text(
-                                                  '1 / 1',
-                                                  style: TextStyle(
-                                                    fontSize: 11,
-                                                    fontWeight: FontWeight.bold,
-                                                    color: Colors.white70,
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 4),
-                                              PopupMenuButton<String>(
-                                                icon: const Icon(Icons.more_vert_rounded, color: Colors.white70, size: 20),
-                                                padding: EdgeInsets.zero,
-                                                constraints: const BoxConstraints(),
-                                                onSelected: (value) {
-                                                  if (value == 'fullscreen') {
-                                                    _showFullScreenResume();
-                                                  }
-                                                },
-                                                itemBuilder: (context) => [
-                                                  const PopupMenuItem(
-                                                    value: 'fullscreen',
-                                                    child: Row(
-                                                      children: [
-                                                        Icon(Icons.fullscreen_rounded, color: Colors.black, size: 18),
-                                                        SizedBox(width: 8),
-                                                        Text(
-                                                          'Full Screen Preview',
-                                                          style: TextStyle(
-                                                            fontSize: 13,
-                                                            fontWeight: FontWeight.w600,
-                                                          ),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 12),
-                                      
-                                      // Actual PDF Preview Widget
-                                      Expanded(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(12),
-                                            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-                                          ),
-                                          clipBehavior: Clip.antiAlias,
-                                          child: InteractiveViewer(
-                                            minScale: 1.0,
-                                            maxScale: 3.0,
-                                            child: PdfPreview(
-                                              build: (format) => PdfService().generatePdf(
-                                                _resume!.generatedResumeData!,
-                                                _resume!.templateUsed,
-                                              ),
-                                              allowPrinting: false,
-                                              allowSharing: false,
-                                              canChangePageFormat: false,
-                                              canChangeOrientation: false,
-                                              canDebug: false,
-                                              loadingWidget: const Center(
-                                                child: CircularProgressIndicator(color: AppColors.accent),
-                                              ),
-                                              pdfFileName: '${_resume!.generatedResumeData!.name.replaceAll(' ', '_')}_Resume.pdf',
-                                            ),
+
+                                // Monospace Canvas Header
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.space_dashboard_outlined,
+                                          color: Colors.white.withValues(alpha: 0.35),
+                                          size: 14,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text(
+                                          'CANVAS PREVIEW',
+                                          style: GoogleFonts.firaCode(
+                                            color: Colors.white.withValues(alpha: 0.4),
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 0.5,
                                           ),
                                         ),
+                                      ],
+                                    ),
+                                    GestureDetector(
+                                      onTap: _showFullScreenResume,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.03),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.06),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Icon(
+                                              Icons.fullscreen_rounded,
+                                              color: Colors.white.withValues(alpha: 0.6),
+                                              size: 14,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Text(
+                                              'Expand',
+                                              style: GoogleFonts.outfit(
+                                                color: Colors.white.withValues(alpha: 0.7),
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ],
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+
+                                // Figma/Framer style Document Canvas
+                                Container(
+                                  height: 540,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF0C0B12), // Darker slate workspace background
+                                    borderRadius: BorderRadius.circular(24),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.06),
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.all(24),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(4),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(alpha: 0.5),
+                                          blurRadius: 28,
+                                          spreadRadius: 2,
+                                          offset: const Offset(0, 12),
+                                        ),
+                                      ],
+                                    ),
+                                    clipBehavior: Clip.antiAlias,
+                                    child: PdfPreview(
+                                      build: (format) => PdfService().generatePdf(
+                                        _resume!.generatedResumeData!,
+                                        _resume!.templateUsed,
+                                      ),
+                                      allowPrinting: false,
+                                      allowSharing: false,
+                                      canChangePageFormat: false,
+                                      canChangeOrientation: false,
+                                      canDebug: false,
+                                      loadingWidget: const Center(
+                                        child: CircularProgressIndicator(
+                                          color: Color(0xFFCBE349),
+                                        ),
+                                      ),
+                                      pdfFileName:
+                                          '${_resume!.generatedResumeData!.name.replaceAll(' ', '_')}_Resume.pdf',
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        
-                        // Sticky Bottom Action Bar with matching theme buttons
+
+                        // Floating Glass Action Bar
                         ClipRect(
                           child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                             child: Container(
-                              padding: const EdgeInsets.only(
-                                left: 16,
-                                right: 16,
-                                top: 16,
-                                bottom: 24,
+                              padding: EdgeInsets.fromLTRB(
+                                20, 16, 20,
+                                MediaQuery.of(context).padding.bottom + 20,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF07060F).withValues(alpha: 0.85),
+                                color: const Color(0xFF07060F).withValues(alpha: 0.75),
                                 border: Border(
                                   top: BorderSide(
                                     color: Colors.white.withValues(alpha: 0.08),
-                                    width: 1.0,
+                                    width: 1,
                                   ),
                                 ),
                               ),
-                              child: SafeArea(
-                                child: Row(
-                                  children: [
-                                    // Regenerate Button (styled cleanly)
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: () => Navigator.pop(context),
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          backgroundColor: Colors.white.withValues(alpha: 0.04),
-                                          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(30), // matched with home screen buttons
-                                          ),
-                                        ),
-                                        child: const FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
-                                              SizedBox(width: 6),
-                                              Text(
-                                                'Regenerate',
-                                                style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    
-                                    // Download Button (styled cleanly)
-                                    Expanded(
-                                      child: OutlinedButton(
-                                        onPressed: _isDownloading ? null : _downloadPdf,
-                                        style: OutlinedButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          backgroundColor: Colors.green.withValues(alpha: 0.08),
-                                          side: BorderSide(color: Colors.green.withValues(alpha: 0.25)),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(30), // matched with home screen buttons
+                              child: Row(
+                                children: [
+                                  // Regenerate (Outlined dark button)
+                                  Expanded(
+                                    flex: 3,
+                                    child: GestureDetector(
+                                      onTap: () => Navigator.pop(context),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.03),
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.08),
                                           ),
                                         ),
                                         child: FittedBox(
                                           fit: BoxFit.scaleDown,
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              _isDownloading
-                                                  ? const SizedBox(
-                                                      width: 14,
-                                                      height: 14,
-                                                      child: CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: Colors.green,
-                                                      ),
-                                                    )
-                                                  : const Icon(Icons.file_download_outlined, color: Colors.green, size: 16),
-                                              const SizedBox(width: 6),
-                                              Text(
-                                                _isDownloading ? '...' : 'Download',
-                                                style: const TextStyle(
-                                                  color: Colors.green,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.restart_alt_rounded,
+                                                  color: Colors.white70,
+                                                  size: 16,
                                                 ),
-                                              ),
-                                            ],
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Regenerate',
+                                                  style: GoogleFonts.outfit(
+                                                    color: Colors.white70,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    
-                                    // Edit Resume Button (primary purple accent styled button)
-                                    Expanded(
-                                      child: ElevatedButton(
-                                        onPressed: _navigateToEditScreen,
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: AppColors.accent, // vibrant purple color matching home screen
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(vertical: 16),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(30), // matched with home screen buttons
+                                  ),
+                                  const SizedBox(width: 10),
+
+                                  // Download (frosted green pill)
+                                  Expanded(
+                                    flex: 3,
+                                    child: GestureDetector(
+                                      onTap: _isDownloading ? null : _downloadPdf,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(alpha: 0.03),
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.08),
                                           ),
-                                          elevation: 0,
                                         ),
-                                        child: const FittedBox(
+                                        child: FittedBox(
                                           fit: BoxFit.scaleDown,
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Icon(Icons.edit_rounded, size: 16),
-                                              SizedBox(width: 6),
-                                              Text(
-                                                'Edit Resume',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                _isDownloading
+                                                    ? const SizedBox(
+                                                        width: 14,
+                                                        height: 14,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          color: Colors.white,
+                                                        ),
+                                                      )
+                                                    : const Icon(
+                                                        Icons.file_download_outlined,
+                                                        color: Colors.white,
+                                                        size: 16,
+                                                      ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  'Download',
+                                                  style: GoogleFonts.outfit(
+                                                    color: Colors.white,
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
                                                 ),
-                                              ),
-                                            ],
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(width: 10),
+
+                                  // Edit Resume (Premium Lime CTA)
+                                  Expanded(
+                                    flex: 4,
+                                    child: GestureDetector(
+                                      onTap: _navigateToEditScreen,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(vertical: 14),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFCBE349),
+                                          borderRadius: BorderRadius.circular(14),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: const Color(0xFFCBE349)
+                                                  .withValues(alpha: 0.25),
+                                              blurRadius: 16,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ],
+                                        ),
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                const Icon(
+                                                  Icons.edit_note_rounded,
+                                                  color: Color(0xFF07060F),
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Text(
+                                                  'Edit Content',
+                                                  style: GoogleFonts.outfit(
+                                                    color: const Color(0xFF07060F),
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ),
+
                       ],
                     ),
         ],
@@ -586,167 +588,191 @@ class _ResumePreviewScreenState
   }
 }
 
-class _AtsInsightCard extends StatelessWidget {
+// ── ATS Insight Section ────────────────────────────────────
+
+class _AtsInsightSection extends StatelessWidget {
   final ResumeModel resume;
-  const _AtsInsightCard({required this.resume});
+
+  const _AtsInsightSection({required this.resume});
 
   Color get _scoreColor {
-    if (resume.atsScore >= 80) return Colors.green.shade600;
-    if (resume.atsScore >= 60) return Colors.amber.shade700;
-    return Colors.red.shade600;
+    if (resume.atsScore >= 80) return const Color(0xFF10B981);
+    if (resume.atsScore >= 60) return const Color(0xFFF59E0B);
+    return const Color(0xFFEF4444);
   }
 
   String get _ratingLabel {
-    if (resume.atsScore >= 80) return 'Good';
-    if (resume.atsScore >= 60) return 'Average';
-    return 'Needs Work';
+    if (resume.atsScore >= 80) return 'Optimized';
+    if (resume.atsScore >= 60) return 'Average Match';
+    return 'Weak Match';
   }
 
   String get _ratingDesc {
-    if (resume.atsScore >= 80) return 'Your resume is well-optimized but can be further improved.';
-    if (resume.atsScore >= 60) return 'Your resume is decent but missing key elements to pass ATS.';
-    return 'Your resume needs significant improvements to pass standard ATS filters.';
+    if (resume.atsScore >= 80) {
+      return 'Excellent keyword match. Highly parseable and optimized for corporate ATS screening filters.';
+    }
+    if (resume.atsScore >= 60) {
+      return 'Contains core qualifications, but lacks several highly relevant target role keywords.';
+    }
+    return 'Low compatibility. Add suggested industry keywords to prevent automatic ATS rejection.';
   }
 
   @override
   Widget build(BuildContext context) {
     final missing = resume.missingKeywords;
     final screenWidth = MediaQuery.of(context).size.width;
-    final useVerticalLayout = screenWidth < 420;
+    final isDesktop = screenWidth > 580;
 
-    final leftGauge = Column(
-      mainAxisSize: MainAxisSize.min,
+    final headerRow = Row(
       children: [
-        SizedBox(
-          width: 80,
-          height: 80,
-          child: Stack(
-            alignment: Alignment.center,
-            children: [
-              SizedBox(
-                width: 74,
-                height: 74,
-                child: CircularProgressIndicator(
-                  value: resume.atsScore / 100.0,
-                  strokeWidth: 7,
-                  backgroundColor: Colors.white.withValues(alpha: 0.05),
-                  color: _scoreColor,
-                  strokeCap: StrokeCap.round,
-                ),
-              ),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${resume.atsScore}',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: _scoreColor,
-                    ),
-                  ),
-                  Text(
-                    '/100',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white.withValues(alpha: 0.5),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+        Icon(
+          Icons.analytics_outlined,
+          color: Colors.white.withValues(alpha: 0.35),
+          size: 14,
         ),
-        const SizedBox(height: 8),
+        const SizedBox(width: 8),
         Text(
-          _ratingLabel,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-            color: _scoreColor,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          _ratingDesc,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.white.withValues(alpha: 0.6),
-            height: 1.3,
+          'ATS AUDIT REPORT',
+          style: GoogleFonts.firaCode(
+            color: Colors.white.withValues(alpha: 0.4),
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
           ),
         ),
       ],
     );
 
-    final rightKeywords = Column(
+    final scoreDisplay = Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Radial gauge
+          SizedBox(
+            width: 72,
+            height: 72,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 66,
+                  height: 66,
+                  child: CircularProgressIndicator(
+                    value: resume.atsScore / 100.0,
+                    strokeWidth: 6,
+                    backgroundColor: Colors.white.withValues(alpha: 0.04),
+                    color: _scoreColor,
+                    strokeCap: StrokeCap.round,
+                  ),
+                ),
+                Text(
+                  '${resume.atsScore}%',
+                  style: GoogleFonts.outfit(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 20),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _scoreColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: _scoreColor.withValues(alpha: 0.2)),
+                  ),
+                  child: Text(
+                    _ratingLabel.toUpperCase(),
+                    style: GoogleFonts.outfit(
+                      color: _scoreColor,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _ratingDesc,
+                  style: GoogleFonts.outfit(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 12,
+                    height: 1.4,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    final keywordsSection = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Text(
-              'Missing Keywords',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+            Text(
+              'Missing Suggested Keywords',
+              style: GoogleFonts.outfit(
+                color: Colors.white.withValues(alpha: 0.8),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             Icon(
-              Icons.info_outline_rounded,
+              Icons.warning_amber_rounded,
               color: Colors.white.withValues(alpha: 0.3),
               size: 13,
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Add these keywords to improve your ATS score and visibility.',
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.white.withValues(alpha: 0.5),
-            height: 1.3,
-          ),
-        ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         if (missing.isNotEmpty)
           Wrap(
             spacing: 6,
             runSpacing: 6,
             children: missing.map((kw) {
               return Container(
-                constraints: BoxConstraints(maxWidth: screenWidth * 0.45),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(20), // rounded pill badge
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.red.withValues(alpha: 0.2),
+                    color: const Color(0xFFEF4444).withValues(alpha: 0.15),
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.close_rounded,
-                      color: Colors.red.shade300,
-                      size: 10,
+                    const Icon(
+                      Icons.add_rounded,
+                      color: Color(0xFFF87171),
+                      size: 12,
                     ),
                     const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(
-                        kw,
-                        style: TextStyle(
-                          color: Colors.red.shade200,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+                    Text(
+                      kw,
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFFFCA5A5),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -755,95 +781,60 @@ class _AtsInsightCard extends StatelessWidget {
             }).toList(),
           )
         else
-          Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: Text(
-              'No missing keywords! Your resume matches perfectly.',
-              style: TextStyle(
-                fontSize: 10,
-                fontStyle: FontStyle.italic,
-                color: Colors.green.shade400,
-              ),
+          Text(
+            '✓ Perfect keyword matching. No critical missing terms detected.',
+            style: GoogleFonts.outfit(
+              color: const Color(0xFF10B981),
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
             ),
           ),
       ],
     );
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.03), // theme matched card background
-        borderRadius: BorderRadius.circular(28), // matched with home screen cards
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Card Header
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.analytics_outlined,
-                  color: Colors.white,
-                  size: 16,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                'ATS Analysis',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          
-          if (useVerticalLayout) ...[
-            Center(child: leftGauge),
-            Container(
-              margin: const EdgeInsets.symmetric(vertical: 16),
-              height: 1,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        headerRow,
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
               color: Colors.white.withValues(alpha: 0.08),
             ),
-            rightKeywords,
-          ] else
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 4,
-                  child: leftGauge,
+          ),
+          child: isDesktop
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 11, child: scoreDisplay),
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 20),
+                      width: 1,
+                      height: 110,
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                    Expanded(flex: 10, child: keywordsSection),
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    scoreDisplay,
+                    const SizedBox(height: 18),
+                    Container(
+                      height: 1,
+                      color: Colors.white.withValues(alpha: 0.06),
+                    ),
+                    const SizedBox(height: 16),
+                    keywordsSection,
+                  ],
                 ),
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16),
-                  width: 1,
-                  height: 130,
-                  color: Colors.white.withValues(alpha: 0.08),
-                ),
-                Expanded(
-                  flex: 5,
-                  child: rightKeywords,
-                ),
-              ],
-            ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

@@ -51,7 +51,14 @@ class PdfService {
   // ── ATS Professional Template ─────────────────────────────
 
   Future<Uint8List> _buildAtsPdf(ResumeData data) async {
-    final pdf = pw.Document(theme: _buildTheme(data));
+    // Force Times Serif typography theme to match the image exactly
+    final timesTheme = pw.ThemeData.withFont(
+      base: pw.Font.times(),
+      bold: pw.Font.timesBold(),
+      italic: pw.Font.timesItalic(),
+      boldItalic: pw.Font.timesBoldItalic(),
+    );
+    final pdf = pw.Document(theme: timesTheme);
     final sizeScale = data.fontSizeScale;
     final primaryColor = PdfColor.fromHex(data.primaryColorHex);
 
@@ -61,119 +68,110 @@ class PdfService {
         margin: const pw.EdgeInsets.symmetric(
             horizontal: 40, vertical: 36),
         build: (context) => [
-          // Header
+          // Header (Left-aligned design like the image)
           _atsHeader(data, primaryColor, sizeScale),
-          pw.SizedBox(height: 12),
-          pw.Divider(color: PdfColors.grey300),
-          pw.SizedBox(height: 10),
+          pw.SizedBox(height: 6), // Space after header, no divider line!
 
           // Summary
           if (data.summary.isNotEmpty) ...[
-            _atsSection('PROFESSIONAL SUMMARY', sizeScale),
-            pw.SizedBox(height: 6),
+            _atsSection('PROFESSIONAL SUMMARY', primaryColor, sizeScale),
+            pw.SizedBox(height: 2),
             pw.Text(data.summary,
                 style: pw.TextStyle(
                     fontSize: 10 * sizeScale, lineSpacing: 1.4)),
-            pw.SizedBox(height: 14),
+            pw.SizedBox(height: 10),
+          ],
+
+          // Experience
+          if (data.experience.isNotEmpty) ...[
+            _atsSection('EXPERIENCE', primaryColor, sizeScale),
+            pw.SizedBox(height: 2),
+            ..._buildSectionItems(
+              data.experience,
+              (e) => _atsExperience(e, data.location, sizeScale),
+              itemSpacing: 6,
+            ),
+            pw.SizedBox(height: 10),
           ],
 
           // Projects
           if (data.projects.isNotEmpty) ...[
-            _atsSection('PROJECTS', sizeScale),
-            pw.SizedBox(height: 6),
-            ...data.projects.map((p) => _atsProject(p, sizeScale)),
+            _atsSection('PROJECTS', primaryColor, sizeScale),
+            pw.SizedBox(height: 2),
+            ..._buildSectionItems(
+              data.projects,
+              (p) => _atsProject(p, sizeScale),
+              itemSpacing: 6,
+            ),
+            pw.SizedBox(height: 10),
           ],
 
           // Research Work
           if (data.showResearch && data.research.isNotEmpty) ...[
-            pw.SizedBox(height: 6),
-            _atsSection('RESEARCH WORK', sizeScale),
-            pw.SizedBox(height: 6),
-            ...data.research.map((r) => _atsResearch(r, sizeScale)),
+            _atsSection('RESEARCH WORK', primaryColor, sizeScale),
+            pw.SizedBox(height: 2),
+            ..._buildSectionItems(
+              data.research,
+              (r) => _atsResearch(r, sizeScale),
+              itemSpacing: 6,
+            ),
+            pw.SizedBox(height: 10),
+          ],
+
+          // Certifications
+          if (data.showCertifications && data.certifications.isNotEmpty) ...[
+            _atsSection('CERTIFICATIONS', primaryColor, sizeScale),
+            pw.SizedBox(height: 2),
+            ..._buildSectionItems(
+              data.certifications,
+              (c) => _atsCertificationItem(c, sizeScale),
+              itemSpacing: 4,
+            ),
+            pw.SizedBox(height: 10),
+          ],
+
+          // Achievements
+          if (data.showAchievements && data.achievements.isNotEmpty) ...[
+            _atsSection('ACHIEVEMENTS', primaryColor, sizeScale),
+            pw.SizedBox(height: 2),
+            ..._buildSectionItems(
+              data.achievements,
+              (a) => _atsAchievementItem(a, sizeScale),
+              itemSpacing: 4,
+            ),
+            pw.SizedBox(height: 10),
           ],
 
           // Education
           if (data.education.isNotEmpty) ...[
-            pw.SizedBox(height: 6),
-            _atsSection('EDUCATION', sizeScale),
-            pw.SizedBox(height: 6),
-            ...data.education.map((e) => _atsEducation(e, sizeScale)),
-          ],
-
-          // Skills
-          if (data.skillGroups.isNotEmpty) ...[
-            pw.SizedBox(height: 6),
-            _atsSection('SKILLS', sizeScale),
-            pw.SizedBox(height: 6),
-            ...data.skillGroups.map(
-              (g) => pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 4),
-                child: pw.RichText(
-                  text: pw.TextSpan(
-                    children: [
-                      pw.TextSpan(
-                        text: '${g.category}: ',
-                        style: pw.TextStyle(
-                          fontSize: 10 * sizeScale,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.TextSpan(
-                        text: g.skills.join(', '),
-                        style: pw.TextStyle(fontSize: 10 * sizeScale),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+            _atsSection('EDUCATION', primaryColor, sizeScale),
+            pw.SizedBox(height: 2),
+            ..._buildSectionItems(
+              List<ResumeEducation>.from(data.education)
+                ..sort((a, b) {
+                  final rankA = _getEducationRank(a);
+                  final rankB = _getEducationRank(b);
+                  if (rankA != rankB) {
+                    return rankA.compareTo(rankB);
+                  }
+                  final yearA = _extractEndYear(a.duration);
+                  final yearB = _extractEndYear(b.duration);
+                  return yearB.compareTo(yearA);
+                }),
+              (e) => _atsEducation(e, data.location, sizeScale),
+              itemSpacing: 6,
             ),
+            pw.SizedBox(height: 10),
           ],
 
-          // Certifications
-          if (data.certifications.isNotEmpty) ...[
-            pw.SizedBox(height: 6),
-            _atsSection('CERTIFICATIONS', sizeScale),
-            pw.SizedBox(height: 6),
-            ...data.certifications.map((c) => pw.Padding(
-                  padding: const pw.EdgeInsets.only(bottom: 4),
-                  child: pw.Row(
-                    mainAxisAlignment:
-                        pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        '${c.title} — ${c.issuer}',
-                        style: pw.TextStyle(
-                          fontSize: 10 * sizeScale,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.Text(c.date,
-                          style: pw.TextStyle(fontSize: 9 * sizeScale)),
-                    ],
-                  ),
-                )),
-          ],
-
-          // Achievements
-          if (data.achievements.isNotEmpty) ...[
-            pw.SizedBox(height: 6),
-            _atsSection('ACHIEVEMENTS', sizeScale),
-            pw.SizedBox(height: 6),
-            ...data.achievements.map(
-              (a) => pw.Padding(
-                padding: const pw.EdgeInsets.only(bottom: 4),
-                child: pw.Row(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
-                  children: [
-                    pw.Text('• ',
-                        style: pw.TextStyle(fontSize: 10 * sizeScale)),
-                    pw.Expanded(
-                      child: pw.Text(a,
-                          style: pw.TextStyle(fontSize: 10 * sizeScale)),
-                    ),
-                  ],
-                ),
-              ),
+          // Additional Information (Skills)
+          if (data.skillGroups.isNotEmpty) ...[
+            _atsSection('ADDITIONAL INFORMATION', primaryColor, sizeScale),
+            pw.SizedBox(height: 2),
+            ..._buildSectionItems(
+              data.skillGroups,
+              (g) => _atsSkillGroupItem(g, sizeScale),
+              itemSpacing: 4,
             ),
           ],
         ],
@@ -184,6 +182,22 @@ class PdfService {
   }
 
   pw.Widget _atsHeader(ResumeData data, PdfColor primaryColor, double sizeScale) {
+    final List<String> contactParts = [];
+
+    if (data.email.isNotEmpty) contactParts.add(data.email);
+    if (data.phone.isNotEmpty) contactParts.add(data.phone);
+    if (data.location.isNotEmpty) contactParts.add(data.location);
+
+    String cleanUrl(String url) {
+      if (url.startsWith('https://')) url = url.substring(8);
+      if (url.startsWith('www.')) url = url.substring(4);
+      return url;
+    }
+
+    if (data.linkedinUrl.isNotEmpty) contactParts.add(cleanUrl(data.linkedinUrl));
+    if (data.githubUrl.isNotEmpty) contactParts.add(cleanUrl(data.githubUrl));
+    if (data.portfolioUrl.isNotEmpty) contactParts.add(cleanUrl(data.portfolioUrl));
+
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -196,26 +210,148 @@ class PdfService {
         ),
         pw.SizedBox(height: 4),
         pw.Text(
-          [data.email, data.phone, data.location]
-              .where((s) => s.isNotEmpty)
-              .join(' | '),
-          style: pw.TextStyle(fontSize: 10 * sizeScale),
+          contactParts.join(' | '),
+          style: pw.TextStyle(fontSize: 9.5 * sizeScale),
         ),
-        if (data.githubUrl.isNotEmpty || data.linkedinUrl.isNotEmpty)
-          pw.Text(
-            [data.githubUrl, data.linkedinUrl]
-                .where((s) => s.isNotEmpty)
-                .join(' | '),
-            style: pw.TextStyle(
-              fontSize: 10 * sizeScale,
-              color: primaryColor,
-            ),
-          ),
       ],
     );
   }
 
-  pw.Widget _atsSection(String title, double sizeScale) {
+  List<pw.Widget> _buildSectionItems<T>(
+    List<T> items,
+    pw.Widget Function(T item) builder, {
+    double itemSpacing = 6,
+  }) {
+    final List<pw.Widget> widgets = [];
+    for (int i = 0; i < items.length; i++) {
+      widgets.add(builder(items[i]));
+      if (i < items.length - 1) {
+        widgets.add(pw.SizedBox(height: itemSpacing));
+      }
+    }
+    return widgets;
+  }
+
+  int _getEducationRank(ResumeEducation edu) {
+    final deg = edu.degree.toLowerCase();
+    final field = edu.field.toLowerCase();
+    final inst = edu.institution.toLowerCase();
+
+    if (deg.contains('10') ||
+        deg.contains('ssc') ||
+        deg.contains('matric') ||
+        deg.contains('high school') ||
+        deg.contains('highschool') ||
+        field.contains('10') ||
+        field.contains('ssc') ||
+        field.contains('matric') ||
+        field.contains('high school') ||
+        field.contains('highschool') ||
+        inst.contains('10') ||
+        inst.contains('ssc') ||
+        inst.contains('matric') ||
+        inst.contains('high school') ||
+        inst.contains('highschool')) {
+      return 3;
+    }
+    if (deg.contains('12') ||
+        deg.contains('hsc') ||
+        deg.contains('intermediate') ||
+        deg.contains('senior secondary') ||
+        field.contains('12') ||
+        field.contains('hsc') ||
+        field.contains('intermediate') ||
+        field.contains('senior secondary') ||
+        inst.contains('12') ||
+        inst.contains('hsc') ||
+        inst.contains('intermediate') ||
+        inst.contains('senior secondary')) {
+      return 2;
+    }
+    return 1;
+  }
+
+  int _extractEndYear(String duration) {
+    final RegExp yearRegex = RegExp(r'\b(20\d{2}|19\d{2})\b');
+    final matches = yearRegex.allMatches(duration).toList();
+    if (matches.isNotEmpty) {
+      final lastMatch = matches.last.group(0);
+      if (lastMatch != null) {
+        return int.tryParse(lastMatch) ?? 0;
+      }
+    }
+    return 0;
+  }
+
+  pw.Widget _atsExperience(ResumeExperience exp, String userLocation, double sizeScale) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 0),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                exp.company,
+                style: pw.TextStyle(
+                  fontSize: 10 * sizeScale,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.Text(
+                exp.duration,
+                style: pw.TextStyle(
+                  fontSize: 10 * sizeScale,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 1),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                exp.role,
+                style: pw.TextStyle(
+                  fontSize: 10 * sizeScale,
+                  fontStyle: pw.FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+          pw.SizedBox(height: 3),
+          ...exp.bullets.map(
+            (b) => pw.Padding(
+              padding: const pw.EdgeInsets.only(bottom: 2),
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(
+                    width: 3 * sizeScale,
+                    height: 3 * sizeScale,
+                    margin: const pw.EdgeInsets.only(top: 3.5, right: 6),
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.black,
+                      shape: pw.BoxShape.circle,
+                    ),
+                  ),
+                  pw.Expanded(
+                    child: pw.Text(b,
+                        style: pw.TextStyle(
+                            fontSize: 10 * sizeScale, lineSpacing: 1.3)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _atsSection(String title, PdfColor primaryColor, double sizeScale) {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -224,37 +360,55 @@ class PdfService {
           style: pw.TextStyle(
             fontSize: 10 * sizeScale,
             fontWeight: pw.FontWeight.bold,
-            letterSpacing: 1.2,
+            color: primaryColor,
           ),
         ),
         pw.SizedBox(height: 2),
-        pw.Divider(color: PdfColors.grey500, thickness: 0.5),
+        pw.Divider(
+          color: PdfColors.black,
+          thickness: 0.75,
+          height: 1, // Removes the large default height margin of Divider
+        ),
       ],
     );
   }
 
   pw.Widget _atsProject(ResumeProject project, double sizeScale) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 10),
+      padding: const pw.EdgeInsets.only(bottom: 0),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(
-                project.title,
-                style: pw.TextStyle(
-                  fontSize: 10 * sizeScale,
-                  fontWeight: pw.FontWeight.bold,
+              pw.RichText(
+                text: pw.TextSpan(
+                  children: [
+                    pw.TextSpan(
+                      text: project.title,
+                      style: pw.TextStyle(
+                        fontSize: 10 * sizeScale,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    if (project.technologies.isNotEmpty)
+                      pw.TextSpan(
+                        text: ' | ${project.technologies.take(5).join(", ")}',
+                        style: pw.TextStyle(
+                          fontSize: 9.5 * sizeScale,
+                          color: PdfColors.black,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (project.technologies.isNotEmpty)
+              if (project.duration.isNotEmpty)
                 pw.Text(
-                  project.technologies.take(4).join(', '),
+                  project.duration,
                   style: pw.TextStyle(
-                    fontSize: 9 * sizeScale,
-                    color: PdfColors.grey700,
+                    fontSize: 10 * sizeScale,
+                    fontWeight: pw.FontWeight.bold,
                   ),
                 ),
             ],
@@ -266,8 +420,15 @@ class PdfService {
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('• ',
-                      style: pw.TextStyle(fontSize: 10 * sizeScale)),
+                  pw.Container(
+                    width: 3 * sizeScale,
+                    height: 3 * sizeScale,
+                    margin: const pw.EdgeInsets.only(top: 3.5, right: 6),
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.black,
+                      shape: pw.BoxShape.circle,
+                    ),
+                  ),
                   pw.Expanded(
                     child: pw.Text(b,
                         style: pw.TextStyle(
@@ -284,26 +445,40 @@ class PdfService {
 
   pw.Widget _atsResearch(ResumeProject research, double sizeScale) {
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 10),
+      padding: const pw.EdgeInsets.only(bottom: 0),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text(
-                research.title,
-                style: pw.TextStyle(
-                  fontSize: 10 * sizeScale,
-                  fontWeight: pw.FontWeight.bold,
+              pw.RichText(
+                text: pw.TextSpan(
+                  children: [
+                    pw.TextSpan(
+                      text: research.title,
+                      style: pw.TextStyle(
+                        fontSize: 10 * sizeScale,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    if (research.technologies.isNotEmpty)
+                      pw.TextSpan(
+                        text: ' | ${research.technologies.take(5).join(", ")}',
+                        style: pw.TextStyle(
+                          fontSize: 9.5 * sizeScale,
+                          color: PdfColors.black,
+                        ),
+                      ),
+                  ],
                 ),
               ),
-              if (research.githubUrl.isNotEmpty)
+              if (research.duration.isNotEmpty)
                 pw.Text(
-                  research.githubUrl,
+                  research.duration,
                   style: pw.TextStyle(
-                    fontSize: 9 * sizeScale,
-                    color: PdfColors.grey700,
+                    fontSize: 10 * sizeScale,
+                    fontWeight: pw.FontWeight.bold,
                   ),
                 ),
             ],
@@ -315,8 +490,15 @@ class PdfService {
               child: pw.Row(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('• ',
-                      style: pw.TextStyle(fontSize: 10 * sizeScale)),
+                  pw.Container(
+                    width: 3 * sizeScale,
+                    height: 3 * sizeScale,
+                    margin: const pw.EdgeInsets.only(top: 3.5, right: 6),
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.black,
+                      shape: pw.BoxShape.circle,
+                    ),
+                  ),
                   pw.Expanded(
                     child: pw.Text(b,
                         style: pw.TextStyle(
@@ -331,14 +513,40 @@ class PdfService {
     );
   }
 
-  pw.Widget _atsEducation(ResumeEducation edu, double sizeScale) {
+  pw.Widget _atsEducation(ResumeEducation edu, String userLocation, double sizeScale) {
+    final String degreeLower = edu.degree.toLowerCase();
+    final String fieldLower = edu.field.toLowerCase();
+    final bool isSchool = degreeLower.contains('10') ||
+        degreeLower.contains('12') ||
+        degreeLower.contains('matric') ||
+        degreeLower.contains('intermediate') ||
+        degreeLower.contains('school') ||
+        degreeLower.contains('ssc') ||
+        degreeLower.contains('hsc') ||
+        fieldLower.contains('10') ||
+        fieldLower.contains('12') ||
+        fieldLower.contains('matric') ||
+        fieldLower.contains('intermediate') ||
+        fieldLower.contains('school') ||
+        fieldLower.contains('ssc') ||
+        fieldLower.contains('hsc');
+
+    final String gradeLabel = isSchool ? 'Percentage' : 'CGPA';
+    final String degreeText = edu.degree;
+    final String fieldText = edu.field.isNotEmpty ? ' ${edu.field}' : '';
+    final String gradeValue = isSchool
+        ? (edu.cgpa.endsWith('%') ? edu.cgpa : '${edu.cgpa}%')
+        : edu.cgpa;
+    final String gradeText = edu.cgpa.isNotEmpty ? ' ($gradeLabel: $gradeValue)' : '';
+    final String combined = '$degreeText$fieldText$gradeText';
+
     return pw.Padding(
-      padding: const pw.EdgeInsets.only(bottom: 6),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      padding: const pw.EdgeInsets.only(bottom: 0),
+      child: pw.Column(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
               pw.Text(
                 edu.institution,
@@ -348,15 +556,160 @@ class PdfService {
                 ),
               ),
               pw.Text(
-                '${edu.degree} ${edu.field}${edu.cgpa.isNotEmpty ? " - ${edu.cgpa}" : ""}',
-                style: pw.TextStyle(fontSize: 10 * sizeScale),
+                edu.duration,
+                style: pw.TextStyle(
+                  fontSize: 10 * sizeScale,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
             ],
           ),
-          pw.Text(edu.duration,
-              style: pw.TextStyle(fontSize: 9 * sizeScale)),
+          pw.SizedBox(height: 1),
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                combined,
+                style: pw.TextStyle(
+                  fontSize: 10 * sizeScale,
+                  fontStyle: pw.FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    );
+  }
+
+  pw.Widget _atsCertificationItem(ResumeCertification c, double sizeScale) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Row(
+          children: [
+            if (c.credentialUrl.isNotEmpty)
+              pw.UrlLink(
+                destination: c.credentialUrl,
+                child: pw.Text(
+                  c.title,
+                  style: pw.TextStyle(
+                    fontSize: 10 * sizeScale,
+                    fontWeight: pw.FontWeight.bold,
+                    color: PdfColor.fromHex('#0000EE'),
+                    decoration: pw.TextDecoration.underline,
+                  ),
+                ),
+              )
+            else
+              pw.Text(
+                c.title,
+                style: pw.TextStyle(
+                  fontSize: 10 * sizeScale,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            pw.Text(
+              ' | ${c.issuer}',
+              style: pw.TextStyle(
+                fontSize: 10 * sizeScale,
+              ),
+            ),
+          ],
+        ),
+        pw.Text(
+          c.date,
+          style: pw.TextStyle(
+            fontSize: 10 * sizeScale,
+            fontWeight: pw.FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _atsAchievementItem(String a, double sizeScale) {
+    final parts = a.split('|');
+    final desc = parts[0].trim();
+    final date = parts.length > 1 ? parts[1].trim() : '';
+
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 0),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+        children: [
+          pw.Expanded(
+            child: pw.Row(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Container(
+                  width: 3 * sizeScale,
+                  height: 3 * sizeScale,
+                  margin: const pw.EdgeInsets.only(top: 3.5, right: 6),
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.black,
+                    shape: pw.BoxShape.circle,
+                  ),
+                ),
+                pw.Expanded(
+                  child: pw.Text(
+                    desc,
+                    style: pw.TextStyle(fontSize: 10 * sizeScale),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (date.isNotEmpty)
+            pw.Padding(
+              padding: const pw.EdgeInsets.only(left: 10),
+              child: pw.Text(
+                date,
+                style: pw.TextStyle(
+                  fontSize: 10 * sizeScale,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  pw.Widget _atsSkillGroupItem(ResumeSkillGroup g, double sizeScale) {
+    return pw.Row(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.Container(
+          width: 3 * sizeScale,
+          height: 3 * sizeScale,
+          margin: const pw.EdgeInsets.only(top: 3.5, right: 6),
+          decoration: const pw.BoxDecoration(
+            color: PdfColors.black,
+            shape: pw.BoxShape.circle,
+          ),
+        ),
+        pw.Expanded(
+          child: pw.RichText(
+            text: pw.TextSpan(
+              children: [
+                pw.TextSpan(
+                  text: '${g.category}: ',
+                  style: pw.TextStyle(
+                    fontSize: 10 * sizeScale,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.TextSpan(
+                  text: g.skills.join(', '),
+                  style: pw.TextStyle(fontSize: 10 * sizeScale),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -367,26 +720,46 @@ class PdfService {
   List<pw.Widget> _buildCenteredContactList(ResumeData data, PdfColor primaryColor, double sizeScale) {
     final List<pw.Widget> items = [];
 
-    // Phone (☎)
+    // Phone (tel)
     if (data.phone.isNotEmpty) {
       items.add(pw.Row(
         mainAxisSize: pw.MainAxisSize.min,
         children: [
-          pw.Text('☎', style: pw.TextStyle(fontSize: 10 * sizeScale)),
-          pw.SizedBox(width: 3),
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 2.5, vertical: 1),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.black,
+              borderRadius: pw.BorderRadius.circular(1.5),
+            ),
+            child: pw.Text(
+              'tel',
+              style: pw.TextStyle(fontSize: 5.5 * sizeScale, color: PdfColors.white, fontWeight: pw.FontWeight.bold),
+            ),
+          ),
+          pw.SizedBox(width: 3.5),
           pw.Text(data.phone, style: pw.TextStyle(fontSize: 8.5 * sizeScale, fontWeight: pw.FontWeight.bold)),
         ],
       ));
     }
 
-    // Email (✉)
+    // Email (mail)
     if (data.email.isNotEmpty) {
       if (items.isNotEmpty) items.add(_dividerWidget(sizeScale));
       items.add(pw.Row(
         mainAxisSize: pw.MainAxisSize.min,
         children: [
-          pw.Text('✉', style: pw.TextStyle(fontSize: 10 * sizeScale)),
-          pw.SizedBox(width: 3),
+          pw.Container(
+            padding: const pw.EdgeInsets.symmetric(horizontal: 2.5, vertical: 1),
+            decoration: pw.BoxDecoration(
+              color: PdfColors.black,
+              borderRadius: pw.BorderRadius.circular(1.5),
+            ),
+            child: pw.Text(
+              'mail',
+              style: pw.TextStyle(fontSize: 5.5 * sizeScale, color: PdfColors.white, fontWeight: pw.FontWeight.bold),
+            ),
+          ),
+          pw.SizedBox(width: 3.5),
           pw.Text(
             data.email,
             style: pw.TextStyle(

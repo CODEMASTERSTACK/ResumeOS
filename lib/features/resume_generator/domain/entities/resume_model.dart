@@ -111,6 +111,8 @@ class ResumeData {
   final List<ResumeProject> projects;
   final List<ResumeProject> research;
   final bool showResearch;
+  final bool showCertifications;
+  final bool showAchievements;
   final List<ResumeCertification> certifications;
   final List<String> achievements;
 
@@ -134,6 +136,8 @@ class ResumeData {
     this.projects = const [],
     this.research = const [],
     this.showResearch = true,
+    this.showCertifications = true,
+    this.showAchievements = true,
     this.certifications = const [],
     this.achievements = const [],
     this.primaryColorHex = '#1E3A8A', // default Navy
@@ -176,6 +180,8 @@ class ResumeData {
                 .toList() ??
             [],
         showResearch: json['showResearch'] as bool? ?? true,
+        showCertifications: json['showCertifications'] as bool? ?? true,
+        showAchievements: json['showAchievements'] as bool? ?? true,
         certifications: (json['certifications'] as List<dynamic>?)
                 ?.map((e) =>
                     ResumeCertification.fromJson(e as Map<String, dynamic>))
@@ -204,6 +210,8 @@ class ResumeData {
         'projects': projects.map((e) => e.toJson()).toList(),
         'research': research.map((e) => e.toJson()).toList(),
         'showResearch': showResearch,
+        'showCertifications': showCertifications,
+        'showAchievements': showAchievements,
         'certifications': certifications.map((e) => e.toJson()).toList(),
         'achievements': achievements,
         'primaryColorHex': primaryColorHex,
@@ -226,6 +234,8 @@ class ResumeData {
     List<ResumeProject>? projects,
     List<ResumeProject>? research,
     bool? showResearch,
+    bool? showCertifications,
+    bool? showAchievements,
     List<ResumeCertification>? certifications,
     List<String>? achievements,
     String? primaryColorHex,
@@ -247,6 +257,8 @@ class ResumeData {
         projects: projects ?? this.projects,
         research: research ?? this.research,
         showResearch: showResearch ?? this.showResearch,
+        showCertifications: showCertifications ?? this.showCertifications,
+        showAchievements: showAchievements ?? this.showAchievements,
         certifications: certifications ?? this.certifications,
         achievements: achievements ?? this.achievements,
         primaryColorHex: primaryColorHex ?? this.primaryColorHex,
@@ -375,6 +387,7 @@ class ResumeProject {
   final List<String> bullets;
   final String githubUrl;
   final String liveUrl;
+  final String duration;
 
   const ResumeProject({
     required this.title,
@@ -382,6 +395,7 @@ class ResumeProject {
     this.bullets = const [],
     this.githubUrl = '',
     this.liveUrl = '',
+    this.duration = '',
   });
 
   factory ResumeProject.fromJson(Map<String, dynamic> json) => ResumeProject(
@@ -392,6 +406,7 @@ class ResumeProject {
             (json['bullets'] as List<dynamic>?)?.cast<String>() ?? [],
         githubUrl: json['githubUrl'] as String? ?? '',
         liveUrl: json['liveUrl'] as String? ?? '',
+        duration: json['duration'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -400,6 +415,7 @@ class ResumeProject {
         'bullets': bullets,
         'githubUrl': githubUrl,
         'liveUrl': liveUrl,
+        'duration': duration,
       };
 
   ResumeProject copyWith({
@@ -408,6 +424,7 @@ class ResumeProject {
     List<String>? bullets,
     String? githubUrl,
     String? liveUrl,
+    String? duration,
   }) =>
       ResumeProject(
         title: title ?? this.title,
@@ -415,6 +432,7 @@ class ResumeProject {
         bullets: bullets ?? this.bullets,
         githubUrl: githubUrl ?? this.githubUrl,
         liveUrl: liveUrl ?? this.liveUrl,
+        duration: duration ?? this.duration,
       );
 }
 

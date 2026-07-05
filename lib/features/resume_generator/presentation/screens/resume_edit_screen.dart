@@ -1,8 +1,9 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:printing/printing.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_typography.dart';
 import '../../../../shared/providers/firebase_providers.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../services/pdf/pdf_service.dart';
@@ -47,6 +48,8 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
   List<ResumeProject> _projects = [];
   List<ResumeProject> _research = [];
   bool _showResearch = true;
+  bool _showCertifications = true;
+  bool _showAchievements = true;
   List<ResumeCertification> _certifications = [];
   List<String> _achievements = [];
 
@@ -126,6 +129,8 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
             _projects = List<ResumeProject>.from(data.projects);
             _research = List<ResumeProject>.from(data.research);
             _showResearch = data.showResearch;
+            _showCertifications = data.showCertifications;
+            _showAchievements = data.showAchievements;
             _certifications = List<ResumeCertification>.from(data.certifications);
             _achievements = List<String>.from(data.achievements);
 
@@ -162,6 +167,8 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
         projects: _projects,
         research: _research,
         showResearch: _showResearch,
+        showCertifications: _showCertifications,
+        showAchievements: _showAchievements,
         certifications: _certifications,
         achievements: _achievements,
         primaryColorHex: _selectedColorHex,
@@ -208,182 +215,318 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
 
     await showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          'Insert Link Asset',
-          style: AppTypography.titleMedium.copyWith(fontWeight: FontWeight.bold),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: titleController,
-              decoration: const InputDecoration(
-                labelText: 'Link Title (e.g. GitHub, Project Link, Credential)',
-                labelStyle: TextStyle(color: AppColors.textSecondary),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.accent),
-                ),
-              ),
-              style: const TextStyle(color: AppColors.textPrimary),
+      builder: (ctx) => BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+        child: AlertDialog(
+          backgroundColor: const Color(0xFF0F0E17),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          title: Text(
+            'Insert Asset URL Link',
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+              fontSize: 16,
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: urlController,
-              decoration: const InputDecoration(
-                labelText: 'URL Link',
-                labelStyle: TextStyle(color: AppColors.textSecondary),
-                focusedBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppColors.accent),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: titleController,
+                decoration: InputDecoration(
+                  labelText: 'Link Title (e.g. GitHub, Credential)',
+                  labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFCBE349)),
+                  ),
                 ),
+                style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
               ),
-              style: const TextStyle(color: AppColors.textPrimary),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: urlController,
+                decoration: InputDecoration(
+                  labelText: 'URL Address',
+                  labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
+                  filled: true,
+                  fillColor: Colors.transparent,
+                  enabledBorder: UnderlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                  ),
+                  focusedBorder: const UnderlineInputBorder(
+                    borderSide: BorderSide(color: Color(0xFFCBE349)),
+                  ),
+                ),
+                style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: GoogleFonts.outfit(color: Colors.white38, fontWeight: FontWeight.w600),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final label = titleController.text.trim();
+                final url = urlController.text.trim();
+                if (url.isNotEmpty) {
+                  final linkStr = label.isNotEmpty ? '$label: $url' : url;
+                  final currentText = controller.text;
+                  final cursorPosition = controller.selection.baseOffset;
+
+                  String newText;
+                  if (cursorPosition >= 0) {
+                    newText = currentText.substring(0, cursorPosition) +
+                        linkStr +
+                        currentText.substring(cursorPosition);
+                  } else {
+                    newText = currentText + (currentText.isNotEmpty ? ' ' : '') + linkStr;
+                  }
+
+                  controller.text = newText;
+                  controller.selection = TextSelection.fromPosition(
+                    TextPosition(
+                        offset: cursorPosition >= 0
+                            ? cursorPosition + linkStr.length
+                            : newText.length),
+                  );
+                }
+                Navigator.pop(ctx);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFCBE349),
+                foregroundColor: const Color(0xFF07060F),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: Text(
+                'Insert',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+              ),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final label = titleController.text.trim();
-              final url = urlController.text.trim();
-              if (url.isNotEmpty) {
-                final linkStr = label.isNotEmpty ? '$label: $url' : url;
-                final currentText = controller.text;
-                final cursorPosition = controller.selection.baseOffset;
-
-                String newText;
-                if (cursorPosition >= 0) {
-                  newText = currentText.substring(0, cursorPosition) +
-                      linkStr +
-                      currentText.substring(cursorPosition);
-                } else {
-                  newText = currentText + (currentText.isNotEmpty ? ' ' : '') + linkStr;
-                }
-
-                controller.text = newText;
-                // Place cursor at the end of the newly inserted text
-                controller.selection = TextSelection.fromPosition(
-                  TextPosition(offset: cursorPosition >= 0 ? cursorPosition + linkStr.length : newText.length),
-                );
-              }
-              Navigator.pop(ctx);
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.accent),
-            child: const Text('Insert', style: TextStyle(color: Colors.white)),
-          ),
-        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: const Color(0xFF07060F),
       appBar: AppBar(
-        backgroundColor: AppColors.background,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
-        title: const Text(
-          'Edit & Format Resume',
-          style: TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        leadingWidth: 70,
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 20, top: 10, bottom: 10),
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 14,
+              ),
+            ),
           ),
         ),
-        elevation: 0,
+        title: Text(
+          'Format & Style',
+          style: GoogleFonts.outfit(
+            color: Colors.white,
+            fontWeight: FontWeight.w800,
+            fontSize: 18,
+            letterSpacing: -0.2,
+          ),
+        ),
+        centerTitle: false,
         actions: [
           if (!_loading)
             Padding(
-              padding: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
-              child: ElevatedButton.icon(
-                onPressed: _saving ? null : _saveResume,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                      )
-                    : const Icon(Icons.check_rounded, size: 16, color: Colors.white),
-                label: const Text(
-                  'Save',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13,
-                    fontWeight: FontWeight.bold,
+              padding: const EdgeInsets.only(right: 20, top: 10, bottom: 10),
+              child: GestureDetector(
+                onTap: _saving ? null : _saveResume,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBE349),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFCBE349).withValues(alpha: 0.2),
+                        blurRadius: 10,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.success,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size(80, 36),
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _saving
+                          ? const SizedBox(
+                              width: 12,
+                              height: 12,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Color(0xFF07060F),
+                              ),
+                            )
+                          : const Icon(Icons.check_rounded, size: 14, color: Color(0xFF07060F)),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Save & Close',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFF07060F),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
         ],
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _resumeData == null
-              ? const Center(child: Text('Failed to load resume details', style: TextStyle(color: AppColors.textPrimary)))
-              : Column(
-                  children: [
-                    // Sticky top styling toolkit
-                    _buildStyleToolkit(),
-                    
-                    // Sliding segment switch between Form fields and Live high-fidelity PDF preview!
-                    _buildToggleRow(),
-                    
-                    const Divider(height: 1, color: AppColors.divider),
-                    
-                    // Main editor content or high-fidelity Live PDF page
-                    Expanded(
-                      child: _showLivePreview
-                          ? _buildLivePdfPreview()
-                          : SingleChildScrollView(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                              child: Column(
-                                children: [
-                                  _buildPersonalInfoSection(),
-                                  const SizedBox(height: 14),
-                                  _buildSummarySection(),
-                                  const SizedBox(height: 14),
-                                  _buildSkillGroupsSection(),
-                                  const SizedBox(height: 14),
-                                  _buildExperienceSection(),
-                                  const SizedBox(height: 14),
-                                  _buildProjectsSection(),
-                                  const SizedBox(height: 14),
-                                  _buildResearchSection(),
-                                  const SizedBox(height: 14),
-                                  _buildEducationSection(),
-                                  const SizedBox(height: 14),
-                                  _buildCertificationsSection(),
-                                  const SizedBox(height: 14),
-                                  _buildAchievementsSection(),
-                                  const SizedBox(height: 30),
-                                ],
-                              ),
-                            ),
-                    ),
-                  ],
+      body: Stack(
+        children: [
+          // ── Ambient Background Glows ──
+          Positioned(
+            top: -60, left: -60, width: 220, height: 220,
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFFFFF0F6),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -120, left: -120,
+            width: screenHeight * 0.5, height: screenHeight * 0.4,
+            child: Transform.rotate(
+              angle: -0.15,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      const Color(0xFFEC53B0).withValues(alpha: 0.5),
+                      const Color(0xFF723FFD).withValues(alpha: 0.35),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.5, 1.0],
+                  ),
                 ),
+              ),
+            ),
+          ),
+          Positioned(
+            top: -50, left: -50,
+            width: screenHeight * 0.35, height: screenHeight * 0.35,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF723FFD).withValues(alpha: 0.22),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 90, sigmaY: 90),
+              child: Container(
+                color: const Color(0xFF07060F).withValues(alpha: 0.35),
+              ),
+            ),
+          ),
+
+          // ── Content ──
+          _loading
+              ? const Center(child: CircularProgressIndicator(color: Color(0xFFCBE349)))
+              : _resumeData == null
+                  ? Center(
+                      child: Text(
+                        'Failed to load resume details',
+                        style: GoogleFonts.outfit(color: Colors.white70, fontSize: 14),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        // Sticky top styling toolkit
+                        _buildStyleToolkit(),
+
+                        // Sliding segment switch between Form fields and Live high-fidelity PDF preview!
+                        _buildToggleRow(),
+
+                        // Main editor content or high-fidelity Live PDF page
+                        Expanded(
+                          child: _showLivePreview
+                              ? _buildLivePdfPreview()
+                              : SingleChildScrollView(
+                                  physics: const BouncingScrollPhysics(),
+                                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 40),
+                                  child: Column(
+                                    children: [
+                                      _buildPersonalInfoSection(),
+                                      const SizedBox(height: 16),
+                                      _buildSummarySection(),
+                                      const SizedBox(height: 16),
+                                      _buildSkillGroupsSection(),
+                                      const SizedBox(height: 16),
+                                      _buildExperienceSection(),
+                                      const SizedBox(height: 16),
+                                      _buildProjectsSection(),
+                                      const SizedBox(height: 16),
+                                      _buildResearchSection(),
+                                      const SizedBox(height: 16),
+                                      _buildEducationSection(),
+                                      const SizedBox(height: 16),
+                                      _buildCertificationsSection(),
+                                      const SizedBox(height: 16),
+                                      _buildAchievementsSection(),
+                                    ],
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+        ],
+      ),
     );
   }
 
   // ── Toggle Switch Widget ──────────────────────────────
   Widget _buildToggleRow() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: AppColors.surface,
+      margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
       child: Row(
         children: [
           Expanded(
@@ -394,14 +537,12 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
               onTap: () => setState(() => _showLivePreview = false),
             ),
           ),
-          const SizedBox(width: 12),
           Expanded(
             child: _buildToggleButton(
               label: 'Live PDF Preview',
               isActive: _showLivePreview,
               icon: Icons.picture_as_pdf_rounded,
               onTap: () {
-                // Dimiss keyboard before toggling to preview
                 FocusScope.of(context).unfocus();
                 setState(() => _showLivePreview = true);
               },
@@ -420,24 +561,28 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        height: 38,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 36,
         decoration: BoxDecoration(
-          color: isActive ? AppColors.accent : AppColors.background,
+          color: isActive ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isActive ? AppColors.accent : AppColors.border),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: isActive ? Colors.white : AppColors.textSecondary, size: 16),
+            Icon(
+              icon,
+              color: isActive ? const Color(0xFFCBE349) : Colors.white60,
+              size: 16,
+            ),
             const SizedBox(width: 8),
             Text(
               label,
-              style: TextStyle(
+              style: GoogleFonts.outfit(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: isActive ? Colors.white : AppColors.textSecondary,
+                color: isActive ? Colors.white : Colors.white60,
               ),
             ),
           ],
@@ -472,20 +617,35 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     );
 
     return Container(
-      color: AppColors.background,
-      padding: const EdgeInsets.all(8),
-      child: PdfPreview(
-        build: (format) => pdfService.generatePdf(
-          currentData,
-          _resumeModel?.templateUsed ?? ResumeTemplate.atsProfessional,
+      color: const Color(0xFF0C0B12), // Slate canvas background matching preview
+      padding: const EdgeInsets.all(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.5),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
         ),
-        allowPrinting: false,
-        allowSharing: false,
-        canChangePageFormat: false,
-        canChangeOrientation: false,
-        canDebug: false,
-        loadingWidget: const Center(child: CircularProgressIndicator(color: AppColors.accent)),
-        pdfFileName: 'Resume_Preview.pdf',
+        clipBehavior: Clip.antiAlias,
+        child: PdfPreview(
+          build: (format) => pdfService.generatePdf(
+            currentData,
+            _resumeModel?.templateUsed ?? ResumeTemplate.atsProfessional,
+          ),
+          allowPrinting: false,
+          allowSharing: false,
+          canChangePageFormat: false,
+          canChangeOrientation: false,
+          canDebug: false,
+          loadingWidget: const Center(
+              child: CircularProgressIndicator(color: Color(0xFFCBE349))),
+          pdfFileName: 'Resume_Preview.pdf',
+        ),
       ),
     );
   }
@@ -493,30 +653,38 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
   // ── Style Customizer Widget Toolkit ──────────────────────────────
   Widget _buildStyleToolkit() {
     return Container(
-      color: AppColors.surface,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      margin: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.palette_rounded, color: AppColors.accent, size: 18),
+              const Icon(Icons.palette_outlined, color: Color(0xFFCBE349), size: 16),
               const SizedBox(width: 8),
               Text(
-                'Resume Visual Theme Engine',
-                style: AppTypography.labelMedium.copyWith(
+                'VISUAL THEME ENGINE',
+                style: GoogleFonts.firaCode(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary,
+                  fontSize: 10,
+                  color: Colors.white.withValues(alpha: 0.45),
+                  letterSpacing: 0.5,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           // Accent Color Choice Row
           SizedBox(
-            height: 38,
+            height: 34,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
+              physics: const BouncingScrollPhysics(),
               itemCount: _availableColors.length,
               itemBuilder: (context, idx) {
                 final col = _availableColors[idx];
@@ -528,21 +696,22 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                 return GestureDetector(
                   onTap: () => setState(() => _selectedColorHex = hex),
                   child: Container(
-                    margin: const EdgeInsets.only(right: 12),
+                    margin: const EdgeInsets.only(right: 8),
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isSelected ? color.withOpacity(0.15) : Colors.transparent,
+                      color: isSelected ? color.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.02),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: isSelected ? color : AppColors.border,
-                        width: isSelected ? 2 : 1,
+                        color: isSelected ? color : Colors.white.withValues(alpha: 0.08),
+                        width: isSelected ? 1.5 : 1,
                       ),
                     ),
                     child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Container(
-                          width: 14,
-                          height: 14,
+                          width: 10,
+                          height: 10,
                           decoration: BoxDecoration(
                             color: color,
                             shape: BoxShape.circle,
@@ -551,10 +720,10 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                         const SizedBox(width: 6),
                         Text(
                           name,
-                          style: TextStyle(
+                          style: GoogleFonts.outfit(
                             fontSize: 11,
-                            color: isSelected ? color : AppColors.textSecondary,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? Colors.white : Colors.white54,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                           ),
                         ),
                       ],
@@ -564,24 +733,28 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
               },
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             children: [
-              // Font selection dropdown or horizontal list
+              // Font selection
               Expanded(
                 flex: 4,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Typography Font Style',
-                      style: TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+                    Text(
+                      'TYPOGRAPHY FONT',
+                      style: GoogleFonts.firaCode(
+                        fontSize: 9,
+                        color: Colors.white.withValues(alpha: 0.45),
+                      ),
                     ),
                     const SizedBox(height: 6),
                     SizedBox(
-                      height: 34,
+                      height: 32,
                       child: ListView.builder(
                         scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
                         itemCount: _availableFonts.length,
                         itemBuilder: (context, idx) {
                           final f = _availableFonts[idx];
@@ -592,21 +765,25 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                           return GestureDetector(
                             onTap: () => setState(() => _selectedFontFamily = value),
                             child: Container(
-                              margin: const EdgeInsets.only(right: 8),
+                              margin: const EdgeInsets.only(right: 6),
                               padding: const EdgeInsets.symmetric(horizontal: 10),
                               alignment: Alignment.center,
                               decoration: BoxDecoration(
-                                color: isSelected ? AppColors.accent.withOpacity(0.15) : AppColors.background,
+                                color: isSelected
+                                    ? const Color(0xFF723FFD).withValues(alpha: 0.15)
+                                    : Colors.white.withValues(alpha: 0.02),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: isSelected ? AppColors.accent : AppColors.border,
+                                  color: isSelected
+                                      ? const Color(0xFF723FFD)
+                                      : Colors.white.withValues(alpha: 0.08),
                                 ),
                               ),
                               child: Text(
                                 label,
-                                style: TextStyle(
+                                style: GoogleFonts.outfit(
                                   fontSize: 11,
-                                  color: isSelected ? AppColors.accent : AppColors.textSecondary,
+                                  color: isSelected ? Colors.white : Colors.white60,
                                   fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                 ),
                               ),
@@ -618,7 +795,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               // Font size scale selector
               Expanded(
                 flex: 3,
@@ -626,16 +803,19 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Font Size Multiplier (${(_selectedFontSizeScale * 100).toInt()}%)',
-                      style: const TextStyle(fontSize: 10, color: AppColors.textSecondary, fontWeight: FontWeight.bold),
+                      'FONT SIZE: ${(_selectedFontSizeScale * 100).toInt()}%',
+                      style: GoogleFonts.firaCode(
+                        fontSize: 9,
+                        color: Colors.white.withValues(alpha: 0.45),
+                      ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Row(
                       children: [
                         _buildSizeOption('90%', 0.9),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         _buildSizeOption('100%', 1.0),
-                        const SizedBox(width: 6),
+                        const SizedBox(width: 4),
                         _buildSizeOption('110%', 1.1),
                       ],
                     ),
@@ -644,7 +824,89 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 16),
+          // Section Toggles
+          Row(
+            children: [
+              const Icon(Icons.visibility_outlined, color: Color(0xFFCBE349), size: 16),
+              const SizedBox(width: 8),
+              Text(
+                'CONTENT TOGGLES',
+                style: GoogleFonts.firaCode(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                  color: Colors.white.withValues(alpha: 0.45),
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _buildToggleOption(
+                  label: 'Certifications',
+                  value: _showCertifications,
+                  onChanged: (val) => setState(() => _showCertifications = val),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildToggleOption(
+                  label: 'Achievements',
+                  value: _showAchievements,
+                  onChanged: (val) => setState(() => _showAchievements = val),
+                ),
+              ),
+            ],
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildToggleOption({
+    required String label,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: Container(
+        height: 32,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: value
+              ? const Color(0xFF723FFD).withValues(alpha: 0.15)
+              : Colors.white.withValues(alpha: 0.02),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: value
+                ? const Color(0xFF723FFD)
+                : Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              value ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+              size: 14,
+              color: value ? const Color(0xFFCBE349) : Colors.white60,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: value ? Colors.white : Colors.white60,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -658,16 +920,18 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
           height: 32,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.accent : AppColors.background,
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: isSelected ? AppColors.accent : AppColors.border),
+            color: isSelected ? const Color(0xFF723FFD).withValues(alpha: 0.15) : Colors.white.withValues(alpha: 0.02),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isSelected ? const Color(0xFF723FFD) : Colors.white.withValues(alpha: 0.08),
+            ),
           ),
           child: Text(
             label,
-            style: TextStyle(
+            style: GoogleFonts.outfit(
               fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: isSelected ? Colors.white : AppColors.textSecondary,
+              color: isSelected ? Colors.white : Colors.white60,
             ),
           ),
         ),
@@ -681,26 +945,43 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     required IconData icon,
     required List<Widget> children,
   }) {
-    return Card(
-      color: AppColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: AppColors.border),
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       clipBehavior: Clip.antiAlias,
-      child: ExpansionTile(
-        leading: Icon(icon, color: AppColors.accent, size: 20),
-        title: Text(
-          title,
-          style: AppTypography.titleMedium.copyWith(
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary,
+      child: Theme(
+        data: Theme.of(context).copyWith(
+          dividerColor: Colors.transparent,
+          expansionTileTheme: const ExpansionTileThemeData(
+            backgroundColor: Colors.transparent,
+            collapsedBackgroundColor: Colors.transparent,
           ),
         ),
-        collapsedIconColor: AppColors.textSecondary,
-        iconColor: AppColors.accent,
-        childrenPadding: const EdgeInsets.all(16),
-        children: children,
+        child: ExpansionTile(
+          leading: Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.white70, size: 16),
+          ),
+          title: Text(
+            title,
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              fontSize: 14,
+            ),
+          ),
+          collapsedIconColor: Colors.white38,
+          iconColor: const Color(0xFFCBE349),
+          childrenPadding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+          children: children,
+        ),
       ),
     );
   }
@@ -721,25 +1002,34 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
         onChanged: onChanged,
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
           suffixIcon: suffixIcon != null
-              ? IconButton(
-                  icon: Icon(suffixIcon, color: AppColors.accent, size: 18),
-                  onPressed: onSuffixTap,
+              ? GestureDetector(
+                  onTap: onSuffixTap,
+                  child: Container(
+                    margin: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(suffixIcon, color: const Color(0xFFCBE349), size: 14),
+                  ),
                 )
               : null,
-          enabledBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: AppColors.border),
-            borderRadius: BorderRadius.all(Radius.circular(8)),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.015),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+            borderRadius: const BorderRadius.all(Radius.circular(12)),
           ),
           focusedBorder: const OutlineInputBorder(
-            borderSide: BorderSide(color: AppColors.accent),
-            borderRadius: BorderRadius.all(Radius.circular(8)),
+            borderSide: BorderSide(color: Color(0xFF723FFD)),
+            borderRadius: BorderRadius.all(Radius.circular(12)),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
-        style: const TextStyle(
-          color: AppColors.textPrimary,
+        style: GoogleFonts.outfit(
+          color: Colors.white,
           fontSize: 14,
         ),
       ),
@@ -795,11 +1085,11 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
 
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                color: Colors.white.withValues(alpha: 0.015),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -809,17 +1099,28 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                     children: [
                       Text(
                         'Category #${sIdx + 1}',
-                        style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: GoogleFonts.firaCode(
+                          color: const Color(0xFFCBE349),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_rounded, color: AppColors.error, size: 16),
-                        onPressed: () {
+                      GestureDetector(
+                        onTap: () {
                           setState(() => _skillGroups.removeAt(sIdx));
                         },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   _buildTextField(
                     controller: categoryController,
                     label: 'Category Name (e.g. Languages)',
@@ -831,9 +1132,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                     controller: skillsController,
                     label: 'Skills (separated by commas)',
                     onChanged: (val) {
-                      final sks = val.split(',')
-                          .map((s) => s.trim())
-                          .toList();
+                      final sks = val.split(',').map((s) => s.trim()).toList();
                       _skillGroups[sIdx] = _skillGroups[sIdx].copyWith(skills: sks);
                     },
                   ),
@@ -842,7 +1141,8 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                     child: TextButton(
                       onPressed: () {
                         final cats = categoryController.text.trim();
-                        final sks = skillsController.text.split(',')
+                        final sks = skillsController.text
+                            .split(',')
                             .map((s) => s.trim())
                             .where((s) => s.isNotEmpty)
                             .toList();
@@ -850,10 +1150,20 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                           _skillGroups[sIdx] = ResumeSkillGroup(category: cats, skills: sks);
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Skill Category saved!'), duration: Duration(seconds: 1)),
+                          const SnackBar(
+                            content: Text('Skill Category saved!'),
+                            duration: Duration(seconds: 1),
+                          ),
                         );
                       },
-                      child: const Text('Save', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                      child: Text(
+                        'Confirm Changes',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFFCBE349),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -862,17 +1172,34 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
           },
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () {
+        GestureDetector(
+          onTap: () {
             setState(() {
               _skillGroups.add(const ResumeSkillGroup(category: 'New Category', skills: []));
             });
           },
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: const Text('Add Skill Category'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.accent,
-            side: const BorderSide(color: AppColors.accent),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+                const SizedBox(width: 8),
+                Text(
+                  'Add Skill Category',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -897,11 +1224,11 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
 
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                color: Colors.white.withValues(alpha: 0.015),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -911,17 +1238,28 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                     children: [
                       Text(
                         'Experience Position #${eIdx + 1}',
-                        style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: GoogleFonts.firaCode(
+                          color: const Color(0xFFCBE349),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_rounded, color: AppColors.error, size: 16),
-                        onPressed: () {
+                      GestureDetector(
+                        onTap: () {
                           setState(() => _experience.removeAt(eIdx));
                         },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   _buildTextField(
                     controller: companyController,
                     label: 'Company / Organization',
@@ -943,94 +1281,128 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                       _experience[eIdx] = _experience[eIdx].copyWith(duration: val.trim());
                     },
                   ),
-                  
+
                   // Bullets
-                  const SizedBox(height: 6),
-                  const Text('Description Bullet Points', style: TextStyle(fontSize: 12, color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Description Bullet Points',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  
+
                   ...List.generate(_experience[eIdx].bullets.length, (bIdx) {
-                    final bulletController = TextEditingController(text: _experience[eIdx].bullets[bIdx]);
+                    final bulletController =
+                        TextEditingController(text: _experience[eIdx].bullets[bIdx]);
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Row(
                         children: [
                           Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: TextFormField(
-                                controller: bulletController,
-                                onChanged: (value) {
-                                  final updatedBullets = List<String>.from(_experience[eIdx].bullets);
-                                  updatedBullets[bIdx] = value;
-                                  _experience[eIdx] = _experience[eIdx].copyWith(bullets: updatedBullets);
-                                },
-                                decoration: InputDecoration(
-                                  labelText: 'Bullet #${bIdx + 1}',
-                                  labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                                  suffixIcon: IconButton(
-                                    icon: const Icon(Icons.link_rounded, color: AppColors.accent, size: 18),
-                                    onPressed: () async {
-                                      await _showAttachLinkDialog(bulletController);
-                                      final updatedBullets = List<String>.from(_experience[eIdx].bullets);
-                                      updatedBullets[bIdx] = bulletController.text;
-                                      setState(() {
-                                        _experience[eIdx] = _experience[eIdx].copyWith(bullets: updatedBullets);
-                                      });
-                                    },
+                            child: TextFormField(
+                              controller: bulletController,
+                              onChanged: (value) {
+                                final updatedBullets = List<String>.from(_experience[eIdx].bullets);
+                                updatedBullets[bIdx] = value;
+                                _experience[eIdx] =
+                                    _experience[eIdx].copyWith(bullets: updatedBullets);
+                              },
+                              decoration: InputDecoration(
+                                labelText: 'Bullet #${bIdx + 1}',
+                                labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                                suffixIcon: GestureDetector(
+                                  onTap: () async {
+                                    await _showAttachLinkDialog(bulletController);
+                                    final updatedBullets =
+                                        List<String>.from(_experience[eIdx].bullets);
+                                    updatedBullets[bIdx] = bulletController.text;
+                                    setState(() {
+                                      _experience[eIdx] =
+                                          _experience[eIdx].copyWith(bullets: updatedBullets);
+                                    });
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.04),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.link_rounded,
+                                        color: Color(0xFFCBE349), size: 14),
                                   ),
-                                  enabledBorder: const OutlineInputBorder(
-                                    borderSide: BorderSide(color: AppColors.border),
-                                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                                  ),
-                                  focusedBorder: const OutlineInputBorder(
-                                    borderSide: BorderSide(color: AppColors.accent),
-                                    borderRadius: BorderRadius.all(Radius.circular(8)),
-                                  ),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                                 ),
-                                style: const TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 14,
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.015),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide:
+                                      BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                                  borderRadius: const BorderRadius.all(Radius.circular(12)),
                                 ),
+                                focusedBorder: const OutlineInputBorder(
+                                  borderSide: BorderSide(color: Color(0xFF723FFD)),
+                                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                                ),
+                                contentPadding:
+                                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                               ),
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.error, size: 18),
-                            onPressed: () {
-                              final updatedBullets = List<String>.from(_experience[eIdx].bullets)..removeAt(bIdx);
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
+                              final updatedBullets = List<String>.from(_experience[eIdx].bullets)
+                                ..removeAt(bIdx);
                               setState(() {
-                                _experience[eIdx] = _experience[eIdx].copyWith(bullets: updatedBullets);
+                                _experience[eIdx] =
+                                    _experience[eIdx].copyWith(bullets: updatedBullets);
                               });
                             },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.remove_circle_outline_rounded,
+                                  color: Color(0xFFEF4444), size: 14),
+                            ),
                           ),
                         ],
                       ),
                     );
                   }),
-                  
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       TextButton.icon(
                         onPressed: () {
-                          final updatedBullets = List<String>.from(_experience[eIdx].bullets)..add('');
+                          final updatedBullets = List<String>.from(_experience[eIdx].bullets)
+                            ..add('');
                           setState(() {
                             _experience[eIdx] = _experience[eIdx].copyWith(bullets: updatedBullets);
                           });
                         },
-                        icon: const Icon(Icons.add_rounded, size: 14),
-                        label: const Text('Add Bullet', style: TextStyle(fontSize: 11)),
-                        style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                        icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
+                        label: Text(
+                          'Add Bullet',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: const Color(0xFF723FFD),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                       TextButton(
                         onPressed: () {
-                          // Sync input fields to current list item
                           final company = companyController.text.trim();
                           final role = roleController.text.trim();
                           final duration = durationController.text.trim();
-                          
+
                           setState(() {
                             _experience[eIdx] = _experience[eIdx].copyWith(
                               company: company,
@@ -1039,10 +1411,20 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                             );
                           });
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Experience details saved!'), duration: Duration(seconds: 1)),
+                            const SnackBar(
+                              content: Text('Experience details saved!'),
+                              duration: Duration(seconds: 1),
+                            ),
                           );
                         },
-                        child: const Text('Save', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                        child: Text(
+                          'Save Details',
+                          style: GoogleFonts.outfit(
+                            color: const Color(0xFFCBE349),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1052,17 +1434,35 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
           },
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () {
+        GestureDetector(
+          onTap: () {
             setState(() {
-              _experience.add(const ResumeExperience(company: 'New Company', role: 'Developer', duration: '', bullets: ['']));
+              _experience.add(const ResumeExperience(
+                  company: 'New Company', role: 'Developer', duration: '', bullets: ['']));
             });
           },
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: const Text('Add Experience Position'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.accent,
-            side: const BorderSide(color: AppColors.accent),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+                const SizedBox(width: 8),
+                Text(
+                  'Add Experience Position',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -1088,11 +1488,11 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
 
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                color: Colors.white.withValues(alpha: 0.015),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1102,17 +1502,28 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                     children: [
                       Text(
                         'Project #${pIdx + 1}',
-                        style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: GoogleFonts.firaCode(
+                          color: const Color(0xFFCBE349),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_rounded, color: AppColors.error, size: 16),
-                        onPressed: () {
+                      GestureDetector(
+                        onTap: () {
                           setState(() => _projects.removeAt(pIdx));
                         },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   _buildTextField(
                     controller: titleController,
                     label: 'Project Name',
@@ -1124,9 +1535,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                     controller: techController,
                     label: 'Technologies Used (separated by commas)',
                     onChanged: (val) {
-                      final tech = val.split(',')
-                          .map((t) => t.trim())
-                          .toList();
+                      final tech = val.split(',').map((t) => t.trim()).toList();
                       _projects[pIdx] = _projects[pIdx].copyWith(technologies: tech);
                     },
                   ),
@@ -1144,13 +1553,19 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                       _projects[pIdx] = _projects[pIdx].copyWith(liveUrl: val.trim());
                     },
                   ),
-                  
+
                   // Bullets
-                  const SizedBox(height: 6),
-                  const Text('Project Highlights Bullets (Max 2 recommended, 3rd will be generated as Link)', 
-                    style: TextStyle(fontSize: 11, color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Project Highlights Bullets (Max 2 recommended)',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: Colors.white70,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   const SizedBox(height: 8),
-                  
+
                   ...List.generate(_projects[pIdx].bullets.length, (bIdx) {
                     final bulletController = TextEditingController(text: _projects[pIdx].bullets[bIdx]);
                     return Padding(
@@ -1158,39 +1573,73 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                       child: Row(
                         children: [
                           Expanded(
-                            child: _buildTextField(
+                            child: TextFormField(
                               controller: bulletController,
-                              label: 'Bullet #${bIdx + 1}',
-                              suffixIcon: Icons.link_rounded,
-                              onSuffixTap: () async {
-                                await _showAttachLinkDialog(bulletController);
-                                final updatedBullets = List<String>.from(_projects[pIdx].bullets);
-                                updatedBullets[bIdx] = bulletController.text;
-                                setState(() {
-                                  _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
-                                });
-                              },
                               onChanged: (value) {
                                 final updatedBullets = List<String>.from(_projects[pIdx].bullets);
                                 updatedBullets[bIdx] = value;
                                 _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
                               },
+                              decoration: InputDecoration(
+                                labelText: 'Bullet #${bIdx + 1}',
+                                labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                                suffixIcon: GestureDetector(
+                                  onTap: () async {
+                                    await _showAttachLinkDialog(bulletController);
+                                    final updatedBullets = List<String>.from(_projects[pIdx].bullets);
+                                    updatedBullets[bIdx] = bulletController.text;
+                                    setState(() {
+                                      _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
+                                    });
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.04),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: const Icon(Icons.link_rounded,
+                                        color: Color(0xFFCBE349), size: 14),
+                                  ),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.015),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                                  borderRadius: const BorderRadius.all(Radius.circular(12)),
+                                ),
+                                focusedBorder: const OutlineInputBorder(
+                                  borderSide: BorderSide(color: Color(0xFF723FFD)),
+                                  borderRadius: BorderRadius.all(Radius.circular(12)),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              ),
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.error, size: 18),
-                            onPressed: () {
+                          const SizedBox(width: 8),
+                          GestureDetector(
+                            onTap: () {
                               final updatedBullets = List<String>.from(_projects[pIdx].bullets)..removeAt(bIdx);
                               setState(() {
                                 _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
                               });
                             },
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.remove_circle_outline_rounded,
+                                  color: Color(0xFFEF4444), size: 14),
+                            ),
                           ),
                         ],
                       ),
                     );
                   }),
-                  
+
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -1201,20 +1650,27 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                             _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
                           });
                         },
-                        icon: const Icon(Icons.add_rounded, size: 14),
-                        label: const Text('Add Highlight Bullet', style: TextStyle(fontSize: 11)),
-                        style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                        icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
+                        label: Text(
+                          'Add Highlight Bullet',
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: const Color(0xFF723FFD),
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                       TextButton(
                         onPressed: () {
                           final title = titleController.text.trim();
-                          final tech = techController.text.split(',')
+                          final tech = techController.text
+                              .split(',')
                               .map((t) => t.trim())
                               .where((t) => t.isNotEmpty)
                               .toList();
                           final git = githubController.text.trim();
                           final live = liveController.text.trim();
- 
+
                           setState(() {
                             _projects[pIdx] = _projects[pIdx].copyWith(
                               title: title,
@@ -1224,10 +1680,20 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                             );
                           });
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Project details saved!'), duration: Duration(seconds: 1)),
+                            const SnackBar(
+                              content: Text('Project details saved!'),
+                              duration: Duration(seconds: 1),
+                            ),
                           );
                         },
-                        child: const Text('Save', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                        child: Text(
+                          'Save Details',
+                          style: GoogleFonts.outfit(
+                            color: const Color(0xFFCBE349),
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1237,17 +1703,35 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
           },
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () {
+        GestureDetector(
+          onTap: () {
             setState(() {
-              _projects.add(const ResumeProject(title: 'New Project', technologies: [], bullets: [''], githubUrl: '', liveUrl: ''));
+              _projects.add(const ResumeProject(
+                  title: 'New Project', technologies: [], bullets: [''], githubUrl: '', liveUrl: ''));
             });
           },
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: const Text('Add Project Record'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.accent,
-            side: const BorderSide(color: AppColors.accent),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+                const SizedBox(width: 8),
+                Text(
+                  'Add Project Record',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -1274,11 +1758,11 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
 
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                color: Colors.white.withValues(alpha: 0.015),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1288,17 +1772,28 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                     children: [
                       Text(
                         'Education Record #${eduIdx + 1}',
-                        style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: GoogleFonts.firaCode(
+                          color: const Color(0xFFCBE349),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_rounded, color: AppColors.error, size: 16),
-                        onPressed: () {
+                      GestureDetector(
+                        onTap: () {
                           setState(() => _education.removeAt(eduIdx));
                         },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   _buildTextField(
                     controller: instController,
                     label: 'Institution Name',
@@ -1334,7 +1829,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                       _education[eduIdx] = _education[eduIdx].copyWith(duration: val.trim());
                     },
                   ),
-                  
+
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -1344,7 +1839,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                         final fld = fieldController.text.trim();
                         final cgp = cgpaController.text.trim();
                         final dur = durationController.text.trim();
- 
+
                         setState(() {
                           _education[eduIdx] = ResumeEducation(
                             institution: inst,
@@ -1355,10 +1850,20 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                           );
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Education details saved!'), duration: Duration(seconds: 1)),
+                          const SnackBar(
+                            content: Text('Education details saved!'),
+                            duration: Duration(seconds: 1),
+                          ),
                         );
                       },
-                      child: const Text('Save', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                      child: Text(
+                        'Save Record',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFFCBE349),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1367,21 +1872,99 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
           },
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () {
+        GestureDetector(
+          onTap: () {
             setState(() {
-              _education.add(const ResumeEducation(institution: 'New University', degree: 'Bachelor of Engineering', duration: ''));
+              _education.add(const ResumeEducation(
+                  institution: 'New University', degree: 'Bachelor of Engineering', duration: ''));
             });
           },
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: const Text('Add Education Entry'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.accent,
-            side: const BorderSide(color: AppColors.accent),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+                const SizedBox(width: 8),
+                Text(
+                  'Add Education Entry',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
+  }
+
+  Map<String, String> _parseCertDate(String dateStr) {
+    dateStr = dateStr.trim();
+    String month = 'Jan';
+    String year = '2025';
+    
+    if (dateStr.isEmpty) {
+      return {'month': month, 'year': year};
+    }
+
+    if (dateStr.contains("'")) {
+      final parts = dateStr.split("'");
+      if (parts.length == 2) {
+        final mPart = parts[0].trim();
+        final yPart = parts[1].trim();
+        
+        const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        for (final m in shortMonths) {
+          if (m.toLowerCase() == mPart.toLowerCase()) {
+            month = m;
+            break;
+          }
+        }
+        
+        if (yPart.length == 2) {
+          year = '20$yPart';
+        } else if (yPart.length == 4) {
+          year = yPart;
+        }
+      }
+    } else {
+      final parts = dateStr.split(RegExp(r'\s+'));
+      if (parts.length == 2) {
+        final mPart = parts[0].trim();
+        final yPart = parts[1].trim();
+        
+        const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        final matchLength = mPart.length >= 3 ? 3 : mPart.length;
+        final matchPrefix = mPart.toLowerCase().substring(0, matchLength);
+        for (final m in shortMonths) {
+          if (m.toLowerCase().startsWith(matchPrefix)) {
+            month = m;
+            break;
+          }
+        }
+        
+        if (yPart.length == 4) {
+          year = yPart;
+        } else if (yPart.length == 2) {
+          year = '20$yPart';
+        }
+      } else if (parts.length == 1) {
+        final val = parts[0];
+        if (val.length == 4 && int.tryParse(val) != null) {
+          year = val;
+        }
+      }
+    }
+    return {'month': month, 'year': year};
   }
 
   // ── SECTION 7: Certifications ────────────────────────────────────
@@ -1398,16 +1981,15 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
             final cert = _certifications[certIdx];
             final titleController = TextEditingController(text: cert.title);
             final issuerController = TextEditingController(text: cert.issuer);
-            final dateController = TextEditingController(text: cert.date);
             final urlController = TextEditingController(text: cert.credentialUrl);
 
             return Container(
               margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.background,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                color: Colors.white.withValues(alpha: 0.015),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1417,17 +1999,28 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                     children: [
                       Text(
                         'Certification #${certIdx + 1}',
-                        style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: GoogleFonts.firaCode(
+                          color: const Color(0xFFCBE349),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
                       ),
-                      IconButton(
-                        icon: const Icon(Icons.delete_rounded, color: AppColors.error, size: 16),
-                        onPressed: () {
+                      GestureDetector(
+                        onTap: () {
                           setState(() => _certifications.removeAt(certIdx));
                         },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 12),
                   _buildTextField(
                     controller: titleController,
                     label: 'Certificate Title',
@@ -1442,13 +2035,108 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                       _certifications[certIdx] = _certifications[certIdx].copyWith(issuer: val.trim());
                     },
                   ),
-                  _buildTextField(
-                    controller: dateController,
-                    label: 'Date Earned / Expiry',
-                    onChanged: (val) {
-                      _certifications[certIdx] = _certifications[certIdx].copyWith(date: val.trim());
+                  
+                  // Month and Year selector dropdowns for date
+                  const Text(
+                    'Date Earned / Expiry',
+                    style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (context) {
+                      final dateMap = _parseCertDate(cert.date);
+                      final String currentMonth = dateMap['month']!;
+                      final String currentYear = dateMap['year']!;
+                      
+                      const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      final years = List.generate(21, (index) => (2015 + index).toString());
+                      
+                      final String selectedMonth = shortMonths.contains(currentMonth) ? currentMonth : 'Jan';
+                      final String selectedYear = years.contains(currentYear) ? currentYear : '2025';
+
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Theme(
+                              data: Theme.of(context).copyWith(
+                                canvasColor: const Color(0xFF0C0B10),
+                              ),
+                              child: DropdownButtonFormField<String>(
+                                dropdownColor: const Color(0xFF0C0B10),
+                                value: selectedMonth,
+                                style: const TextStyle(color: Colors.white, fontSize: 15),
+                                decoration: InputDecoration(
+                                  labelText: 'Month',
+                                  labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                                  floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(alpha: 0.03),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                items: shortMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    final String yrShort = selectedYear.substring(selectedYear.length - 2);
+                                    setState(() {
+                                      _certifications[certIdx] = _certifications[certIdx].copyWith(date: "$val'$yrShort");
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Theme(
+                              data: Theme.of(context).copyWith(
+                                canvasColor: const Color(0xFF0C0B10),
+                              ),
+                              child: DropdownButtonFormField<String>(
+                                dropdownColor: const Color(0xFF0C0B10),
+                                value: selectedYear,
+                                style: const TextStyle(color: Colors.white, fontSize: 15),
+                                decoration: InputDecoration(
+                                  labelText: 'Year',
+                                  labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                                  floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(alpha: 0.03),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                items: years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
+                                onChanged: (val) {
+                                  if (val != null) {
+                                    final String yrShort = val.substring(val.length - 2);
+                                    setState(() {
+                                      _certifications[certIdx] = _certifications[certIdx].copyWith(date: "$selectedMonth'$yrShort");
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
                     },
                   ),
+                  const SizedBox(height: 16),
+                  
                   _buildTextField(
                     controller: urlController,
                     label: 'Credential Verification URL',
@@ -1456,16 +2144,16 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                       _certifications[certIdx] = _certifications[certIdx].copyWith(credentialUrl: val.trim());
                     },
                   ),
-                  
+
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
                       onPressed: () {
                         final tit = titleController.text.trim();
                         final iss = issuerController.text.trim();
-                        final dat = dateController.text.trim();
+                        final dat = _certifications[certIdx].date;
                         final url = urlController.text.trim();
- 
+
                         setState(() {
                           _certifications[certIdx] = ResumeCertification(
                             title: tit,
@@ -1475,10 +2163,20 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                           );
                         });
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Certification details saved!'), duration: Duration(seconds: 1)),
+                          const SnackBar(
+                            content: Text('Certification details saved!'),
+                            duration: Duration(seconds: 1),
+                          ),
                         );
                       },
-                      child: const Text('Save', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                      child: Text(
+                        'Save Record',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFFCBE349),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -1487,24 +2185,42 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
           },
         ),
         const SizedBox(height: 8),
-        OutlinedButton.icon(
-          onPressed: () {
+        GestureDetector(
+          onTap: () {
             setState(() {
-              _certifications.add(const ResumeCertification(title: 'New Certificate', issuer: '', date: ''));
+              _certifications
+                  .add(const ResumeCertification(title: 'New Certificate', issuer: '', date: "Jan'26"));
             });
           },
-          icon: const Icon(Icons.add_rounded, size: 16),
-          label: const Text('Add Certification Record'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.accent,
-            side: const BorderSide(color: AppColors.accent),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+                const SizedBox(width: 8),
+                Text(
+                  'Add Certification Record',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
   }
 
-  // ── SECTION 8: Achievements ──────────────────────────────────────
+  // ── SECTION 8: Achievements & Awards ─────────────────────────────
   Widget _buildAchievementsSection() {
     return _buildAccordionSection(
       title: 'Achievements & Awards',
@@ -1515,35 +2231,199 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
           physics: const NeverScrollableScrollPhysics(),
           itemCount: _achievements.length,
           itemBuilder: (context, aIdx) {
-            final bulletController = TextEditingController(text: _achievements[aIdx]);
+            final achValue = _achievements[aIdx];
+            final achParts = achValue.split('|');
+            final descPart = achParts[0].trim();
+            final datePart = achParts.length > 1 ? achParts[1].trim() : "Jan'25";
+
+            final bulletController = TextEditingController(text: descPart);
 
             return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _buildTextField(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.015),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Achievement #${aIdx + 1}',
+                          style: GoogleFonts.firaCode(
+                            color: const Color(0xFFCBE349),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _achievements.removeAt(aIdx));
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
                       controller: bulletController,
-                      label: 'Achievement #${aIdx + 1}',
-                      suffixIcon: Icons.link_rounded,
-                      onSuffixTap: () async {
-                        await _showAttachLinkDialog(bulletController);
-                        setState(() {
-                          _achievements[aIdx] = bulletController.text;
-                        });
-                      },
                       onChanged: (value) {
-                        _achievements[aIdx] = value;
+                        final dateMap = _parseCertDate(datePart);
+                        final mShort = dateMap['month']!;
+                        final yShort = dateMap['year']!.substring(dateMap['year']!.length - 2);
+                        _achievements[aIdx] = "${value.trim()}|$mShort'$yShort";
+                      },
+                      decoration: InputDecoration(
+                        labelText: 'Achievement Details',
+                        labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                        suffixIcon: GestureDetector(
+                          onTap: () async {
+                            await _showAttachLinkDialog(bulletController);
+                            final dateMap = _parseCertDate(datePart);
+                            final mShort = dateMap['month']!;
+                            final yShort = dateMap['year']!.substring(dateMap['year']!.length - 2);
+                            setState(() {
+                              _achievements[aIdx] = "${bulletController.text.trim()}|$mShort'$yShort";
+                            });
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.04),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.link_rounded, color: Color(0xFFCBE349), size: 14),
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.015),
+                        enabledBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                          borderRadius: const BorderRadius.all(Radius.circular(12)),
+                        ),
+                        focusedBorder: const OutlineInputBorder(
+                          borderSide: BorderSide(color: Color(0xFF723FFD)),
+                          borderRadius: BorderRadius.all(Radius.circular(12)),
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                    ),
+                    const SizedBox(height: 12),
+                    
+                    // Month/Year dropdown row for Achievement:
+                    const Text(
+                      'Date Earned / Achieved',
+                      style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 8),
+                    Builder(
+                      builder: (context) {
+                        final dateMap = _parseCertDate(datePart);
+                        final String currentMonth = dateMap['month']!;
+                        final String currentYear = dateMap['year']!;
+                        
+                        const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        final years = List.generate(21, (index) => (2015 + index).toString());
+                        
+                        final String selectedMonth = shortMonths.contains(currentMonth) ? currentMonth : 'Jan';
+                        final String selectedYear = years.contains(currentYear) ? currentYear : '2025';
+
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: Theme(
+                                data: Theme.of(context).copyWith(
+                                  canvasColor: const Color(0xFF0C0B10),
+                                ),
+                                child: DropdownButtonFormField<String>(
+                                  dropdownColor: const Color(0xFF0C0B10),
+                                  value: selectedMonth,
+                                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                                  decoration: InputDecoration(
+                                    labelText: 'Month',
+                                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                                    floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                                    filled: true,
+                                    fillColor: Colors.white.withValues(alpha: 0.03),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  items: shortMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      final String yrShort = selectedYear.substring(selectedYear.length - 2);
+                                      setState(() {
+                                        _achievements[aIdx] = "${bulletController.text.trim()}|$val'$yrShort";
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Theme(
+                                data: Theme.of(context).copyWith(
+                                  canvasColor: const Color(0xFF0C0B10),
+                                ),
+                                child: DropdownButtonFormField<String>(
+                                  dropdownColor: const Color(0xFF0C0B10),
+                                  value: selectedYear,
+                                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                                  decoration: InputDecoration(
+                                    labelText: 'Year',
+                                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                                    floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                                    filled: true,
+                                    fillColor: Colors.white.withValues(alpha: 0.03),
+                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  items: years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      final String yrShort = val.substring(val.length - 2);
+                                      setState(() {
+                                        _achievements[aIdx] = "${bulletController.text.trim()}|$selectedMonth'$yrShort";
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
                       },
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.error, size: 18),
-                    onPressed: () {
-                      setState(() => _achievements.removeAt(aIdx));
-                    },
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -1552,24 +2432,37 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            OutlinedButton.icon(
+            TextButton.icon(
               onPressed: () {
-                setState(() => _achievements.add(''));
+                setState(() => _achievements.add("New Achievement|Jan'26"));
               },
-              icon: const Icon(Icons.add_rounded, size: 16),
-              label: const Text('Add Achievement'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.accent,
-                side: const BorderSide(color: AppColors.accent),
+              icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
+              label: Text(
+                'Add Achievement',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  color: const Color(0xFF723FFD),
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
             TextButton(
               onPressed: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Achievements saved!'), duration: Duration(seconds: 1)),
+                  const SnackBar(
+                    content: Text('Achievements saved!'),
+                    duration: Duration(seconds: 1),
+                  ),
                 );
               },
-              child: const Text('Save', style: TextStyle(color: AppColors.success, fontSize: 12)),
+              child: Text(
+                'Confirm Saved',
+                style: GoogleFonts.outfit(
+                  color: const Color(0xFFCBE349),
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
@@ -1584,22 +2477,21 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
       title: 'Research Work',
       icon: Icons.science_rounded,
       children: [
-        // Enable/Disable switch
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text(
+            Text(
               'Show Research Section in Resume',
-              style: TextStyle(
-                color: AppColors.textPrimary,
+              style: GoogleFonts.outfit(
+                color: Colors.white,
                 fontWeight: FontWeight.bold,
                 fontSize: 13,
               ),
             ),
             Switch(
               value: _showResearch,
-              activeThumbColor: AppColors.accent,
-              activeTrackColor: AppColors.accent.withValues(alpha: 0.3),
+              activeThumbColor: const Color(0xFFCBE349),
+              activeTrackColor: const Color(0xFFCBE349).withValues(alpha: 0.3),
               inactiveThumbColor: Colors.white70,
               inactiveTrackColor: Colors.white10,
               onChanged: (val) {
@@ -1612,16 +2504,15 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
         ),
         const SizedBox(height: 12),
         if (_showResearch) ...[
-          // Choose which research to add
           projectsAsync.when(
             data: (allProjects) {
               final availableResearch = allProjects.where((p) => p.isResearch).toList();
               if (availableResearch.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
                   child: Text(
                     'No research work items found in your profile. Please add them in the Project and Research Work screen.',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    style: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
                   ),
                 );
               }
@@ -1629,10 +2520,10 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Select Research Work to include:',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
+                    style: GoogleFonts.outfit(
+                      color: Colors.white60,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -1643,39 +2534,58 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                     runSpacing: 8,
                     children: availableResearch.map((res) {
                       final isSelected = _research.any((r) => r.title == res.title);
-                      return FilterChip(
-                        label: Text(res.title),
-                        selected: isSelected,
-                        selectedColor: AppColors.accent.withValues(alpha: 0.2),
-                        checkmarkColor: AppColors.accent,
-                        labelStyle: TextStyle(
-                          color: isSelected ? AppColors.accent : AppColors.textPrimary,
-                          fontSize: 12,
-                        ),
-                        backgroundColor: AppColors.background,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(
-                            color: isSelected ? AppColors.accent : AppColors.border,
-                          ),
-                        ),
-                        onSelected: (selected) {
+                      return GestureDetector(
+                        onTap: () {
                           setState(() {
-                            if (selected) {
-                              if (!isSelected) {
-                                _research.add(ResumeProject(
-                                  title: res.title,
-                                  technologies: const [],
-                                  bullets: res.bulletPoints.take(3).toList(),
-                                  githubUrl: res.duration, // use githubUrl to store duration
-                                  liveUrl: '',
-                                ));
-                              }
+                            if (!isSelected) {
+                              _research.add(ResumeProject(
+                                title: res.title,
+                                technologies: const [],
+                                bullets: res.bulletPoints.take(3).toList(),
+                                githubUrl: res.duration, // use githubUrl to store duration
+                                liveUrl: '',
+                              ));
                             } else {
                               _research.removeWhere((r) => r.title == res.title);
                             }
                           });
                         },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? const Color(0xFF723FFD).withValues(alpha: 0.15)
+                                : Colors.white.withValues(alpha: 0.03),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isSelected
+                                  ? const Color(0xFF723FFD)
+                                  : Colors.white.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (isSelected) ...[
+                                const Icon(
+                                  Icons.check_rounded,
+                                  color: Color(0xFFCBE349),
+                                  size: 14,
+                                ),
+                                const SizedBox(width: 6),
+                              ],
+                              Text(
+                                res.title,
+                                style: GoogleFonts.outfit(
+                                  color: isSelected ? Colors.white : Colors.white60,
+                                  fontSize: 12,
+                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       );
                     }).toList(),
                   ),
@@ -1683,12 +2593,12 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Text('Error loading research items: $err', style: const TextStyle(color: AppColors.error)),
+            error: (err, stack) => Text('Error loading research items: $err',
+                style: GoogleFonts.outfit(color: Colors.redAccent)),
           ),
           const SizedBox(height: 16),
-          // Edit chosen research items
           if (_research.isNotEmpty) ...[
-            const Divider(color: AppColors.border, height: 1),
+            const Divider(color: Colors.white10, height: 1),
             const SizedBox(height: 16),
             ListView.builder(
               shrinkWrap: true,
@@ -1701,11 +2611,11 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
 
                 return Container(
                   margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.background,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.border),
+                    color: Colors.white.withValues(alpha: 0.015),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1715,17 +2625,28 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                         children: [
                           Text(
                             'Research Item #${rIdx + 1}',
-                            style: const TextStyle(color: AppColors.accent, fontWeight: FontWeight.bold, fontSize: 12),
+                            style: GoogleFonts.firaCode(
+                              color: const Color(0xFFCBE349),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10,
+                            ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_rounded, color: AppColors.error, size: 16),
-                            onPressed: () {
+                          GestureDetector(
+                            onTap: () {
                               setState(() => _research.removeAt(rIdx));
                             },
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.red.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                            ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 12),
                       _buildTextField(
                         controller: topicController,
                         label: 'Research Topic / Title',
@@ -1741,11 +2662,16 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                         },
                       ),
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         'Research Description Bullets (Max 3)',
-                        style: TextStyle(fontSize: 11, color: AppColors.textPrimary, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                       const SizedBox(height: 8),
+
                       ...List.generate(item.bullets.length, (bIdx) {
                         final bulletController = TextEditingController(text: item.bullets[bIdx]);
                         return Padding(
@@ -1753,24 +2679,51 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                           child: Row(
                             children: [
                               Expanded(
-                                child: _buildTextField(
+                                child: TextFormField(
                                   controller: bulletController,
-                                  label: 'Bullet #${bIdx + 1}',
                                   onChanged: (value) {
                                     final updatedBullets = List<String>.from(item.bullets);
                                     updatedBullets[bIdx] = value;
                                     _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
                                   },
+                                  decoration: InputDecoration(
+                                    labelText: 'Bullet #${bIdx + 1}',
+                                    labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                                    filled: true,
+                                    fillColor: Colors.white.withValues(alpha: 0.015),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderSide:
+                                          BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                                      borderRadius: const BorderRadius.all(Radius.circular(12)),
+                                    ),
+                                    focusedBorder: const OutlineInputBorder(
+                                      borderSide: BorderSide(color: Color(0xFF723FFD)),
+                                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                                    ),
+                                    contentPadding:
+                                        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  ),
+                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
                                 ),
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.remove_circle_outline_rounded, color: AppColors.error, size: 18),
-                                onPressed: () {
-                                  final updatedBullets = List<String>.from(item.bullets)..removeAt(bIdx);
+                              const SizedBox(width: 8),
+                              GestureDetector(
+                                onTap: () {
+                                  final updatedBullets = List<String>.from(item.bullets)
+                                    ..removeAt(bIdx);
                                   setState(() {
                                     _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
                                   });
                                 },
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.remove_circle_outline_rounded,
+                                      color: Color(0xFFEF4444), size: 14),
+                                ),
                               ),
                             ],
                           ),
@@ -1787,9 +2740,15 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                                   _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
                                 });
                               },
-                              icon: const Icon(Icons.add_rounded, size: 14),
-                              label: const Text('Add Bullet', style: TextStyle(fontSize: 11)),
-                              style: TextButton.styleFrom(foregroundColor: AppColors.accent),
+                              icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
+                              label: Text(
+                                'Add Bullet',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  color: const Color(0xFF723FFD),
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             )
                           else
                             const SizedBox.shrink(),
@@ -1804,10 +2763,20 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
                                 );
                               });
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Research details saved!'), duration: Duration(seconds: 1)),
+                                const SnackBar(
+                                  content: Text('Research details saved!'),
+                                  duration: Duration(seconds: 1),
+                                ),
                               );
                             },
-                            child: const Text('Save', style: TextStyle(color: AppColors.success, fontSize: 12)),
+                            child: Text(
+                              'Save Details',
+                              style: GoogleFonts.outfit(
+                                color: const Color(0xFFCBE349),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
                         ],
                       ),
