@@ -30,7 +30,9 @@ class RouteNames {
   static const String editResearch = '/projects/edit-research/:projectId';
   static const String generate = '/generate';
   static const String generateAnalyze = '/generate/analyze';
+  static const String generatePredefinedRoles = '/generate/predefined-roles';
   static const String generateSelectProjects = '/generate/select-projects';
+  static const String generateSelectSkills = '/generate/select-skills';
   static const String generateSelectTemplate = '/generate/select-template';
   static const String generatePreview = '/generate/preview/:resumeId';
   static const String resumeEdit = '/generate/edit/:resumeId';

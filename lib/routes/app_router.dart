@@ -19,6 +19,8 @@ import '../features/projects/presentation/screens/add_edit_research_screen.dart'
 import '../features/resume_generator/presentation/screens/generate_screen.dart';
 import '../features/resume_generator/presentation/screens/ai_analysis_screen.dart';
 import '../features/resume_generator/presentation/screens/project_selection_screen.dart';
+import '../features/resume_generator/presentation/screens/predefined_roles_screen.dart';
+import '../features/resume_generator/presentation/screens/skill_preference_screen.dart';
 import '../features/resume_generator/presentation/screens/template_selection_screen.dart';
 import '../features/resume_generator/presentation/screens/resume_preview_screen.dart';
 import '../features/resume_generator/presentation/screens/resume_edit_screen.dart';
@@ -272,11 +274,27 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 ),
               ),
               GoRoute(
+                path: 'predefined-roles',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) => _slideTransition(
+                  state,
+                  const PredefinedRolesScreen(),
+                ),
+              ),
+              GoRoute(
                 path: 'select-projects',
                 parentNavigatorKey: _rootNavigatorKey,
                 pageBuilder: (context, state) => _slideTransition(
                   state,
                   const ProjectSelectionScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'select-skills',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) => _slideTransition(
+                  state,
+                  const SkillPreferenceScreen(),
                 ),
               ),
               GoRoute(

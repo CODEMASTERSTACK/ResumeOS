@@ -238,7 +238,7 @@ class ProjectSelectionScreen extends ConsumerWidget {
                       onTap: selectedIds.isEmpty
                           ? null
                           : () => context
-                              .push(RouteNames.generateSelectTemplate),
+                              .push(RouteNames.generateSelectSkills),
                     ),
                   ],
                 );
@@ -502,7 +502,7 @@ class _BottomCTA extends StatelessWidget {
                     duration: const Duration(milliseconds: 200),
                     child: Text(
                       isActive
-                          ? 'Choose Template'
+                          ? 'Continue to Skills'
                           : 'Select at least 1 project',
                       key: ValueKey(isActive),
                       style: GoogleFonts.outfit(

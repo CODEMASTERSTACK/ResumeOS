@@ -186,10 +186,10 @@ function buildPrompt(action, data) {
   if (action === 'analyzeJobDescription') {
     const { jobDescription } = data;
     if (!jobDescription) throw new Error('Missing jobDescription');
-    return `You are an expert Technical Recruiter, Sourcer, and ATS (Applicant Tracking System) Optimization Engineer with 15+ years of experience placing candidates at Tier-1 technology companies.
-Your task is to analyze the provided job description (JD) with extreme precision and extract a comprehensive, structured dataset that will be used to calibrate and tailor resumes for the position.
+    return `You are an expert Technical Recruiter, Resume Strategist, and ATS (Applicant Tracking System) Optimization Engineer with 15+ years of experience placing candidates at Tier-1 technology companies.
+Your task is to analyze the targeted role or job description (JD) with extreme precision and perform a deep recruiter audit/breakdown to help construct a stellar resume.
 
-Job Description:
+Input Target Role or Job Description:
 """
 ${jobDescription}
 """
@@ -201,15 +201,31 @@ Instructions:
 4. **Identify preferred skills**: Extract nice-to-have skills, secondary technologies, optional experience, certifications, or specialized domain expertise mentioned as a plus or preferred.
 5. **Extract ATS keywords**: Identify the exact technical terminology, methodologies (e.g., Agile, CI/CD, TDD), standards, and systems that recruiters search for or ATS software scans for. Be comprehensive.
 6. **Identify domain keywords**: Pinpoint the business context, industry vertical, and operational domains (e.g., "SaaS", "FinTech", "Distributed Systems", "E-commerce", "High-Frequency Trading", "Mobile Application Development").
+7. **Extract Non-Negotiable Skills**: The fundamental technical and soft skills strictly required to pass the initial screening.
+8. **Extract High-Demand/Trending Skills**: The specific tools, frameworks, or methodologies (e.g., cloud platforms, RAG architectures) that are currently booming in this space and will make a candidate stand out.
+9. **Identify Company Problems**: What are the underlying problems a company is trying to solve by hiring for this role? What values or solutions does this role bring?
+10. **Identify Cultural & Operational Traits**: What cultural or operational traits (e.g., bias for action, agile delivery, product thinking, deep ownership) do companies usually value for this specific position?
+11. **Generate Top Keywords/Phrases**: The exact terminology ATS (Applicant Tracking Systems) and recruiters will be scanning for (Top 3-5).
+12. **Provide High-Impact Bullet Points**: Provide exactly 3 examples of how to phrase experience for this role using the "Action + Context + Metric/Result" format. Use realistic accomplishments.
+13. **Recommend Standout Projects**: Recommend 2-3 types of portfolio projects that would perfectly demonstrate competence for this specific role.
+14. **Generate Resume Strategy**: Provide a concise, well-researched 40-50 words strategic paragraph detailing the resume positioning, core value proposition, and key areas of impact to highlight for this specific role or job description to make the candidate stand out.
 
-Return ONLY a valid JSON object matching this exact schema (do not wrap in additional JSON keys, do not return any other text, only the raw JSON block):
+Return ONLY a valid JSON object matching this exact schema (do not wrap in markdown code blocks, do not return any other text, only the raw JSON block):
 {
   "role": "string (job title)",
   "experienceLevel": "junior | mid | senior",
   "requiredSkills": ["skill1", "skill2", "skill3"],
   "preferredSkills": ["skill1", "skill2"],
   "keywords": ["keyword1", "keyword2", "keyword3"],
-  "domainKeywords": ["domain1", "domain2"]
+  "domainKeywords": ["domain1", "domain2"],
+  "nonNegotiableSkills": ["skill1", "skill2"],
+  "highDemandSkills": ["skill1", "skill2"],
+  "companyProblems": ["problem1", "problem2"],
+  "companyTraits": ["trait1", "trait2"],
+  "topKeywords": ["kw1", "kw2"],
+  "highImpactBullets": ["bullet1", "bullet2", "bullet3"],
+  "standoutProjects": ["proj1", "proj2"],
+  "roleStrategy": "string (40-50 words of resume strategy)"
 }`;
   }
 

@@ -25,6 +25,69 @@ class _GenerateScreenState extends ConsumerState<GenerateScreen> {
   final _jdCtrl = TextEditingController();
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
+  final List<Map<String, dynamic>> _trendingRoles = [
+    {
+      'name': 'Software Engineer',
+      'icon': Icons.code_rounded,
+      'jd': '''Role: Software Engineer
+
+We are seeking a Software Engineer to design, develop, and maintain high-performance software systems. In this role, you will write clean, scalable code using modern technologies, design system architectures, and collaborate with cross-functional teams to build cutting-edge features. You will optimize application performance, debug complex issues, and ensure seamless delivery using robust DevOps and CI/CD pipelines.
+
+Demanding Technical Skills: Python, Java, JavaScript, TypeScript, Go, C++, React, Node.js, SQL, System Design, Algorithms, Data Structures, Git.
+
+Preferred DevOps & Tools: AWS, Docker, Kubernetes, CI/CD, unit testing, agile methodologies, Cloud Computing.'''
+    },
+    {
+      'name': 'Financial Analyst',
+      'icon': Icons.analytics_outlined,
+      'jd': '''Role: Financial Analyst
+
+We are seeking a Financial Analyst to analyze financial data, evaluate performance, and assist in strategic decision-making. You will build complex financial models, conduct variance analyses, forecast revenues and expenses, and prepare detailed financial reports. You will monitor industry trends, identify financial risks, and collaborate with leadership to optimize budgets and capital allocation.
+
+Demanding Finance Skills: Financial Modeling, Financial Analysis, Forecasting, Budgeting, Valuation, Corporate Finance, Microsoft Excel, Data Analysis.
+
+Preferred Tools & Tech: SQL, Python, Tableau, Power BI, financial reporting, risk assessment, quantitative analysis.'''
+    },
+    {
+      'name': 'Data Scientist',
+      'icon': Icons.insights_rounded,
+      'jd': '''Role: Data Scientist
+
+We are seeking a Data Scientist to extract actionable insights from large datasets and build predictive machine learning models. You will perform exploratory data analysis, engineer features, design A/B tests, and develop statistics-driven algorithms to solve complex business problems. You will collaborate with engineering and product teams to integrate models into production environments.
+
+Demanding Data Skills: Machine Learning, Deep Learning, Statistics, Python, R, SQL, Pandas, NumPy, Scikit-Learn, TensorFlow, PyTorch.
+
+Preferred DevOps & Tools: AWS, Spark, Hadoop, MLflow, Docker, Tableau, data visualization, A/B testing.'''
+    },
+    {
+      'name': 'Product Manager',
+      'icon': Icons.rocket_launch_rounded,
+      'jd': '''Role: Product Manager
+
+We are seeking a Product Manager to lead product strategy, drive execution, and manage the full lifecycle from discovery to launch. You will define the product roadmap, conduct user research, prioritize features using data-driven frameworks, and collaborate with engineering, design, and marketing. You will define and monitor key performance indicators (KPIs) to ensure product success.
+
+Demanding PM Skills: Product Management, Product Strategy, Roadmap Planning, Agile/Scrum, User Research, Feature Prioritization, Stakeholder Management.
+
+Preferred Tools & Analytics: SQL, Jira, Confluence, Amplitude, A/B testing, user experience design.'''
+    },
+    {
+      'name': 'Marketing Specialist',
+      'icon': Icons.campaign_rounded,
+      'jd': '''Role: Marketing Specialist
+
+We are seeking a Marketing Specialist to plan, execute, and optimize marketing campaigns that drive growth and user acquisition. You will design digital marketing campaigns, manage SEO and SEM strategies, analyze conversion rates, and create engaging content. You will track campaign metrics, conduct market research, and manage social media and email marketing channels.
+
+Demanding Marketing Skills: Digital Marketing, SEO, SEM, Content Strategy, Google Analytics, Social Media Management, Email Marketing, Campaign Management.
+
+Preferred Tools & Strategy: HubSpot, Salesforce, conversion rate optimization (CRO), A/B testing, copywriting, market research.'''
+    },
+  ];
+
+  void _selectTrendingRole(String jd) {
+    ref.read(jobDescriptionProvider.notifier).state = jd;
+    context.push(RouteNames.generateAnalyze);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -478,124 +541,218 @@ class _GenerateScreenState extends ConsumerState<GenerateScreen> {
                   ),
                 ),
 
-                // ── Floating input capsule ─────────────────
+                // ── Bottom Section (Trending Roles & Input Capsule) ─────
                 Align(
                   alignment: Alignment.bottomCenter,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      20, 0, 20,
-                      MediaQuery.of(context).padding.bottom + 24,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(22),
-                      child: BackdropFilter(
-                        filter:
-                            ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.06),
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(
-                              color:
-                                  Colors.white.withValues(alpha: 0.1),
-                              width: 1,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 18, vertical: 14),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Expanded(
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxHeight: 160,
-                                  ),
-                                  child: TextField(
-                                    controller: _jdCtrl,
-                                    maxLines: null,
-                                    keyboardType:
-                                        TextInputType.multiline,
-                                    style: GoogleFonts.outfit(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                    decoration: InputDecoration(
-                                      hintText:
-                                          'Paste the job description here…',
-                                      hintStyle: GoogleFonts.outfit(
-                                        color: Colors.white
-                                            .withValues(alpha: 0.28),
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                      filled: true,
-                                      fillColor: Colors.transparent,
-                                      border: InputBorder.none,
-                                      enabledBorder: InputBorder.none,
-                                      focusedBorder: InputBorder.none,
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                              vertical: 4),
-                                    ),
-                                    cursorColor:
-                                        const Color(0xFFCBE349),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              ValueListenableBuilder(
-                                valueListenable: _jdCtrl,
-                                builder: (_, value, __) {
-                                  final hasText =
-                                      value.text.trim().isNotEmpty;
-                                  return GestureDetector(
-                                    onTap: hasText ? _analyze : null,
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                          milliseconds: 200),
-                                      width: 38,
-                                      height: 38,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: hasText
-                                            ? const Color(0xFFCB9B6E)
-                                            : Colors.white.withValues(
-                                                alpha: 0.07),
-                                        boxShadow: hasText
-                                            ? [
-                                                BoxShadow(
-                                                  color: const Color(
-                                                          0xFFCB9B6E)
-                                                      .withValues(
-                                                          alpha: 0.35),
-                                                  blurRadius: 12,
-                                                  offset:
-                                                      const Offset(
-                                                          0, 4),
-                                                ),
-                                              ]
-                                            : null,
-                                      ),
-                                      child: Icon(
-                                        Icons.arrow_upward_rounded,
-                                        color: hasText
-                                            ? Colors.white
-                                            : Colors.white
-                                                .withValues(alpha: 0.2),
-                                        size: 18,
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ],
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Trending Roles Header
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: Text(
+                          'PRE-DEFINED TRENDNING ROLES FOR YOU:',
+                          style: GoogleFonts.firaCode(
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white.withValues(alpha: 0.38),
+                            letterSpacing: 1.2,
                           ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 8),
+                      // Trending Roles scrollable row
+                      SizedBox(
+                        height: 38,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          physics: const BouncingScrollPhysics(),
+                          itemCount: _trendingRoles.length + 1,
+                          itemBuilder: (context, idx) {
+                            if (idx == _trendingRoles.length) {
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: GestureDetector(
+                                  onTap: () => context.push(RouteNames.generatePredefinedRoles),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFCBE349).withValues(alpha: 0.1),
+                                      borderRadius: BorderRadius.circular(19),
+                                      border: Border.all(
+                                        color: const Color(0xFFCBE349).withValues(alpha: 0.3),
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'More...',
+                                          style: GoogleFonts.outfit(
+                                            color: const Color(0xFFCBE349),
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 4),
+                                        const Icon(
+                                          Icons.arrow_forward_rounded,
+                                          color: Color(0xFFCBE349),
+                                          size: 13,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+
+                            final role = _trendingRoles[idx];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap: () => _selectTrendingRole(role['jd'] as String),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.04),
+                                    borderRadius: BorderRadius.circular(19),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.08),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        role['icon'] as IconData,
+                                        color: const Color(0xFFCBE349),
+                                        size: 14,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        role['name'] as String,
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white.withValues(alpha: 0.9),
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+
+                      // Floating input capsule
+                      Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          20, 0, 20,
+                          MediaQuery.of(context).padding.bottom + 24,
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(22),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.06),
+                                borderRadius: BorderRadius.circular(22),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  width: 1,
+                                ),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 18, vertical: 14),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Expanded(
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxHeight: 160,
+                                      ),
+                                      child: TextField(
+                                        controller: _jdCtrl,
+                                        maxLines: null,
+                                        keyboardType: TextInputType.multiline,
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText: 'Paste the job description here…',
+                                          hintStyle: GoogleFonts.outfit(
+                                            color: Colors.white.withValues(alpha: 0.28),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w400,
+                                          ),
+                                          filled: true,
+                                          fillColor: Colors.transparent,
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                          isDense: true,
+                                          contentPadding: const EdgeInsets.symmetric(vertical: 4),
+                                        ),
+                                        cursorColor: const Color(0xFFCBE349),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  ValueListenableBuilder(
+                                    valueListenable: _jdCtrl,
+                                    builder: (_, value, __) {
+                                      final hasText = value.text.trim().isNotEmpty;
+                                      return GestureDetector(
+                                        onTap: hasText ? _analyze : null,
+                                        child: AnimatedContainer(
+                                          duration: const Duration(milliseconds: 200),
+                                          width: 38,
+                                          height: 38,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: hasText
+                                                ? const Color(0xFFCB9B6E)
+                                                : Colors.white.withValues(alpha: 0.07),
+                                            boxShadow: hasText
+                                                ? [
+                                                    BoxShadow(
+                                                      color: const Color(0xFFCB9B6E).withValues(alpha: 0.35),
+                                                      blurRadius: 12,
+                                                      offset: const Offset(0, 4),
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
+                                          child: Icon(
+                                            Icons.arrow_upward_rounded,
+                                            color: hasText
+                                                ? Colors.white
+                                                : Colors.white.withValues(alpha: 0.2),
+                                            size: 18,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

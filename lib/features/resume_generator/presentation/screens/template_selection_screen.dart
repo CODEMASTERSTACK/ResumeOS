@@ -38,6 +38,17 @@ class _TemplateSelectionScreenState
     extends ConsumerState<TemplateSelectionScreen> {
   bool _isGenerating = false;
 
+  void _showPreview(BuildContext context, String imagePath, String title) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (context) => _TemplatePreviewDialog(
+        title: title,
+        imagePath: imagePath,
+      ),
+    );
+  }
+
   Future<void> _generateResume() async {
     final uid = ref.read(currentUserProvider)?.uid;
     if (uid == null) return;
@@ -484,13 +495,18 @@ class _TemplateSelectionScreenState
                         tag: 'Most Compatible',
                         tagColor: const Color(0xFF10B981),
                         description:
-                            'Single column, clean formatting — maximally parseable by ATS systems. Best for corporate and enterprise roles.',
+                            'Single column, clean formatting maximally parseable by ATS systems with professinal Summary. Best for corporate and enterprise roles.',
                         accentColor: const Color(0xFF10B981),
                         isSelected:
                             selected == ResumeTemplate.atsProfessional,
                         onTap: () => ref
                             .read(selectedTemplateProvider.notifier)
                             .state = ResumeTemplate.atsProfessional,
+                        onInfoTap: () => _showPreview(
+                          context,
+                          'assets/images/template_icon/Ats_professional.png',
+                          AppStrings.templateAts,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _TemplateCard(
@@ -499,13 +515,18 @@ class _TemplateSelectionScreenState
                         tag: 'Design & Tech',
                         tagColor: const Color(0xFFCBE349),
                         description:
-                            'Two-column layout with sidebar. Elegant for creative and technical roles. Balances visual appeal with ATS.',
+                            'A straightforward single column layout with a centered header and utilizes horizontal lines below section titles for a clean, organized, and highly readable structure.',
                         accentColor: const Color(0xFFCBE349),
                         isSelected:
                             selected == ResumeTemplate.modernMinimal,
                         onTap: () => ref
                             .read(selectedTemplateProvider.notifier)
                             .state = ResumeTemplate.modernMinimal,
+                        onInfoTap: () => _showPreview(
+                          context,
+                          'assets/images/template_icon/modern_minimal.png',
+                          AppStrings.templateModern,
+                        ),
                       ),
                       const SizedBox(height: 12),
                       _TemplateCard(
@@ -514,13 +535,18 @@ class _TemplateSelectionScreenState
                         tag: 'Space Efficient',
                         tagColor: const Color(0xFFF59E0B),
                         description:
-                            'Dense but highly readable. Smart truncation keeps everything on one page.',
+                            'The resume template features a classic single column layout that uses thin horizontal lines to clearly separate distinct professional sections, ensuring a clean and easily readable document structure.',
                         accentColor: const Color(0xFFF59E0B),
                         isSelected:
                             selected == ResumeTemplate.compactClean,
                         onTap: () => ref
                             .read(selectedTemplateProvider.notifier)
                             .state = ResumeTemplate.compactClean,
+                        onInfoTap: () => _showPreview(
+                          context,
+                          'assets/images/template_icon/compact_clean.png',
+                          AppStrings.templateCompact,
+                        ),
                       ),
                     ],
                   ),
@@ -553,6 +579,7 @@ class _TemplateCard extends StatelessWidget {
   final bool isSelected;
   final Color accentColor;
   final VoidCallback onTap;
+  final VoidCallback onInfoTap;
 
   const _TemplateCard({
     required this.template,
@@ -563,6 +590,7 @@ class _TemplateCard extends StatelessWidget {
     required this.isSelected,
     required this.accentColor,
     required this.onTap,
+    required this.onInfoTap,
   });
 
   @override
@@ -596,11 +624,11 @@ class _TemplateCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Title + selected indicator
+                        // Title + Info button + selected indicator
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Expanded(
+                            Flexible(
                               child: Text(
                                 title,
                                 style: GoogleFonts.outfit(
@@ -611,6 +639,12 @@ class _TemplateCard extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 8),
+                            _InfoButton(
+                              onTap: onInfoTap,
+                              accentColor: accentColor,
+                            ),
+                            const Spacer(),
                             if (isSelected) ...[
                               const SizedBox(width: 8),
                               AnimatedContainer(
@@ -689,6 +723,260 @@ class _TemplateCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Info Button with 5-Second Highlight Animation ────────────
+
+class _InfoButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final Color accentColor;
+
+  const _InfoButton({
+    required this.onTap,
+    required this.accentColor,
+  });
+
+  @override
+  State<_InfoButton> createState() => _InfoButtonState();
+}
+
+class _InfoButtonState extends State<_InfoButton> with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _glowAnimation;
+  bool _isHighlighted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    // Wait 5 seconds to trigger highlighting
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!mounted) return;
+      setState(() {
+        _isHighlighted = true;
+      });
+      _pulseController.repeat(reverse: true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      child: AnimatedBuilder(
+        animation: _pulseController,
+        builder: (context, child) {
+          final glowVal = _glowAnimation.value;
+          return Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _isHighlighted
+                  ? widget.accentColor.withValues(alpha: 0.15 + (glowVal * 0.15))
+                  : Colors.white.withValues(alpha: 0.05),
+              border: Border.all(
+                color: _isHighlighted
+                    ? widget.accentColor.withValues(alpha: 0.3 + (glowVal * 0.5))
+                    : Colors.white.withValues(alpha: 0.15),
+                width: 1.2,
+              ),
+              boxShadow: _isHighlighted
+                  ? [
+                      BoxShadow(
+                        color: widget.accentColor.withValues(alpha: 0.25 * glowVal),
+                        blurRadius: 8,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : null,
+            ),
+            child: Icon(
+              Icons.info_outline_rounded,
+              size: 14,
+              color: _isHighlighted ? widget.accentColor : Colors.white60,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ── Template Preview Dialog ─────────────────────────────────
+
+class _TemplatePreviewDialog extends StatelessWidget {
+  final String title;
+  final String imagePath;
+
+  const _TemplatePreviewDialog({
+    required this.title,
+    required this.imagePath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+      child: Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F0E17).withValues(alpha: 0.9),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'TEMPLATE PREVIEW',
+                            style: GoogleFonts.outfit(
+                              color: Colors.white38,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            title,
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.white60),
+                      onPressed: () => Navigator.of(context).pop(),
+                      splashRadius: 20,
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                height: 1,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+
+              // Image Viewer
+              Flexible(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.04),
+                      ),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: InteractiveViewer(
+                      maxScale: 3.0,
+                      child: Image.asset(
+                        imagePath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, err, stack) {
+                          return Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(40),
+                              child: Text(
+                                'Preview not available',
+                                style: GoogleFonts.outfit(color: Colors.white30),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Footer info & close CTA
+              Container(
+                height: 1,
+                color: Colors.white.withValues(alpha: 0.06),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Text(
+                      'Your resume will be generated in this format.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white.withValues(alpha: 0.06),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.08),
+                            ),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(
+                          'Close Preview',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

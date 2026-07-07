@@ -462,15 +462,263 @@ class _OrbitPainter extends CustomPainter {
 //   • Skills are inline tags, not floating cards
 //   • No gratuitous icon-in-a-box pattern for every section
 
-class _AnalysisResult extends ConsumerWidget {
+class _AnalysisResult extends ConsumerStatefulWidget {
   final JdAnalysisResult analysis;
   final AsyncValue<List<(ProjectModel, double)>> rankedAsync;
 
   const _AnalysisResult({required this.analysis, required this.rankedAsync});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return rankedAsync.when(
+  ConsumerState<_AnalysisResult> createState() => _AnalysisResultState();
+}
+
+class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
+  int _activeTab = 0; // 0: Skills Matrix, 1: Company Profile, 2: Strategy
+
+  Widget _buildTabBar() {
+    final tabs = ['Skills Matrix', 'Strategy'];
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Row(
+        children: List.generate(tabs.length, (i) {
+          final isActive = _activeTab == i;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _activeTab = i),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                decoration: BoxDecoration(
+                  color: isActive ? const Color(0xFFCBE349).withValues(alpha: 0.1) : Colors.transparent,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: isActive ? const Color(0xFFCBE349).withValues(alpha: 0.2) : Colors.transparent,
+                  ),
+                ),
+                child: Center(
+                  child: Text(
+                    tabs[i],
+                    style: GoogleFonts.outfit(
+                      color: isActive ? const Color(0xFFCBE349) : Colors.white60,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  Widget _buildListSection(String title, List<String> items, IconData icon) {
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: const Color(0xFFCBE349), size: 14),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                title.toUpperCase(),
+                style: GoogleFonts.outfit(
+                  color: Colors.white30,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ...items.map((item) => Padding(
+              padding: const EdgeInsets.only(bottom: 8, left: 20),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 6),
+                    width: 4,
+                    height: 4,
+                    decoration: const BoxDecoration(
+                      color: Colors.white60,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white.withValues(alpha: 0.8),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            )),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Widget _buildTabContent() {
+    switch (_activeTab) {
+      case 0:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Role & Seniority
+            _BodySection(
+              label: 'Target Role',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.analysis.role,
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 20,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    widget.analysis.experienceLevel.toUpperCase(),
+                    style: GoogleFonts.outfit(
+                      color: Colors.white38,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const _Divider(),
+
+            // Non-Negotiable Skills
+            if (widget.analysis.nonNegotiableSkills.isNotEmpty) ...[
+              _BodySection(
+                label: 'Non-Negotiable Skills',
+                child: _InlineSkillTags(
+                  skills: widget.analysis.nonNegotiableSkills,
+                  color: const Color(0xFFEC4899),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // High-Demand/Trending Skills
+            if (widget.analysis.highDemandSkills.isNotEmpty) ...[
+              _BodySection(
+                label: 'High-Demand/Trending Skills',
+                child: _InlineSkillTags(
+                  skills: widget.analysis.highDemandSkills,
+                  color: const Color(0xFF3B82F6),
+                ),
+              ),
+              const SizedBox(height: 24),
+            ],
+
+            // Required Skills
+            _BodySection(
+              label: 'Required Skills',
+              trailing: '${widget.analysis.requiredSkills.length}',
+              child: _InlineSkillTags(
+                skills: widget.analysis.requiredSkills,
+                color: const Color(0xFF10B981),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Preferred Skills
+            if (widget.analysis.preferredSkills.isNotEmpty) ...[
+              _BodySection(
+                label: 'Preferred Skills',
+                trailing: '${widget.analysis.preferredSkills.length}',
+                child: _InlineSkillTags(
+                  skills: widget.analysis.preferredSkills,
+                  color: const Color(0xFFF59E0B),
+                ),
+              ),
+            ],
+          ],
+        );
+
+      case 1:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Positioning Strategy description
+            if (widget.analysis.roleStrategy.isNotEmpty) ...[
+              _BodySection(
+                label: 'Resume Positioning Strategy',
+                child: Text(
+                  widget.analysis.roleStrategy,
+                  style: GoogleFonts.outfit(
+                    color: Colors.white.withValues(alpha: 0.8),
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w400,
+                    height: 1.5,
+                  ),
+                ),
+              ),
+              const _Divider(),
+            ],
+
+            // ATS Keywords
+            _BodySection(
+              label: 'ATS Keywords / Phrases',
+              trailing: '${widget.analysis.keywords.length + widget.analysis.topKeywords.length} detected',
+              child: _KeywordFlow(
+                keywords: [
+                  ...widget.analysis.topKeywords,
+                  ...widget.analysis.keywords,
+                ],
+              ),
+            ),
+            const _Divider(),
+
+            // Standout Projects
+            _buildListSection(
+              'Standout Portfolio Projects',
+              widget.analysis.standoutProjects,
+              Icons.terminal_rounded,
+            ),
+            const SizedBox(height: 12),
+
+            // High-Impact Bullets
+            _buildListSection(
+              'High-Impact Bullets (Action + Context + Metric)',
+              widget.analysis.highImpactBullets,
+              Icons.star_purple500_rounded,
+            ),
+          ],
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return widget.rankedAsync.when(
       loading: () => const _AnalyzingAnimation(),
       error: (e, _) => _ErrorState(message: e.toString(), onRetry: () {}),
       data: (ranked) {
@@ -483,77 +731,19 @@ class _AnalysisResult extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── HERO SCORE SECTION ─────────────────────────────────
-              // Full-bleed, no card — the score IS the design
               _ScoreHero(percent: matchPct),
+              const SizedBox(height: 24),
+
+              // ── NAVIGATION TABS ─────────────────────────────────────
+              _buildTabBar(),
 
               // ── BODY CONTENT ──────────────────────────────────────
               Padding(
-                padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Role
-                    _BodySection(
-                      label: 'Detected Role',
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            analysis.role,
-                            style: GoogleFonts.outfit(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 20,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            analysis.experienceLevel,
-                            style: GoogleFonts.outfit(
-                              color: Colors.white38,
-                              fontWeight: FontWeight.w500,
-                              fontSize: 13,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const _Divider(),
-
-                    // Required Skills
-                    _BodySection(
-                      label: 'Required Skills',
-                      trailing: '${analysis.requiredSkills.length}',
-                      child: _InlineSkillTags(
-                        skills: analysis.requiredSkills,
-                        color: const Color(0xFF10B981),
-                      ),
-                    ),
-
-                    if (analysis.preferredSkills.isNotEmpty) ...[
-                      const SizedBox(height: 20),
-                      _BodySection(
-                        label: 'Preferred Skills',
-                        trailing: '${analysis.preferredSkills.length}',
-                        child: _InlineSkillTags(
-                          skills: analysis.preferredSkills,
-                          color: const Color(0xFFF59E0B),
-                        ),
-                      ),
-                    ],
-
-                    const _Divider(),
-
-                    // ATS Keywords
-                    _BodySection(
-                      label: 'ATS Keywords',
-                      trailing: '${analysis.keywords.length} detected',
-                      child: _KeywordFlow(keywords: analysis.keywords),
-                    ),
-
+                    _buildTabContent(),
                     const SizedBox(height: 40),
 
                     // CTA
@@ -811,13 +1001,15 @@ class _BodySection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Text(
-              label.toUpperCase(),
-              style: GoogleFonts.outfit(
-                color: Colors.white30,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
+            Expanded(
+              child: Text(
+                label.toUpperCase(),
+                style: GoogleFonts.outfit(
+                  color: Colors.white30,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                ),
               ),
             ),
             if (trailing != null) ...[

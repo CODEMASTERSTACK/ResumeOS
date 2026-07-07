@@ -154,11 +154,7 @@ class _ResumePreviewScreenState extends ConsumerState<ResumePreviewScreen> {
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
 
-    // Resolve template file name label
-    String templateFileLabel = 'ats_professional.tpl';
-    if (_resume != null) {
-      templateFileLabel = '${_resume!.templateUsed.name.replaceAll(RegExp(r'(?=[A-Z])'), '_').toLowerCase()}.tpl';
-    }
+
 
     return Scaffold(
       backgroundColor: const Color(0xFF07060F),
@@ -195,27 +191,7 @@ class _ResumePreviewScreenState extends ConsumerState<ResumePreviewScreen> {
           ),
         ),
         centerTitle: false,
-        actions: [
-          if (_resume != null) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              margin: const EdgeInsets.only(right: 20),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.05),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-              ),
-              child: Text(
-                templateFileLabel,
-                style: GoogleFonts.firaCode(
-                  color: Colors.white60,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ]
-        ],
+        actions: const [],
       ),
       body: Stack(
         children: [
@@ -621,7 +597,7 @@ class _AtsInsightSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final missing = resume.missingKeywords;
     final screenWidth = MediaQuery.of(context).size.width;
-    final isDesktop = screenWidth > 580;
+    final isDesktop = screenWidth > 720;
 
     final headerRow = Row(
       children: [
@@ -722,17 +698,22 @@ class _AtsInsightSection extends StatelessWidget {
       ),
     );
 
+    final maxPillWidth = isDesktop ? (screenWidth - 112) / 2 : (screenWidth - 76);
+
     final keywordsSection = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Text(
-              'Missing Suggested Keywords',
-              style: GoogleFonts.outfit(
-                color: Colors.white.withValues(alpha: 0.8),
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
+            Flexible(
+              child: Text(
+                'Missing Suggested Keywords',
+                style: GoogleFonts.outfit(
+                  color: Colors.white.withValues(alpha: 0.8),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             const SizedBox(width: 6),
@@ -751,6 +732,7 @@ class _AtsInsightSection extends StatelessWidget {
             children: missing.map((kw) {
               return Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                constraints: BoxConstraints(maxWidth: maxPillWidth),
                 decoration: BoxDecoration(
                   color: const Color(0xFFEF4444).withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(8),
@@ -767,12 +749,15 @@ class _AtsInsightSection extends StatelessWidget {
                       size: 12,
                     ),
                     const SizedBox(width: 4),
-                    Text(
-                      kw,
-                      style: GoogleFonts.outfit(
-                        color: const Color(0xFFFCA5A5),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                    Flexible(
+                      child: Text(
+                        kw,
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFFFCA5A5),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],

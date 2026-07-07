@@ -20,7 +20,6 @@ abstract class AIService {
   });
 }
 
-/// JD analysis result model (plain Dart — no codegen needed)
 class JdAnalysisResult {
   final String role;
   final String experienceLevel;
@@ -29,6 +28,16 @@ class JdAnalysisResult {
   final List<String> keywords;
   final List<String> domainKeywords;
 
+  // New deep research fields
+  final List<String> nonNegotiableSkills;
+  final List<String> highDemandSkills;
+  final List<String> companyProblems;
+  final List<String> companyTraits;
+  final List<String> topKeywords;
+  final List<String> highImpactBullets;
+  final List<String> standoutProjects;
+  final String roleStrategy;
+
   const JdAnalysisResult({
     required this.role,
     required this.experienceLevel,
@@ -36,6 +45,14 @@ class JdAnalysisResult {
     required this.preferredSkills,
     required this.keywords,
     required this.domainKeywords,
+    this.nonNegotiableSkills = const [],
+    this.highDemandSkills = const [],
+    this.companyProblems = const [],
+    this.companyTraits = const [],
+    this.topKeywords = const [],
+    this.highImpactBullets = const [],
+    this.standoutProjects = const [],
+    this.roleStrategy = '',
   });
 
   factory JdAnalysisResult.fromJson(Map<String, dynamic> json) {
@@ -46,6 +63,14 @@ class JdAnalysisResult {
       preferredSkills: _toStringList(json['preferredSkills']),
       keywords: _toStringList(json['keywords']),
       domainKeywords: _toStringList(json['domainKeywords']),
+      nonNegotiableSkills: _toStringList(json['nonNegotiableSkills']),
+      highDemandSkills: _toStringList(json['highDemandSkills']),
+      companyProblems: _toStringList(json['companyProblems']),
+      companyTraits: _toStringList(json['companyTraits']),
+      topKeywords: _toStringList(json['topKeywords']),
+      highImpactBullets: _toStringList(json['highImpactBullets']),
+      standoutProjects: _toStringList(json['standoutProjects']),
+      roleStrategy: json['roleStrategy'] as String? ?? '',
     );
   }
 
@@ -53,6 +78,7 @@ class JdAnalysisResult {
         ...keywords,
         ...requiredSkills,
         ...domainKeywords,
+        ...topKeywords,
       ];
 
   static List<String> _toStringList(dynamic value) {
