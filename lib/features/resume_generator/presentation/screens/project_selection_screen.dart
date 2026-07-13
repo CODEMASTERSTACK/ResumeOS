@@ -6,6 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../features/projects/domain/entities/project_model.dart';
 import '../../../../routes/route_names.dart';
 import 'ai_analysis_screen.dart';
+import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../../features/projects/data/repositories/project_repository.dart';
 
 // ── Selected Projects Provider ─────────────────────────────
 
@@ -219,12 +221,19 @@ class ProjectSelectionScreen extends ConsumerWidget {
                                 final ids = Set<String>.from(selectedIds);
                                 if (isSelected) {
                                   ids.remove(project.id);
+                                  ref
+                                      .read(selectedProjectIdsProvider.notifier)
+                                      .state = ids;
                                 } else {
-                                  ids.add(project.id);
+                                  if (project.isGithubSynced && project.duration.trim().isEmpty) {
+                                    _showGithubDurationDialog(context, ref, project);
+                                  } else {
+                                    ids.add(project.id);
+                                    ref
+                                        .read(selectedProjectIdsProvider.notifier)
+                                        .state = ids;
+                                  }
                                 }
-                                ref
-                                    .read(selectedProjectIdsProvider.notifier)
-                                    .state = ids;
                               },
                             ),
                           );
@@ -615,4 +624,127 @@ class _NoProjectsState extends StatelessWidget {
       ),
     );
   }
+}
+
+void _showGithubDurationDialog(BuildContext context, WidgetRef ref, ProjectModel project) {
+  String? selectedMonth;
+  final yearController = TextEditingController();
+  final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+      child: AlertDialog(
+        backgroundColor: const Color(0xFF0F0E17),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+        ),
+        title: Text(
+          'GitHub Project Imported',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 16,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'As this project is imported from GitHub, you have to add the date of completion of the project (Month and year).',
+              style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Theme(
+              data: Theme.of(ctx).copyWith(canvasColor: const Color(0xFF0C0B10)),
+              child: DropdownButtonFormField<String>(
+                dropdownColor: const Color(0xFF0C0B10),
+                value: selectedMonth,
+                style: const TextStyle(color: Colors.white, fontSize: 14),
+                decoration: InputDecoration(
+                  labelText: 'Month',
+                  labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
+                  filled: true,
+                  fillColor: Colors.white.withValues(alpha: 0.03),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: Color(0xFFCBE349)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                items: months.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                onChanged: (val) => selectedMonth = val,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: yearController,
+              keyboardType: TextInputType.number,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              decoration: InputDecoration(
+                labelText: 'Year (e.g. 2026)',
+                labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.03),
+                enabledBorder: OutlineInputBorder(
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderSide: const BorderSide(color: Color(0xFFCBE349)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: Colors.white38)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final year = yearController.text.trim();
+              if (selectedMonth == null || year.isEmpty) {
+                ScaffoldMessenger.of(ctx).showSnackBar(
+                  const SnackBar(content: Text('Please select both Month and Year')),
+                );
+                return;
+              }
+              final formattedDuration = "$selectedMonth $year";
+              final uid = ref.read(currentUserProvider)?.uid;
+              if (uid != null) {
+                await ref.read(projectRepositoryProvider).updateProject(
+                  uid,
+                  project.id,
+                  {'duration': formattedDuration},
+                );
+                
+                final ids = Set<String>.from(ref.read(selectedProjectIdsProvider));
+                ids.add(project.id);
+                ref.read(selectedProjectIdsProvider.notifier).state = ids;
+                ref.invalidate(rankedProjectsProvider);
+                
+                if (ctx.mounted) {
+                  Navigator.pop(ctx);
+                }
+              }
+            },
+            child: Text(
+              'Submit',
+              style: GoogleFonts.outfit(color: const Color(0xFFCBE349), fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
 }

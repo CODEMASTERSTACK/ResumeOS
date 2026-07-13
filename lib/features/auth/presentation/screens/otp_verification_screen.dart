@@ -142,8 +142,15 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     final email = ref.watch(currentUserProvider)?.email ?? '';
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: Color(0xFF8B6B58),
+          selectionHandleColor: Color(0xFF8B6B58),
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -398,8 +405,9 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 // ── Tap Scale Micro-Animation Wrapper ───────────────────────

@@ -344,12 +344,14 @@ class ResumeExperience {
   final String role;
   final String duration;
   final List<String> bullets;
+  final String certificateLink;
 
   const ResumeExperience({
     required this.company,
     required this.role,
     required this.duration,
     this.bullets = const [],
+    this.certificateLink = '',
   });
 
   factory ResumeExperience.fromJson(Map<String, dynamic> json) =>
@@ -358,6 +360,7 @@ class ResumeExperience {
         role: json['role'] as String? ?? '',
         duration: json['duration'] as String? ?? '',
         bullets: (json['bullets'] as List<dynamic>?)?.cast<String>() ?? [],
+        certificateLink: json['certificateLink'] as String? ?? '',
       );
 
   Map<String, dynamic> toJson() => {
@@ -365,6 +368,7 @@ class ResumeExperience {
         'role': role,
         'duration': duration,
         'bullets': bullets,
+        'certificateLink': certificateLink,
       };
 
   ResumeExperience copyWith({
@@ -372,12 +376,14 @@ class ResumeExperience {
     String? role,
     String? duration,
     List<String>? bullets,
+    String? certificateLink,
   }) =>
       ResumeExperience(
         company: company ?? this.company,
         role: role ?? this.role,
         duration: duration ?? this.duration,
         bullets: bullets ?? this.bullets,
+        certificateLink: certificateLink ?? this.certificateLink,
       );
 }
 

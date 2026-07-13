@@ -107,6 +107,7 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
   late TextEditingController _locationCtrl;
+  late TextEditingController _pincodeCtrl;
   late TextEditingController _headlineCtrl;
   late TextEditingController _githubCtrl;
   late TextEditingController _linkedinCtrl;
@@ -140,6 +141,10 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
     _emailCtrl = TextEditingController(text: item['email'] as String? ?? '');
     _phoneCtrl = TextEditingController(text: item['phone'] as String? ?? '');
     _locationCtrl = TextEditingController(text: item['location'] as String? ?? '');
+    final locParts = _parseLocationParts(item['location'] as String? ?? '');
+    _cityCtrl = TextEditingController(text: locParts['city']);
+    _stateCtrl = TextEditingController(text: locParts['state']);
+    _pincodeCtrl = TextEditingController(text: locParts['pincode']);
     _headlineCtrl = TextEditingController(text: item['currentRole'] as String? ?? '');
     _githubCtrl = TextEditingController(text: item['githubUrl'] as String? ?? '');
     _linkedinCtrl = TextEditingController(text: item['linkedinUrl'] as String? ?? '');
@@ -241,6 +246,7 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _locationCtrl.dispose();
+    _pincodeCtrl.dispose();
     _headlineCtrl.dispose();
     _githubCtrl.dispose();
     _linkedinCtrl.dispose();
@@ -314,11 +320,18 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
     try {
       switch (widget.section) {
         case 'personal_info':
+          final city = _cityCtrl.text.trim();
+          final state = _stateCtrl.text.trim();
+          final pincode = _pincodeCtrl.text.trim();
+          final capCity = city.isNotEmpty ? city[0].toUpperCase() + city.substring(1) : '';
+          final capState = state.isNotEmpty ? state[0].toUpperCase() + state.substring(1) : '';
+          final locationStr = city.isEmpty ? '' : '$capCity, $capState, $pincode';
+
           final data = {
             'name': _nameCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
-            'location': _locationCtrl.text.trim(),
+            'location': locationStr,
             'currentRole': _headlineCtrl.text.trim(),
             'githubUrl': _githubCtrl.text.trim(),
             'linkedinUrl': _linkedinCtrl.text.trim(),
@@ -516,7 +529,9 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
           },
         ),
         _buildTextField(_phoneCtrl, 'Phone Number', isCompulsory: false, type: TextInputType.phone),
-        _buildTextField(_locationCtrl, 'Location', isCompulsory: false),
+        _buildTextField(_cityCtrl, 'City', isCompulsory: false),
+        _buildTextField(_stateCtrl, 'State', isCompulsory: false),
+        _buildTextField(_pincodeCtrl, 'Pincode', isCompulsory: false),
         _buildTextField(_headlineCtrl, 'Headline / Current Role', isCompulsory: false),
         _buildTextField(_githubCtrl, 'GitHub URL', isCompulsory: false, type: TextInputType.url),
         _buildTextField(_linkedinCtrl, 'LinkedIn URL', isCompulsory: false, type: TextInputType.url),
@@ -1078,4 +1093,33 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
       ),
     );
   }
+
+  Map<String, String> _parseLocationParts(String locationStr) {
+    final parts = locationStr.split(',').map((s) => s.trim()).toList();
+    if (parts.length >= 3) {
+      return {
+        'city': parts[0],
+        'state': parts[1],
+        'pincode': parts[2],
+      };
+    } else if (parts.length == 2) {
+      return {
+        'city': parts[0],
+        'state': parts[1],
+        'pincode': '',
+      };
+    } else if (parts.length == 1) {
+      return {
+        'city': parts[0],
+        'state': '',
+        'pincode': '',
+      };
+    }
+    return {
+      'city': '',
+      'state': '',
+      'pincode': '',
+    };
+  }
 }
+

@@ -39,6 +39,7 @@ class AppStrings {
   static const String goodMorning = 'Good morning';
   static const String goodAfternoon = 'Good afternoon';
   static const String goodEvening = 'Good evening';
+  static const String goodNight = 'Good night';
   static const String generateResumeHero = 'Generate AI Resume';
   static const String generateResumeHeroSub =
       'Paste a job description and get a tailored, ATS-optimized resume in seconds.';

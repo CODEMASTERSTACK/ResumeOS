@@ -179,8 +179,15 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     final authState = ref.watch(authNotifierProvider);
     final isLoading = authState.isLoading;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: Color(0xFF8B6B58),
+          selectionHandleColor: Color(0xFF8B6B58),
+        ),
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -226,6 +233,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           ),
         ),
       ),
+    ),
     );
   }
 
@@ -671,7 +679,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
         ],
       ),
     );
-  }
+}
 }
 
 // ── Tap Scale Micro-Animation Wrapper ───────────────────────

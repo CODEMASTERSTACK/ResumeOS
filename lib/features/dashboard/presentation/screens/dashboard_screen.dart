@@ -15,6 +15,7 @@ import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
 import '../../../../shared/providers/firebase_providers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 // ── Providers ─────────────────────────────────────────────
 
@@ -184,6 +185,7 @@ class DashboardScreen extends ConsumerWidget {
 
   String _greeting() {
     final hour = DateTime.now().hour;
+    if (hour >= 22 || hour < 5) return AppStrings.goodNight;
     if (hour < 12) return AppStrings.goodMorning;
     if (hour < 17) return AppStrings.goodAfternoon;
     return AppStrings.goodEvening;
@@ -564,6 +566,179 @@ class _GenerateHeroCard extends ConsumerStatefulWidget {
 class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> {
   bool _hovered = false;
 
+  static const String _kGithubSvg = '''
+<svg viewBox="0 0 24 24">
+  <path fill="currentColor" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.579.688.481C19.137 20.162 22 16.418 22 12c0-5.523-4.477-10-10-10z"/>
+</svg>
+''';
+
+  static const String _kLinkedinSvg = '''
+<svg viewBox="0 0 24 24">
+  <path fill="currentColor" d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+</svg>
+''';
+
+  String _extractUsername(String urlOrUsername, bool isLinkedIn) {
+    if (urlOrUsername.isEmpty) return '';
+    var clean = urlOrUsername.trim();
+    while (clean.endsWith('/')) {
+      clean = clean.substring(0, clean.length - 1);
+    }
+    if (clean.toLowerCase().contains('github.com/') || clean.toLowerCase().contains('linkedin.com/')) {
+      final parts = clean.split('/');
+      if (parts.isNotEmpty) {
+        final last = parts.last;
+        if (last.isNotEmpty) return last;
+      }
+    }
+    if (clean.toLowerCase().contains('/in/')) {
+      final parts = clean.split('/in/');
+      if (parts.length > 1) {
+        final sub = parts[1].split('/')[0].split('?')[0];
+        if (sub.isNotEmpty) return sub;
+      }
+    }
+    final uri = Uri.tryParse(clean);
+    if (uri != null && uri.pathSegments.isNotEmpty) {
+      final last = uri.pathSegments.lastWhere((s) => s.isNotEmpty, orElse: () => clean);
+      return last;
+    }
+    return clean;
+  }
+
+  Widget _buildContactInfo(UserModel user) {
+    final github = _extractUsername(user.githubUrl, false);
+    final linkedin = _extractUsername(user.linkedinUrl, true);
+    final phone = user.phone.trim();
+
+    final List<Widget> items = [];
+
+    if (github.isNotEmpty) {
+      items.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.string(
+              _kGithubSvg,
+              width: 12,
+              height: 12,
+              colorFilter: const ColorFilter.mode(
+                Color(0xFF1E1C24),
+                BlendMode.srcIn,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              github,
+              style: const TextStyle(
+                color: Color(0xFF4B5563),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Outfit',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (linkedin.isNotEmpty) {
+      if (items.isNotEmpty) {
+        items.add(
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '|',
+              style: TextStyle(
+                color: Color(0xFFD1D5DB),
+                fontSize: 11,
+                fontWeight: FontWeight.w300,
+              ),
+            ),
+          ),
+        );
+      }
+      items.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SvgPicture.string(
+              _kLinkedinSvg,
+              width: 12,
+              height: 12,
+              colorFilter: const ColorFilter.mode(
+                Color(0xFF0A66C2),
+                BlendMode.srcIn,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              linkedin,
+              style: const TextStyle(
+                color: Color(0xFF4B5563),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Outfit',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (phone.isNotEmpty) {
+      if (items.isNotEmpty) {
+        items.add(
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '|',
+              style: TextStyle(
+                color: Color(0xFFD1D5DB),
+                fontSize: 11,
+                fontWeight: FontWeight.w300,
+              ),
+            ),
+          ),
+        );
+      }
+      items.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.phone_rounded,
+              size: 13,
+              color: Color(0xFF10B981),
+            ),
+            const SizedBox(width: 4),
+            Text(
+              phone,
+              style: const TextStyle(
+                color: Color(0xFF4B5563),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Outfit',
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8.0),
+      child: Wrap(
+        spacing: 4,
+        runSpacing: 4,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: items,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProfileProvider).valueOrNull;
@@ -736,6 +911,7 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
+                            if (user != null) _buildContactInfo(user),
                           ],
                         ),
 

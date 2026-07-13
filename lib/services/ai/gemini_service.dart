@@ -121,17 +121,41 @@ class GeminiService implements AIService {
   }
 
   @override
+  Future<List<String>> refineExperienceBullets({
+    required String role,
+    required String company,
+    required List<String> rawBullets,
+    required String targetRole,
+    required List<String> keywords,
+    required bool hasCertificateLink,
+  }) async {
+    final result = await _callGateway('refineExperienceBullets', {
+      'role': role,
+      'company': company,
+      'rawBullets': rawBullets,
+      'targetRole': targetRole,
+      'keywords': keywords,
+      'hasCertificateLink': hasCertificateLink,
+    });
+    return (result['bullets'] as List<dynamic>?)?.cast<String>() ?? [];
+  }
+
+  @override
   Future<String> generateProfessionalSummary({
     required String candidateBackground,
     required String targetRole,
     required List<String> keywords,
     required List<String> topSkills,
+    List<Map<String, dynamic>>? experiences,
+    String? jobDescription,
   }) async {
     final result = await _callGateway('generateProfessionalSummary', {
       'candidateBackground': candidateBackground,
       'targetRole': targetRole,
       'keywords': keywords,
       'topSkills': topSkills,
+      if (experiences != null) 'experiences': experiences,
+      if (jobDescription != null) 'jobDescription': jobDescription,
     });
     return result['summary'] as String? ?? '';
   }

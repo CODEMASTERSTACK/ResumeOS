@@ -291,110 +291,119 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final isLoading = authState.isLoading;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFCFAF7), // Soft premium warm top
-              Colors.white,       // Clean white base
-            ],
-          ),
+
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: Color(0xFF8B6B58),
+          selectionHandleColor: Color(0xFF8B6B58),
         ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              child: FadeTransition(
-                opacity: _fade,
-                child: SlideTransition(
-                  position: _slide,
-                  child: Container(
-                    width: screenWidth > 500 ? 450 : double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(screenWidth > 500 ? 28 : 0),
-                      border: screenWidth > 500
-                          ? Border.all(color: const Color(0xFFF3EFEA), width: 1.5)
-                          : null,
-                      boxShadow: screenWidth > 500
-                          ? [
-                              BoxShadow(
-                                color: const Color(0xFF5A453A).withValues(alpha: 0.04),
-                                blurRadius: 32,
-                                offset: const Offset(0, 12),
-                              ),
-                            ]
-                          : null,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Logo Monogram
-                        Text(
-                          'R.',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.playfairDisplay(
-                            fontSize: 72,
-                            fontWeight: FontWeight.w700,
-                            color: const Color(0xFF8B6B58), // Signature brand brown
-                            letterSpacing: -2,
-                            height: 1.0,
+      ),
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFFCFAF7), // Soft premium warm top
+                Colors.white,       // Clean white base
+              ],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                child: FadeTransition(
+                  opacity: _fade,
+                  child: SlideTransition(
+                    position: _slide,
+                    child: Container(
+                      width: screenWidth > 500 ? 450 : double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(screenWidth > 500 ? 28 : 0),
+                        border: screenWidth > 500
+                            ? Border.all(color: const Color(0xFFF3EFEA), width: 1.5)
+                            : null,
+                        boxShadow: screenWidth > 500
+                            ? [
+                                BoxShadow(
+                                  color: const Color(0xFF5A453A).withValues(alpha: 0.04),
+                                  blurRadius: 32,
+                                  offset: const Offset(0, 12),
+                                ),
+                              ]
+                            : null,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Logo Monogram
+                          Text(
+                            'R.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.playfairDisplay(
+                              fontSize: 72,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF8B6B58), // Signature brand brown
+                              letterSpacing: -2,
+                              height: 1.0,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        // App Name
-                        Text(
-                          'ResumeOS',
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.playfairDisplay(
-                            fontSize: 24,
-                            fontStyle: FontStyle.italic,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFF5A453A), // Dark slate-brown
-                            letterSpacing: 0.5,
+                          const SizedBox(height: 6),
+                          // App Name
+                          Text(
+                            'ResumeOS',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.playfairDisplay(
+                              fontSize: 24,
+                              fontStyle: FontStyle.italic,
+                              fontWeight: FontWeight.w600,
+                              color: const Color(0xFF5A453A), // Dark slate-brown
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        
-                        Text(
-                          'ANALYSE. CREATE. ACE', // Fixed typo with parenthesis
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF8B6B58),
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.5,
+                          const SizedBox(height: 8),
+                          
+                          Text(
+                            'ANALYSE. CREATE. ACE', // Fixed typo with parenthesis
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: Color(0xFF8B6B58),
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 36),
+                          const SizedBox(height: 36),
 
-                        // Interactive Bear Animation
-                        _InteractiveBear(
-                          coverEyes: _coverEyes,
-                          eyeShift: _eyeShift,
-                          showHi: !_showEmailForm,
-                          askingForHighFive: _askingForHighFive,
-                          highFiveClicked: _highFiveClicked,
-                          onHighFiveTapped: _onHighFiveTapped,
-                        ),
-                        const SizedBox(height: 36),
+                          // Interactive Bear Animation
+                          _InteractiveBear(
+                            coverEyes: _coverEyes,
+                            eyeShift: _eyeShift,
+                            showHi: !_showEmailForm,
+                            askingForHighFive: _askingForHighFive,
+                            highFiveClicked: _highFiveClicked,
+                            onHighFiveTapped: _onHighFiveTapped,
+                          ),
+                          const SizedBox(height: 36),
 
-                        // Layout switcher based on Landing vs Form state
-                        AnimatedCrossFade(
-                          duration: const Duration(milliseconds: 300),
-                          firstCurve: Curves.easeInOut,
-                          secondCurve: Curves.easeInOut,
-                          crossFadeState: _showEmailForm
-                              ? CrossFadeState.showSecond
-                              : CrossFadeState.showFirst,
-                          firstChild: _buildLandingButtons(isLoading, mode),
-                          secondChild: _buildEmailForm(isLoading, mode),
-                        ),
-                      ],
+                          // Layout switcher based on Landing vs Form state
+                          AnimatedCrossFade(
+                            duration: const Duration(milliseconds: 300),
+                            firstCurve: Curves.easeInOut,
+                            secondCurve: Curves.easeInOut,
+                            crossFadeState: _showEmailForm
+                                ? CrossFadeState.showSecond
+                                : CrossFadeState.showFirst,
+                            firstChild: _buildLandingButtons(isLoading, mode),
+                            secondChild: _buildEmailForm(isLoading, mode),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

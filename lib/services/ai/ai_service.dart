@@ -12,11 +12,21 @@ abstract class AIService {
     required List<String> keywords,
     List<String> linkedSkills = const [],
   });
+  Future<List<String>> refineExperienceBullets({
+    required String role,
+    required String company,
+    required List<String> rawBullets,
+    required String targetRole,
+    required List<String> keywords,
+    required bool hasCertificateLink,
+  });
   Future<String> generateProfessionalSummary({
     required String candidateBackground,
     required String targetRole,
     required List<String> keywords,
     required List<String> topSkills,
+    List<Map<String, dynamic>>? experiences,
+    String? jobDescription,
   });
 }
 

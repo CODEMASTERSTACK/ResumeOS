@@ -182,21 +182,162 @@ class PdfService {
   }
 
   pw.Widget _atsHeader(ResumeData data, PdfColor primaryColor, double sizeScale) {
-    final List<String> contactParts = [];
+    final List<pw.Widget> contactWidgets = [];
 
-    if (data.email.isNotEmpty) contactParts.add(data.email);
-    if (data.phone.isNotEmpty) contactParts.add(data.phone);
-    if (data.location.isNotEmpty) contactParts.add(data.location);
-
-    String cleanUrl(String url) {
-      if (url.startsWith('https://')) url = url.substring(8);
-      if (url.startsWith('www.')) url = url.substring(4);
-      return url;
+    // Custom SVG drawing helper
+    pw.Widget svgIcon(String svgContent) {
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(right: 3, top: 1),
+        child: pw.SvgImage(
+          svg: svgContent,
+          width: 8.5 * sizeScale,
+          height: 8.5 * sizeScale,
+        ),
+      );
     }
 
-    if (data.linkedinUrl.isNotEmpty) contactParts.add(cleanUrl(data.linkedinUrl));
-    if (data.githubUrl.isNotEmpty) contactParts.add(cleanUrl(data.githubUrl));
-    if (data.portfolioUrl.isNotEmpty) contactParts.add(cleanUrl(data.portfolioUrl));
+    String extractUsername(String url) {
+      url = url.trim();
+      if (url.isEmpty) return '';
+      if (!url.contains('/')) return url;
+      while (url.endsWith('/')) {
+        url = url.substring(0, url.length - 1);
+      }
+      final parts = url.split('/');
+      return parts.isNotEmpty ? parts.last : url;
+    }
+
+    // 1. Phone number
+    if (data.phone.isNotEmpty) {
+      contactWidgets.add(
+        pw.Row(
+          mainAxisSize: pw.MainAxisSize.min,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            svgIcon(phoneSvg),
+            pw.Text(data.phone, style: pw.TextStyle(fontSize: 9.5 * sizeScale)),
+          ],
+        ),
+      );
+    }
+
+    // 2. Email
+    if (data.email.isNotEmpty) {
+      if (contactWidgets.isNotEmpty) {
+        contactWidgets.add(pw.Text(' | ', style: pw.TextStyle(fontSize: 9.5 * sizeScale)));
+      }
+      contactWidgets.add(
+        pw.Row(
+          mainAxisSize: pw.MainAxisSize.min,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            svgIcon(emailSvg),
+            pw.Text(data.email, style: pw.TextStyle(fontSize: 9.5 * sizeScale)),
+          ],
+        ),
+      );
+    }
+
+    // 3. LinkedIn
+    if (data.linkedinUrl.isNotEmpty) {
+      if (contactWidgets.isNotEmpty) {
+        contactWidgets.add(pw.Text(' | ', style: pw.TextStyle(fontSize: 9.5 * sizeScale)));
+      }
+      final username = extractUsername(data.linkedinUrl);
+      contactWidgets.add(
+        pw.Row(
+          mainAxisSize: pw.MainAxisSize.min,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            svgIcon(linkedinSvg),
+            pw.UrlLink(
+              destination: data.linkedinUrl.startsWith('http') ? data.linkedinUrl : 'https://${data.linkedinUrl}',
+              child: pw.Text(
+                username,
+                style: pw.TextStyle(
+                  fontSize: 9.5 * sizeScale,
+                  color: PdfColors.black,
+                  decoration: pw.TextDecoration.underline,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 4. GitHub
+    if (data.githubUrl.isNotEmpty) {
+      if (contactWidgets.isNotEmpty) {
+        contactWidgets.add(pw.Text(' | ', style: pw.TextStyle(fontSize: 9.5 * sizeScale)));
+      }
+      final username = extractUsername(data.githubUrl);
+      contactWidgets.add(
+        pw.Row(
+          mainAxisSize: pw.MainAxisSize.min,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            svgIcon(githubSvg),
+            pw.UrlLink(
+              destination: data.githubUrl.startsWith('http') ? data.githubUrl : 'https://${data.githubUrl}',
+              child: pw.Text(
+                username,
+                style: pw.TextStyle(
+                  fontSize: 9.5 * sizeScale,
+                  color: PdfColors.black,
+                  decoration: pw.TextDecoration.underline,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // 5. Location
+    if (data.location.isNotEmpty) {
+      if (contactWidgets.isNotEmpty) {
+        contactWidgets.add(pw.Text(' | ', style: pw.TextStyle(fontSize: 9.5 * sizeScale)));
+      }
+      contactWidgets.add(
+        pw.Row(
+          mainAxisSize: pw.MainAxisSize.min,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            svgIcon(locationSvg),
+            pw.Text(data.location, style: pw.TextStyle(fontSize: 9.5 * sizeScale)),
+          ],
+        ),
+      );
+    }
+
+    // 6. Portfolio
+    if (data.portfolioUrl.isNotEmpty) {
+      if (contactWidgets.isNotEmpty) {
+        contactWidgets.add(pw.Text(' | ', style: pw.TextStyle(fontSize: 9.5 * sizeScale)));
+      }
+      final displayPort = extractUsername(data.portfolioUrl);
+      contactWidgets.add(
+        pw.Row(
+          mainAxisSize: pw.MainAxisSize.min,
+          crossAxisAlignment: pw.CrossAxisAlignment.center,
+          children: [
+            svgIcon(portfolioSvg),
+            pw.UrlLink(
+              destination: data.portfolioUrl.startsWith('http') ? data.portfolioUrl : 'https://${data.portfolioUrl}',
+              child: pw.Text(
+                displayPort,
+                style: pw.TextStyle(
+                  fontSize: 9.5 * sizeScale,
+                  color: PdfColors.black,
+                  decoration: pw.TextDecoration.underline,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
@@ -209,9 +350,11 @@ class PdfService {
           ),
         ),
         pw.SizedBox(height: 4),
-        pw.Text(
-          contactParts.join(' | '),
-          style: pw.TextStyle(fontSize: 9.5 * sizeScale),
+        pw.Wrap(
+          spacing: 2,
+          runSpacing: 4,
+          crossAxisAlignment: pw.WrapCrossAlignment.center,
+          children: contactWidgets,
         ),
       ],
     );
@@ -300,7 +443,7 @@ class PdfService {
                 ),
               ),
               pw.Text(
-                exp.duration,
+                _formatAtsDate(exp.duration),
                 style: pw.TextStyle(
                   fontSize: 10 * sizeScale,
                   fontWeight: pw.FontWeight.bold,
@@ -322,30 +465,7 @@ class PdfService {
             ],
           ),
           pw.SizedBox(height: 3),
-          ...exp.bullets.map(
-            (b) => pw.Padding(
-              padding: const pw.EdgeInsets.only(bottom: 2),
-              child: pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Container(
-                    width: 3 * sizeScale,
-                    height: 3 * sizeScale,
-                    margin: const pw.EdgeInsets.only(top: 3.5, right: 6),
-                    decoration: const pw.BoxDecoration(
-                      color: PdfColors.black,
-                      shape: pw.BoxShape.circle,
-                    ),
-                  ),
-                  pw.Expanded(
-                    child: pw.Text(b,
-                        style: pw.TextStyle(
-                            fontSize: 10 * sizeScale, lineSpacing: 1.3)),
-                  ),
-                ],
-              ),
-            ),
-          ),
+          ...exp.bullets.map((b) => _renderAtsBullet(b, sizeScale)),
         ],
       ),
     );
@@ -405,7 +525,7 @@ class PdfService {
               ),
               if (project.duration.isNotEmpty)
                 pw.Text(
-                  project.duration,
+                  _formatAtsDate(project.duration),
                   style: pw.TextStyle(
                     fontSize: 10 * sizeScale,
                     fontWeight: pw.FontWeight.bold,
@@ -475,7 +595,7 @@ class PdfService {
               ),
               if (research.duration.isNotEmpty)
                 pw.Text(
-                  research.duration,
+                  _formatAtsDate(research.duration),
                   style: pw.TextStyle(
                     fontSize: 10 * sizeScale,
                     fontWeight: pw.FontWeight.bold,
@@ -556,7 +676,7 @@ class PdfService {
                 ),
               ),
               pw.Text(
-                edu.duration,
+                _formatAtsDate(edu.duration),
                 style: pw.TextStyle(
                   fontSize: 10 * sizeScale,
                   fontWeight: pw.FontWeight.bold,
@@ -910,7 +1030,7 @@ class PdfService {
         pw.SizedBox(height: 2),
         if (data.location.isNotEmpty)
           pw.Text(
-            data.location,
+            _formatModernLocation(data.location),
             style: pw.TextStyle(
               fontSize: 9 * sizeScale,
               color: PdfColors.black,
@@ -966,7 +1086,7 @@ class PdfService {
                 ),
               ),
               pw.Text(
-                exp.duration,
+                _formatAtsDate(exp.duration),
                 style: pw.TextStyle(
                   fontSize: 8.5 * sizeScale,
                   fontWeight: pw.FontWeight.bold,
@@ -1472,7 +1592,7 @@ class PdfService {
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
                 if (data.linkedinUrl.isNotEmpty)
-                  _contactLine('LinkedIn: ', data.linkedinUrl, sizeScale, isBlue: true, primaryColor: primaryColor),
+                  _contactLine('LinkedIn: ', data.linkedinUrl, sizeScale),
                 if (data.githubUrl.isNotEmpty)
                   _contactLine('Github: ', data.githubUrl, sizeScale),
                 if (data.portfolioUrl.isNotEmpty)
@@ -1679,7 +1799,7 @@ class PdfService {
                 style: pw.TextStyle(
                   fontSize: 9 * sizeScale,
                   fontWeight: pw.FontWeight.bold,
-                  color: primaryColor,
+                  color: PdfColors.black,
                 ),
               ),
               pw.Text(
@@ -1692,16 +1812,24 @@ class PdfService {
             ],
           ),
           pw.SizedBox(height: 1),
-          pw.Text(
-            exp.role,
-            style: pw.TextStyle(
-              fontSize: 8.5 * sizeScale,
-              fontWeight: pw.FontWeight.bold,
-              color: PdfColors.black,
+          pw.Padding(
+            padding: pw.EdgeInsets.only(left: 7.5 * sizeScale),
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  exp.role,
+                  style: pw.TextStyle(
+                    fontSize: 8.5 * sizeScale,
+                    fontWeight: pw.FontWeight.bold,
+                    color: primaryColor,
+                  ),
+                ),
+                pw.SizedBox(height: 2),
+                ...exp.bullets.map((b) => _renderBulletPoint(b, primaryColor, sizeScale)),
+              ],
             ),
           ),
-          pw.SizedBox(height: 2),
-          ...exp.bullets.map((b) => _renderBulletPoint(b, primaryColor, sizeScale)),
         ],
       ),
     );
@@ -1941,4 +2069,206 @@ class PdfService {
       ),
     );
   }
+
+  pw.Widget _renderAtsBullet(String text, double sizeScale) {
+    final isLinkBullet = text.toLowerCase().contains('http://') ||
+        text.toLowerCase().contains('https://') ||
+        text.toLowerCase().contains('link:');
+
+    if (isLinkBullet) {
+      String label = text;
+      String url = "";
+      String linkText = "";
+
+      if (text.contains('https://') || text.contains('http://')) {
+        final idx = text.indexOf('http');
+        label = text.substring(0, idx);
+        url = text.substring(idx).trim();
+        linkText = url;
+      } else if (text.contains(':')) {
+        final idx = text.indexOf(':');
+        label = text.substring(0, idx + 1);
+        linkText = text.substring(idx + 1).trim();
+        url = linkText.startsWith('http') ? linkText : "https://github.com";
+      }
+
+      return pw.Padding(
+        padding: const pw.EdgeInsets.only(bottom: 2),
+        child: pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              width: 3 * sizeScale,
+              height: 3 * sizeScale,
+              margin: const pw.EdgeInsets.only(top: 3.5, right: 6),
+              decoration: const pw.BoxDecoration(
+                color: PdfColors.black,
+                shape: pw.BoxShape.circle,
+              ),
+            ),
+            pw.Expanded(
+              child: pw.UrlLink(
+                destination: url,
+                child: pw.RichText(
+                  text: pw.TextSpan(
+                    children: [
+                      pw.TextSpan(
+                        text: label,
+                        style: pw.TextStyle(fontSize: 10 * sizeScale, color: PdfColors.black),
+                      ),
+                      pw.TextSpan(
+                        text: ' $linkText',
+                        style: pw.TextStyle(
+                          fontSize: 10 * sizeScale,
+                          color: PdfColors.black,
+                          decoration: pw.TextDecoration.underline,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return pw.Padding(
+      padding: const pw.EdgeInsets.only(bottom: 2),
+      child: pw.Row(
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Container(
+            width: 3 * sizeScale,
+            height: 3 * sizeScale,
+            margin: const pw.EdgeInsets.only(top: 3.5, right: 6),
+            decoration: const pw.BoxDecoration(
+              color: PdfColors.black,
+              shape: pw.BoxShape.circle,
+            ),
+          ),
+          pw.Expanded(
+            child: pw.Text(
+              text,
+              style: pw.TextStyle(fontSize: 10 * sizeScale, lineSpacing: 1.3),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatAtsDate(String dateStr) {
+    dateStr = dateStr.trim();
+    if (dateStr.isEmpty) return '';
+
+    final separators = ['-', 'to', '–', '—'];
+    String separatorUsed = '';
+    List<String> parts = [];
+    for (final sep in separators) {
+      if (dateStr.contains(sep)) {
+        separatorUsed = sep;
+        parts = dateStr.split(sep);
+        break;
+      }
+    }
+
+    if (parts.isNotEmpty) {
+      final formattedParts = parts.map((p) => _formatSingleDate(p.trim())).toList();
+      return formattedParts.join(' $separatorUsed ');
+    }
+
+    return _formatSingleDate(dateStr);
+  }
+
+  String _formatSingleDate(String singleDate) {
+    final lower = singleDate.toLowerCase();
+    if (lower.contains('present') || lower.contains('current')) {
+      return 'Present';
+    }
+
+    final monthMap = {
+      'january': "Jan", 'jan': "Jan",
+      'february': "Feb", 'feb': "Feb",
+      'march': "Mar", 'mar': "Mar",
+      'april': "Apr", 'apr': "Apr",
+      'may': "May",
+      'june': "Jun", 'jun': "Jun",
+      'july': "Jul", 'jul': "Jul",
+      'august': "Aug", 'aug': "Aug",
+      'september': "Sep", 'sep': "Sep",
+      'october': "Oct", 'oct': "Oct",
+      'november': "Nov", 'nov': "Nov",
+      'december': "Dec", 'dec': "Dec",
+    };
+
+    final monthRegex = RegExp(
+      r'\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|oct|nov|dec)\b',
+      caseSensitive: false,
+    );
+    final yearRegex = RegExp(r'\b(20)?(\d{2})\b');
+
+    final monthMatch = monthRegex.firstMatch(lower);
+    
+    final year4Match = RegExp(r'\b\d{4}\b').firstMatch(singleDate);
+    String yearAbbr = '';
+    if (year4Match != null) {
+      final yearStr = year4Match.group(0)!;
+      yearAbbr = yearStr.substring(yearStr.length - 2);
+    } else {
+      final yearMatch = yearRegex.firstMatch(singleDate);
+      if (yearMatch != null) {
+        yearAbbr = yearMatch.group(2)!;
+      }
+    }
+
+    if (monthMatch != null) {
+      final matchedMonth = monthMatch.group(0)!;
+      final monthAbbr = monthMap[matchedMonth] ?? matchedMonth;
+      if (yearAbbr.isNotEmpty) {
+        return "$monthAbbr'$yearAbbr";
+      }
+      return monthAbbr;
+    }
+
+    return singleDate;
+  }
+
+  String _formatModernLocation(String locationStr) {
+    locationStr = locationStr.trim();
+    if (locationStr.isEmpty) return '';
+    final parts = locationStr.split(',').map((s) => s.trim()).toList();
+    if (parts.isEmpty) return '';
+
+    String city = parts[0];
+    String state = parts.length > 1 ? parts[1] : '';
+    String pincode = parts.length > 2 ? parts[2] : '';
+
+    if (city.isNotEmpty) {
+      city = city[0].toUpperCase() + city.substring(1);
+    }
+    if (state.isNotEmpty) {
+      state = state[0].toUpperCase() + state.substring(1);
+    }
+
+    final List<String> formatted = [];
+    if (city.isNotEmpty) formatted.add(city);
+    if (state.isNotEmpty) formatted.add(state);
+    if (pincode.isNotEmpty) formatted.add(pincode);
+
+    return formatted.join(', ');
+  }
 }
+
+const String phoneSvg = '<svg viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z" fill="#000000"/></svg>';
+
+const String emailSvg = '<svg viewBox="0 0 24 24"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z" fill="#000000"/></svg>';
+
+const String linkedinSvg = '<svg viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.779-1.75-1.75s.784-1.75 1.75-1.75 1.75.779 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z" fill="#000000"/></svg>';
+
+const String githubSvg = '<svg viewBox="0 0 24 24"><path d="M12 2A10 10 0 0 0 2 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.9-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.07 2.91.83.1-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0 0 12 2z" fill="#000000"/></svg>';
+
+const String locationSvg = '<svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" fill="#000000"/></svg>';
+
+const String portfolioSvg = '<svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.53c-.26-.81-1-1.4-1.9-1.4h-1v-3c0-.55-.45-1-1-1h-6v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" fill="#000000"/></svg>';

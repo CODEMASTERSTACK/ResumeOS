@@ -14,6 +14,7 @@ class PointsScreen extends ConsumerStatefulWidget {
 
 class _PointsScreenState extends ConsumerState<PointsScreen> {
   bool _claiming = false;
+  int _activeTab = 0; // 0 = Earn Points, 1 = History
 
   Future<void> _claimMilestone(String milestoneId, int currentPoints, List<String> claimedList) async {
     final uid = ref.read(currentUserProvider)?.uid;
@@ -248,6 +249,145 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
     );
   }
 
+  Widget _buildTabButton({
+    required String title,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isActive ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          title,
+          style: TextStyle(
+            color: isActive ? Colors.white : Colors.white38,
+            fontSize: 14,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryTab(List<String> claimedList) {
+    final historyItems = <Map<String, dynamic>>[];
+
+    // 1. Welcome Bonus - always claimed
+    historyItems.add({
+      'title': 'Welcome Bonus',
+      'subtitle': 'Created account & initiated onboarding.',
+      'points': 10,
+    });
+
+    if (claimedList.contains('profile_50')) {
+      historyItems.add({
+        'title': 'Profile > 50% Complete',
+        'subtitle': 'Completed basic details, summary & skills.',
+        'points': 5,
+      });
+    }
+
+    if (claimedList.contains('profile_80')) {
+      historyItems.add({
+        'title': 'Profile > 80% Complete',
+        'subtitle': 'Added detailed education and work projects.',
+        'points': 5,
+      });
+    }
+
+    if (claimedList.contains('profile_100')) {
+      historyItems.add({
+        'title': 'Profile 100% Complete',
+        'subtitle': 'Completed all optional resume details.',
+        'points': 5,
+      });
+    }
+
+    return Column(
+      children: historyItems.map((item) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.02),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.06),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBE349).withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.stars_rounded,
+                  color: Color(0xFFCBE349),
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      item['title'] as String,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item['subtitle'] as String,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.white54,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCBE349).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFFCBE349).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  '+${item['points']} PTS',
+                  style: const TextStyle(
+                    color: Color(0xFFCBE349),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProfileProvider).valueOrNull;
@@ -285,59 +425,85 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
           children: [
             _buildPointsCard(points),
             const SizedBox(height: 32),
-            const Text(
-              'Earn Points',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
+
+            // Tab Selector
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.02),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.06),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildTabButton(
+                      title: 'Earn Points',
+                      isActive: _activeTab == 0,
+                      onTap: () => setState(() => _activeTab = 0),
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildTabButton(
+                      title: 'History',
+                      isActive: _activeTab == 1,
+                      onTap: () => setState(() => _activeTab = 1),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             
-            // Welcome Bonus
-            _buildMilestoneTile(
-              title: 'Welcome Bonus',
-              description: 'Created account & initiated onboarding.',
-              completionRequired: 0,
-              currentCompletion: 0,
-              milestoneId: 'welcome',
-              currentPoints: points,
-              claimedList: [...claimedList, 'welcome'], // Always treated as claimed
-            ),
-            
-            // Profile > 50%
-            _buildMilestoneTile(
-              title: 'Profile > 50% Complete',
-              description: 'Complete basic details, summary & skills.',
-              completionRequired: 51,
-              currentCompletion: currentCompletion,
-              milestoneId: 'profile_50',
-              currentPoints: points,
-              claimedList: claimedList,
-            ),
-            
-            // Profile > 80%
-            _buildMilestoneTile(
-              title: 'Profile > 80% Complete',
-              description: 'Add detailed education and work projects.',
-              completionRequired: 81,
-              currentCompletion: currentCompletion,
-              milestoneId: 'profile_80',
-              currentPoints: points,
-              claimedList: claimedList,
-            ),
-            
-            // Profile 100%
-            _buildMilestoneTile(
-              title: 'Profile 100% Complete',
-              description: 'Complete all optional resume details.',
-              completionRequired: 100,
-              currentCompletion: currentCompletion,
-              milestoneId: 'profile_100',
-              currentPoints: points,
-              claimedList: claimedList,
-            ),
+            if (_activeTab == 0) ...[
+              // Welcome Bonus
+              _buildMilestoneTile(
+                title: 'Welcome Bonus',
+                description: 'Created account & initiated onboarding.',
+                completionRequired: 0,
+                currentCompletion: 0,
+                milestoneId: 'welcome',
+                currentPoints: points,
+                claimedList: [...claimedList, 'welcome'], // Always treated as claimed
+              ),
+              
+              // Profile > 50%
+              _buildMilestoneTile(
+                title: 'Profile > 50% Complete',
+                description: 'Complete basic details, summary & skills.',
+                completionRequired: 51,
+                currentCompletion: currentCompletion,
+                milestoneId: 'profile_50',
+                currentPoints: points,
+                claimedList: claimedList,
+              ),
+              
+              // Profile > 80%
+              _buildMilestoneTile(
+                title: 'Profile > 80% Complete',
+                description: 'Add detailed education and work projects.',
+                completionRequired: 81,
+                currentCompletion: currentCompletion,
+                milestoneId: 'profile_80',
+                currentPoints: points,
+                claimedList: claimedList,
+              ),
+              
+              // Profile 100%
+              _buildMilestoneTile(
+                title: 'Profile 100% Complete',
+                description: 'Complete all optional resume details.',
+                completionRequired: 100,
+                currentCompletion: currentCompletion,
+                milestoneId: 'profile_100',
+                currentPoints: points,
+                claimedList: claimedList,
+              ),
+            ] else ...[
+              _buildHistoryTab(claimedList),
+            ],
           ],
         ),
       ),

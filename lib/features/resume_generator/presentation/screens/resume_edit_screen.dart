@@ -9,6 +9,7 @@ import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../services/pdf/pdf_service.dart';
 import '../../domain/entities/resume_model.dart';
 import '../../../../features/projects/presentation/screens/projects_screen.dart';
+import '../../../../features/projects/domain/entities/project_model.dart';
 
 class ResumeEditScreen extends ConsumerStatefulWidget {
   final String resumeId;
@@ -52,6 +53,14 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
   bool _showAchievements = true;
   List<ResumeCertification> _certifications = [];
   List<String> _achievements = [];
+  String? _activeFullscreenSection;
+
+  // Stable controllers for certifications (prevents stale-closure RangeError)
+  final List<TextEditingController> _certTitleCtrls = [];
+  final List<TextEditingController> _certIssuerCtrls = [];
+  final List<TextEditingController> _certUrlCtrls = [];
+  // Stable controllers for achievements
+  final List<TextEditingController> _achBulletCtrls = [];
 
   final List<Map<String, String>> _availableColors = [
     {'name': 'Navy Blue', 'hex': '#1E3A8A'},
@@ -85,7 +94,38 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     _linkedinController.dispose();
     _portfolioController.dispose();
     _summaryController.dispose();
+    for (final c in _certTitleCtrls) c.dispose();
+    for (final c in _certIssuerCtrls) c.dispose();
+    for (final c in _certUrlCtrls) c.dispose();
+    for (final c in _achBulletCtrls) c.dispose();
     super.dispose();
+  }
+
+  /// Sync the stable cert controller lists to match [_certifications] length.
+  void _syncCertControllers() {
+    while (_certTitleCtrls.length < _certifications.length) {
+      final i = _certTitleCtrls.length;
+      _certTitleCtrls.add(TextEditingController(text: _certifications[i].title));
+      _certIssuerCtrls.add(TextEditingController(text: _certifications[i].issuer));
+      _certUrlCtrls.add(TextEditingController(text: _certifications[i].credentialUrl));
+    }
+    while (_certTitleCtrls.length > _certifications.length) {
+      _certTitleCtrls.removeLast().dispose();
+      _certIssuerCtrls.removeLast().dispose();
+      _certUrlCtrls.removeLast().dispose();
+    }
+  }
+
+  /// Sync the stable achievement controller list to match [_achievements] length.
+  void _syncAchControllers() {
+    while (_achBulletCtrls.length < _achievements.length) {
+      final i = _achBulletCtrls.length;
+      final parts = _achievements[i].split('|');
+      _achBulletCtrls.add(TextEditingController(text: parts[0].trim()));
+    }
+    while (_achBulletCtrls.length > _achievements.length) {
+      _achBulletCtrls.removeLast().dispose();
+    }
   }
 
   Future<void> _loadResume() async {
@@ -133,6 +173,10 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
             _showAchievements = data.showAchievements;
             _certifications = List<ResumeCertification>.from(data.certifications);
             _achievements = List<String>.from(data.achievements);
+
+            // Initialise stable controllers
+            _syncCertControllers();
+            _syncAchControllers();
 
             _loading = false;
           });
@@ -323,6 +367,65 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_activeFullscreenSection != null) {
+      return Scaffold(
+        backgroundColor: const Color(0xFF07060F),
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+            onPressed: () {
+              setState(() {
+                _activeFullscreenSection = null;
+              });
+            },
+          ),
+          title: Text(
+            _activeFullscreenSection!,
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                final sectionSaved = _activeFullscreenSection;
+                setState(() {
+                  _activeFullscreenSection = null;
+                });
+                if (sectionSaved != null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Changes to $sectionSaved updated! Click "Save & Close" to persist to Firestore.'),
+                      backgroundColor: const Color(0xFFCBE349),
+                    ),
+                  );
+                }
+              },
+              child: Text(
+                'Save',
+                style: GoogleFonts.outfit(
+                  color: const Color(0xFFCBE349),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _getActiveSectionChildren(_activeFullscreenSection!),
+            ),
+          ),
+        ),
+      );
+    }
     final screenHeight = MediaQuery.of(context).size.height;
 
     return Scaffold(
@@ -945,45 +1048,1737 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     required IconData icon,
     required List<Widget> children,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.02),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          dividerColor: Colors.transparent,
-          expansionTileTheme: const ExpansionTileThemeData(
-            backgroundColor: Colors.transparent,
-            collapsedBackgroundColor: Colors.transparent,
-          ),
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _activeFullscreenSection = title;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.02),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
         ),
-        child: ExpansionTile(
-          leading: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.04),
-              borderRadius: BorderRadius.circular(8),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: Colors.white70, size: 16),
             ),
-            child: Icon(icon, color: Colors.white70, size: 16),
-          ),
-          title: Text(
-            title,
-            style: GoogleFonts.outfit(
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              fontSize: 14,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                  fontSize: 14,
+                ),
+              ),
             ),
-          ),
-          collapsedIconColor: Colors.white38,
-          iconColor: const Color(0xFFCBE349),
-          childrenPadding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-          children: children,
+            const Icon(Icons.arrow_forward_ios_rounded, color: Colors.white38, size: 14),
+          ],
         ),
       ),
     );
+  }
+
+  List<Widget> _getActiveSectionChildren(String title) {
+    switch (title) {
+      case 'Contact Details':
+        return _buildPersonalInfoChildren();
+      case 'Professional Summary':
+        return _buildSummaryChildren();
+      case 'Skills & Proficiencies':
+        return _buildSkillGroupsChildren();
+      case 'Work / Training Experience':
+        return _buildExperienceChildren();
+      case 'Projects Portfolio':
+        return _buildProjectsChildren();
+      case 'Research Work':
+        return _buildResearchChildren(ref.watch(projectsProvider));
+      case 'Certifications':
+        return _buildCertificationsChildren();
+      case 'Achievements & Awards':
+        return _buildAchievementsChildren();
+      case 'Education History':
+        return _buildEducationChildren();
+      default:
+        return [];
+    }
+  }
+
+  List<Widget> _buildPersonalInfoChildren() {
+    return [
+      _buildTextField(controller: _nameController, label: 'Full Name'),
+      _buildTextField(controller: _emailController, label: 'Email Address'),
+      _buildTextField(controller: _phoneController, label: 'Phone / Mobile'),
+      _buildTextField(controller: _locationController, label: 'Location (e.g. Pune, India)'),
+      _buildTextField(controller: _githubController, label: 'GitHub Profile URL'),
+      _buildTextField(controller: _linkedinController, label: 'LinkedIn Profile URL'),
+      _buildTextField(controller: _portfolioController, label: 'LeetCode / Portfolio URL'),
+    ];
+  }
+
+  List<Widget> _buildSummaryChildren() {
+    return [
+      _buildTextField(
+        controller: _summaryController,
+        label: 'Executive Summary',
+        maxLines: 5,
+      ),
+    ];
+  }
+
+  List<Widget> _buildSkillGroupsChildren() {
+    return [
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _skillGroups.length,
+        itemBuilder: (context, sIdx) {
+          final group = _skillGroups[sIdx];
+          final categoryController = TextEditingController(text: group.category);
+          final skillsController = TextEditingController(text: group.skills.join(', '));
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.015),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Category #${sIdx + 1}',
+                      style: GoogleFonts.firaCode(
+                        color: const Color(0xFFCBE349),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _skillGroups.removeAt(sIdx));
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: categoryController,
+                  label: 'Category Name (e.g. Languages)',
+                  onChanged: (val) {
+                    _skillGroups[sIdx] = _skillGroups[sIdx].copyWith(category: val.trim());
+                  },
+                ),
+                _buildTextField(
+                  controller: skillsController,
+                  label: 'Skills (separated by commas)',
+                  onChanged: (val) {
+                    final sks = val.split(',').map((s) => s.trim()).toList();
+                    _skillGroups[sIdx] = _skillGroups[sIdx].copyWith(skills: sks);
+                  },
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      final cats = categoryController.text.trim();
+                      final sks = skillsController.text
+                          .split(',')
+                          .map((s) => s.trim())
+                          .where((s) => s.isNotEmpty)
+                          .toList();
+                      setState(() {
+                        _skillGroups[sIdx] = ResumeSkillGroup(category: cats, skills: sks);
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Skill Category saved!'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Confirm Changes',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFFCBE349),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 8),
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            _skillGroups.add(const ResumeSkillGroup(category: 'New Category', skills: []));
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+              const SizedBox(width: 8),
+              Text(
+                'Add Skill Category',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _buildExperienceChildren() {
+    return [
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _experience.length,
+        itemBuilder: (context, eIdx) {
+          final exp = _experience[eIdx];
+          final companyController = TextEditingController(text: exp.company);
+          final roleController = TextEditingController(text: exp.role);
+          final durationController = TextEditingController(text: exp.duration);
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.015),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Experience Position #${eIdx + 1}',
+                      style: GoogleFonts.firaCode(
+                        color: const Color(0xFFCBE349),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _experience.removeAt(eIdx));
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: companyController,
+                  label: 'Company / Organization',
+                  onChanged: (val) {
+                    _experience[eIdx] = _experience[eIdx].copyWith(company: val.trim());
+                  },
+                ),
+                _buildTextField(
+                  controller: roleController,
+                  label: 'Role / Designation',
+                  onChanged: (val) {
+                    _experience[eIdx] = _experience[eIdx].copyWith(role: val.trim());
+                  },
+                ),
+                _buildTextField(
+                  controller: durationController,
+                  label: 'Duration (e.g. June 2024 - Present)',
+                  onChanged: (val) {
+                    _experience[eIdx] = _experience[eIdx].copyWith(duration: val.trim());
+                  },
+                ),
+
+                // Bullets
+                const SizedBox(height: 12),
+                Text(
+                  'Description Bullet Points',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                ...List.generate(_experience[eIdx].bullets.length, (bIdx) {
+                  final bulletController =
+                      TextEditingController(text: _experience[eIdx].bullets[bIdx]);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: bulletController,
+                            onChanged: (value) {
+                              final updatedBullets = List<String>.from(_experience[eIdx].bullets);
+                              updatedBullets[bIdx] = value;
+                              _experience[eIdx] =
+                                  _experience[eIdx].copyWith(bullets: updatedBullets);
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'Bullet #${bIdx + 1}',
+                              labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                              suffixIcon: GestureDetector(
+                                onTap: () async {
+                                  await _showAttachLinkDialog(bulletController);
+                                  final updatedBullets =
+                                      List<String>.from(_experience[eIdx].bullets);
+                                  updatedBullets[bIdx] = bulletController.text;
+                                  setState(() {
+                                    _experience[eIdx] =
+                                        _experience[eIdx].copyWith(bullets: updatedBullets);
+                                  });
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.04),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.link_rounded,
+                                      color: Color(0xFFCBE349), size: 14),
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white.withValues(alpha: 0.015),
+                              enabledBorder: OutlineInputBorder(
+                                borderSide:
+                                    BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                                borderRadius: const BorderRadius.all(Radius.circular(12)),
+                              ),
+                              focusedBorder: const OutlineInputBorder(
+                                borderSide: BorderSide(color: Color(0xFF723FFD)),
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                              ),
+                              contentPadding:
+                                  const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            final updatedBullets = List<String>.from(_experience[eIdx].bullets)
+                              ..removeAt(bIdx);
+                            setState(() {
+                              _experience[eIdx] =
+                                  _experience[eIdx].copyWith(bullets: updatedBullets);
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.remove_circle_outline_rounded,
+                                color: Color(0xFFEF4444), size: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        final updatedBullets = List<String>.from(_experience[eIdx].bullets)
+                          ..add('');
+                        setState(() {
+                          _experience[eIdx] = _experience[eIdx].copyWith(bullets: updatedBullets);
+                        });
+                      },
+                      icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
+                      label: Text(
+                        'Add Bullet',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: const Color(0xFF723FFD),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        final company = companyController.text.trim();
+                        final role = roleController.text.trim();
+                        final duration = durationController.text.trim();
+
+                        setState(() {
+                          _experience[eIdx] = _experience[eIdx].copyWith(
+                            company: company,
+                            role: role,
+                            duration: duration,
+                          );
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Experience details saved!'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'Save Details',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFFCBE349),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 8),
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            _experience.add(const ResumeExperience(
+                company: 'New Company', role: 'Developer', duration: '', bullets: ['']));
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+              const SizedBox(width: 8),
+              Text(
+                'Add Experience Position',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _buildProjectsChildren() {
+    return [
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _projects.length,
+        itemBuilder: (context, pIdx) {
+          final proj = _projects[pIdx];
+          final titleController = TextEditingController(text: proj.title);
+          final techController = TextEditingController(text: proj.technologies.join(', '));
+          final githubController = TextEditingController(text: proj.githubUrl);
+          final liveController = TextEditingController(text: proj.liveUrl);
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.015),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Project #${pIdx + 1}',
+                      style: GoogleFonts.firaCode(
+                        color: const Color(0xFFCBE349),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _projects.removeAt(pIdx));
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: titleController,
+                  label: 'Project Name',
+                  onChanged: (val) {
+                    _projects[pIdx] = _projects[pIdx].copyWith(title: val.trim());
+                  },
+                ),
+                _buildTextField(
+                  controller: techController,
+                  label: 'Technologies Used (separated by commas)',
+                  onChanged: (val) {
+                    final tech = val.split(',').map((t) => t.trim()).toList();
+                    _projects[pIdx] = _projects[pIdx].copyWith(technologies: tech);
+                  },
+                ),
+                _buildTextField(
+                  controller: githubController,
+                  label: 'GitHub Repository URL',
+                  onChanged: (val) {
+                    _projects[pIdx] = _projects[pIdx].copyWith(githubUrl: val.trim());
+                  },
+                ),
+                _buildTextField(
+                  controller: liveController,
+                  label: 'Live Deploy / Project Link',
+                  onChanged: (val) {
+                    _projects[pIdx] = _projects[pIdx].copyWith(liveUrl: val.trim());
+                  },
+                ),
+
+                // Bullets
+                const SizedBox(height: 12),
+                Text(
+                  'Project Highlights Bullets (Max 2 recommended)',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                ...List.generate(_projects[pIdx].bullets.length, (bIdx) {
+                  final bulletController = TextEditingController(text: _projects[pIdx].bullets[bIdx]);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: bulletController,
+                            onChanged: (value) {
+                              final updatedBullets = List<String>.from(_projects[pIdx].bullets);
+                              updatedBullets[bIdx] = value;
+                              _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
+                            },
+                            decoration: InputDecoration(
+                              labelText: 'Bullet #${bIdx + 1}',
+                              labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                              suffixIcon: GestureDetector(
+                                onTap: () async {
+                                  await _showAttachLinkDialog(bulletController);
+                                  final updatedBullets = List<String>.from(_projects[pIdx].bullets);
+                                  updatedBullets[bIdx] = bulletController.text;
+                                  setState(() {
+                                    _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
+                                  });
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.04),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: const Icon(Icons.link_rounded,
+                                      color: Color(0xFFCBE349), size: 14),
+                                ),
+                              ),
+                              filled: true,
+                              fillColor: Colors.white.withValues(alpha: 0.015),
+                              enabledBorder: OutlineInputBorder(
+                                borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                                borderRadius: const BorderRadius.all(Radius.circular(12)),
+                              ),
+                              focusedBorder: const OutlineInputBorder(
+                                borderSide: BorderSide(color: Color(0xFF723FFD)),
+                                borderRadius: BorderRadius.all(Radius.circular(12)),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            final updatedBullets = List<String>.from(_projects[pIdx].bullets)..removeAt(bIdx);
+                            setState(() {
+                              _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.remove_circle_outline_rounded,
+                                color: Color(0xFFEF4444), size: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        final updatedBullets = List<String>.from(_projects[pIdx].bullets)..add('');
+                        setState(() {
+                          _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
+                        });
+                      },
+                      icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
+                      label: Text(
+                        'Add Highlight Bullet',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: const Color(0xFF723FFD),
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        final title = titleController.text.trim();
+                        final tech = techController.text
+                            .split(',')
+                            .map((t) => t.trim())
+                            .where((t) => t.isNotEmpty)
+                            .toList();
+                        final git = githubController.text.trim();
+                        final live = liveController.text.trim();
+
+                        setState(() {
+                          _projects[pIdx] = _projects[pIdx].copyWith(
+                            title: title,
+                            technologies: tech,
+                            githubUrl: git,
+                            liveUrl: live,
+                          );
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Project details saved!'),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'Save Details',
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFFCBE349),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 8),
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            _projects.add(const ResumeProject(
+                title: 'New Project', technologies: [], bullets: [''], githubUrl: '', liveUrl: ''));
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+              const SizedBox(width: 8),
+              Text(
+                'Add Project Record',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _buildResearchChildren(AsyncValue<List<ProjectModel>> projectsAsync) {
+    return [
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            'Show Research Section in Resume',
+            style: GoogleFonts.outfit(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+          Switch(
+            value: _showResearch,
+            activeThumbColor: const Color(0xFFCBE349),
+            activeTrackColor: const Color(0xFFCBE349).withValues(alpha: 0.3),
+            inactiveThumbColor: Colors.white70,
+            inactiveTrackColor: Colors.white10,
+            onChanged: (val) {
+              setState(() {
+                _showResearch = val;
+              });
+            },
+          ),
+        ],
+      ),
+      const SizedBox(height: 12),
+      if (_showResearch) ...[
+        projectsAsync.when(
+          data: (allProjects) {
+            final availableResearch = allProjects.where((p) => p.isResearch).toList();
+            if (availableResearch.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No research work items found in your profile. Please add them in the Project and Research Work screen.',
+                  style: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
+                ),
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Select Research Work to include:',
+                  style: GoogleFonts.outfit(
+                    color: Colors.white60,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: availableResearch.map((res) {
+                    final isSelected = _research.any((r) => r.title == res.title);
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          if (!isSelected) {
+                            _research.add(ResumeProject(
+                              title: res.title,
+                              technologies: const [],
+                              bullets: res.bulletPoints.take(3).toList(),
+                              githubUrl: res.duration,
+                              liveUrl: '',
+                            ));
+                          } else {
+                            _research.removeWhere((r) => r.title == res.title);
+                          }
+                        });
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF723FFD).withValues(alpha: 0.15)
+                              : Colors.white.withValues(alpha: 0.03),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: isSelected
+                                ? const Color(0xFF723FFD)
+                                : Colors.white.withValues(alpha: 0.08),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (isSelected) ...[
+                              const Icon(
+                                Icons.check_rounded,
+                                color: Color(0xFFCBE349),
+                                size: 14,
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            Text(
+                              res.title,
+                              style: GoogleFonts.outfit(
+                                color: isSelected ? Colors.white : Colors.white60,
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            );
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (err, stack) => Text('Error loading research items: $err',
+              style: GoogleFonts.outfit(color: Colors.redAccent)),
+        ),
+        const SizedBox(height: 16),
+        if (_research.isNotEmpty) ...[
+          const Divider(color: Colors.white10, height: 1),
+          const SizedBox(height: 16),
+          ListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _research.length,
+            itemBuilder: (context, rIdx) {
+              final item = _research[rIdx];
+              final topicController = TextEditingController(text: item.title);
+              final durationController = TextEditingController(text: item.githubUrl);
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 16),
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.015),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Research Item #${rIdx + 1}',
+                          style: GoogleFonts.firaCode(
+                            color: const Color(0xFFCBE349),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10,
+                          ),
+                        ),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() => _research.removeAt(rIdx));
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _buildTextField(
+                      controller: topicController,
+                      label: 'Research Topic / Title',
+                      onChanged: (val) {
+                        _research[rIdx] = _research[rIdx].copyWith(title: val.trim());
+                      },
+                    ),
+                    _buildTextField(
+                      controller: durationController,
+                      label: 'Duration (e.g. Oct 2025 - Present)',
+                      onChanged: (val) {
+                        _research[rIdx] = _research[rIdx].copyWith(githubUrl: val.trim());
+                      },
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Research Description Bullets (Max 3)',
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        color: Colors.white70,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    ...List.generate(item.bullets.length, (bIdx) {
+                      final bulletController = TextEditingController(text: item.bullets[bIdx]);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: bulletController,
+                                onChanged: (value) {
+                                  final updatedBullets = List<String>.from(item.bullets);
+                                  updatedBullets[bIdx] = value;
+                                  _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
+                                },
+                                decoration: InputDecoration(
+                                  labelText: 'Bullet #${bIdx + 1}',
+                                  labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(alpha: 0.015),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide:
+                                        BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                                    borderRadius: const BorderRadius.all(Radius.circular(12)),
+                                  ),
+                                  focusedBorder: const OutlineInputBorder(
+                                    borderSide: BorderSide(color: Color(0xFF723FFD)),
+                                    borderRadius: BorderRadius.all(Radius.circular(12)),
+                                  ),
+                                  contentPadding:
+                                      const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                ),
+                                style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            GestureDetector(
+                              onTap: () {
+                                final updatedBullets = List<String>.from(item.bullets)
+                                  ..removeAt(bIdx);
+                                setState(() {
+                                  _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(Icons.remove_circle_outline_rounded,
+                                    color: Color(0xFFEF4444), size: 14),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        if (item.bullets.length < 3)
+                          TextButton.icon(
+                            onPressed: () {
+                              final updatedBullets = List<String>.from(item.bullets)..add('');
+                              setState(() {
+                                _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
+                              });
+                            },
+                            icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
+                            label: Text(
+                              'Add Bullet',
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                color: const Color(0xFF723FFD),
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )
+                        else
+                          const SizedBox.shrink(),
+                        TextButton(
+                          onPressed: () {
+                            final topic = topicController.text.trim();
+                            final dur = durationController.text.trim();
+                            setState(() {
+                              _research[rIdx] = _research[rIdx].copyWith(
+                                title: topic,
+                                githubUrl: dur,
+                              );
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Research details saved!'),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          },
+                          child: Text(
+                            'Save Details',
+                            style: GoogleFonts.outfit(
+                              color: const Color(0xFFCBE349),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ],
+    ];
+  }
+
+  List<Widget> _buildCertificationsChildren() {
+    return [
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _certifications.length,
+        itemBuilder: (context, certIdx) {
+          final cert = _certifications[certIdx];
+          final titleController = _certTitleCtrls[certIdx];
+          final issuerController = _certIssuerCtrls[certIdx];
+          final urlController = _certUrlCtrls[certIdx];
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.015),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Certification #${certIdx + 1}',
+                      style: GoogleFonts.firaCode(
+                        color: const Color(0xFFCBE349),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _certifications.removeAt(certIdx);
+                          _syncCertControllers();
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: titleController,
+                  label: 'Certificate Title',
+                  onChanged: (val) {
+                    if (certIdx < _certifications.length) {
+                      _certifications[certIdx] = _certifications[certIdx].copyWith(title: val.trim());
+                    }
+                  },
+                ),
+                _buildTextField(
+                  controller: issuerController,
+                  label: 'Issuing Authority / Issuer',
+                  onChanged: (val) {
+                    if (certIdx < _certifications.length) {
+                      _certifications[certIdx] = _certifications[certIdx].copyWith(issuer: val.trim());
+                    }
+                  },
+                ),
+                
+                const Text(
+                  'Date Earned / Expiry',
+                  style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Builder(
+                  builder: (context) {
+                    final dateMap = _parseCertDate(cert.date);
+                    final String currentMonth = dateMap['month']!;
+                    final String currentYear = dateMap['year']!;
+                    
+                    const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                    final years = List.generate(21, (index) => (2015 + index).toString());
+                    
+                    final String selectedMonth = shortMonths.contains(currentMonth) ? currentMonth : 'Jan';
+                    final String selectedYear = years.contains(currentYear) ? currentYear : '2025';
+
+                    return Row(
+                      children: [
+                        Expanded(
+                          child: Theme(
+                            data: Theme.of(context).copyWith(
+                              canvasColor: const Color(0xFF0C0B10),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              dropdownColor: const Color(0xFF0C0B10),
+                              value: selectedMonth,
+                              style: const TextStyle(color: Colors.white, fontSize: 15),
+                              decoration: InputDecoration(
+                                labelText: 'Month',
+                                labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                                floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.03),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              items: shortMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                              onChanged: (val) {
+                                if (val != null && certIdx < _certifications.length) {
+                                  final String yrShort = selectedYear.substring(selectedYear.length - 2);
+                                  setState(() {
+                                    _certifications[certIdx] = _certifications[certIdx].copyWith(date: "$val'$yrShort");
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Theme(
+                            data: Theme.of(context).copyWith(
+                              canvasColor: const Color(0xFF0C0B10),
+                            ),
+                            child: DropdownButtonFormField<String>(
+                              dropdownColor: const Color(0xFF0C0B10),
+                              value: selectedYear,
+                              style: const TextStyle(color: Colors.white, fontSize: 15),
+                              decoration: InputDecoration(
+                                labelText: 'Year',
+                                labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                                floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.03),
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                enabledBorder: OutlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              items: years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
+                              onChanged: (val) {
+                                if (val != null && certIdx < _certifications.length) {
+                                  final String yrShort = val.substring(val.length - 2);
+                                  setState(() {
+                                    _certifications[certIdx] = _certifications[certIdx].copyWith(date: "$selectedMonth'$yrShort");
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                
+                _buildTextField(
+                  controller: urlController,
+                  label: 'Credential Verification URL',
+                  onChanged: (val) {
+                    if (certIdx < _certifications.length) {
+                      _certifications[certIdx] = _certifications[certIdx].copyWith(credentialUrl: val.trim());
+                    }
+                  },
+                ),
+
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      if (certIdx >= _certifications.length) return;
+                      final tit = titleController.text.trim();
+                      final iss = issuerController.text.trim();
+                      final dat = _certifications[certIdx].date;
+                      final url = urlController.text.trim();
+
+                      setState(() {
+                        _certifications[certIdx] = ResumeCertification(
+                          title: tit,
+                          issuer: iss,
+                          date: dat,
+                          credentialUrl: url,
+                        );
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Certification details saved!'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Save Record',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFFCBE349),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 8),
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            _certifications
+                .add(const ResumeCertification(title: 'New Certificate', issuer: '', date: "Jan'26"));
+            _syncCertControllers();
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+              const SizedBox(width: 8),
+              Text(
+                'Add Certification Record',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
+  }
+
+  List<Widget> _buildAchievementsChildren() {
+    return [
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _achievements.length,
+        itemBuilder: (context, aIdx) {
+          final achValue = _achievements[aIdx];
+          final achParts = achValue.split('|');
+          final datePart = achParts.length > 1 ? achParts[1].trim() : "Jan'25";
+
+          final bulletController = _achBulletCtrls[aIdx];
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.015),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Achievement #${aIdx + 1}',
+                        style: GoogleFonts.firaCode(
+                          color: const Color(0xFFCBE349),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 10,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _achievements.removeAt(aIdx);
+                            _syncAchControllers();
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: bulletController,
+                    onChanged: (value) {
+                      if (aIdx < _achievements.length) {
+                        final dateMap = _parseCertDate(datePart);
+                        final mShort = dateMap['month']!;
+                        final yShort = dateMap['year']!.substring(dateMap['year']!.length - 2);
+                        _achievements[aIdx] = "${value.trim()}|$mShort'$yShort";
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Achievement Details',
+                      labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
+                      suffixIcon: GestureDetector(
+                        onTap: () async {
+                          await _showAttachLinkDialog(bulletController);
+                          if (aIdx < _achievements.length) {
+                            final dateMap = _parseCertDate(datePart);
+                            final mShort = dateMap['month']!;
+                            final yShort = dateMap['year']!.substring(dateMap['year']!.length - 2);
+                            setState(() {
+                              _achievements[aIdx] = "${bulletController.text.trim()}|$mShort'$yShort";
+                            });
+                          }
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.04),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.link_rounded, color: Color(0xFFCBE349), size: 14),
+                        ),
+                      ),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.015),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+                        borderRadius: const BorderRadius.all(Radius.circular(12)),
+                      ),
+                      focusedBorder: const OutlineInputBorder(
+                        borderSide: BorderSide(color: Color(0xFF723FFD)),
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
+                  ),
+                  const SizedBox(height: 12),
+                  
+                  const Text(
+                    'Date Earned / Achieved',
+                    style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Builder(
+                    builder: (context) {
+                      final dateMap = _parseCertDate(datePart);
+                      final String currentMonth = dateMap['month']!;
+                      final String currentYear = dateMap['year']!;
+                      
+                      const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                      final years = List.generate(21, (index) => (2015 + index).toString());
+                      
+                      final String selectedMonth = shortMonths.contains(currentMonth) ? currentMonth : 'Jan';
+                      final String selectedYear = years.contains(currentYear) ? currentYear : '2025';
+
+                      return Row(
+                        children: [
+                          Expanded(
+                            child: Theme(
+                              data: Theme.of(context).copyWith(
+                                canvasColor: const Color(0xFF0C0B10),
+                              ),
+                              child: DropdownButtonFormField<String>(
+                                dropdownColor: const Color(0xFF0C0B10),
+                                value: selectedMonth,
+                                style: const TextStyle(color: Colors.white, fontSize: 15),
+                                decoration: InputDecoration(
+                                  labelText: 'Month',
+                                  labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                                  floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(alpha: 0.03),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                items: shortMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                                onChanged: (val) {
+                                  if (val != null && aIdx < _achievements.length) {
+                                    final String yrShort = selectedYear.substring(selectedYear.length - 2);
+                                    setState(() {
+                                      _achievements[aIdx] = "${bulletController.text.trim()}|$val'$yrShort";
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Theme(
+                              data: Theme.of(context).copyWith(
+                                canvasColor: const Color(0xFF0C0B10),
+                              ),
+                              child: DropdownButtonFormField<String>(
+                                dropdownColor: const Color(0xFF0C0B10),
+                                value: selectedYear,
+                                style: const TextStyle(color: Colors.white, fontSize: 15),
+                                decoration: InputDecoration(
+                                  labelText: 'Year',
+                                  labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
+                                  floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
+                                  filled: true,
+                                  fillColor: Colors.white.withValues(alpha: 0.03),
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                items: years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
+                                onChanged: (val) {
+                                  if (val != null && aIdx < _achievements.length) {
+                                    final String yrShort = val.substring(val.length - 2);
+                                    setState(() {
+                                      _achievements[aIdx] = "${bulletController.text.trim()}|$selectedMonth'$yrShort";
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 8),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          TextButton.icon(
+            onPressed: () {
+              setState(() {
+                _achievements.add("New Achievement|Jan'26");
+                _syncAchControllers();
+              });
+            },
+            icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
+            label: Text(
+              'Add Achievement',
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                color: const Color(0xFF723FFD),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Achievements saved!'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
+            },
+            child: Text(
+              'Confirm Saved',
+              style: GoogleFonts.outfit(
+                color: const Color(0xFFCBE349),
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    ];
+  }
+
+  List<Widget> _buildEducationChildren() {
+    return [
+      ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: _education.length,
+        itemBuilder: (context, eduIdx) {
+          final edu = _education[eduIdx];
+          final instController = TextEditingController(text: edu.institution);
+          final degreeController = TextEditingController(text: edu.degree);
+          final fieldController = TextEditingController(text: edu.field);
+          final cgpaController = TextEditingController(text: edu.cgpa);
+          final durationController = TextEditingController(text: edu.duration);
+
+          return Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.015),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Education Record #${eduIdx + 1}',
+                      style: GoogleFonts.firaCode(
+                        color: const Color(0xFFCBE349),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 10,
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _education.removeAt(eduIdx));
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  controller: instController,
+                  label: 'Institution Name',
+                  onChanged: (val) {
+                    _education[eduIdx] = _education[eduIdx].copyWith(institution: val.trim());
+                  },
+                ),
+                _buildTextField(
+                  controller: degreeController,
+                  label: 'Degree / Certificate',
+                  onChanged: (val) {
+                    _education[eduIdx] = _education[eduIdx].copyWith(degree: val.trim());
+                  },
+                ),
+                _buildTextField(
+                  controller: fieldController,
+                  label: 'Field of Study (e.g. Computer Science)',
+                  onChanged: (val) {
+                    _education[eduIdx] = _education[eduIdx].copyWith(field: val.trim());
+                  },
+                ),
+                _buildTextField(
+                  controller: cgpaController,
+                  label: 'CGPA / Percentage Score',
+                  onChanged: (val) {
+                    _education[eduIdx] = _education[eduIdx].copyWith(cgpa: val.trim());
+                  },
+                ),
+                _buildTextField(
+                  controller: durationController,
+                  label: 'Duration (e.g. 2020 - 2024)',
+                  onChanged: (val) {
+                    _education[eduIdx] = _education[eduIdx].copyWith(duration: val.trim());
+                  },
+                ),
+
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () {
+                      final inst = instController.text.trim();
+                      final deg = degreeController.text.trim();
+                      final fld = fieldController.text.trim();
+                      final cgp = cgpaController.text.trim();
+                      final dur = durationController.text.trim();
+
+                      setState(() {
+                        _education[eduIdx] = ResumeEducation(
+                          institution: inst,
+                          degree: deg,
+                          field: fld,
+                          cgpa: cgp,
+                          duration: dur,
+                        );
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Education details saved!'),
+                          duration: Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    child: Text(
+                      'Save Record',
+                      style: GoogleFonts.outfit(
+                        color: const Color(0xFFCBE349),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+      const SizedBox(height: 8),
+      GestureDetector(
+        onTap: () {
+          setState(() {
+            _education.add(const ResumeEducation(
+                institution: 'New University', degree: 'Bachelor of Engineering', duration: ''));
+          });
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
+              const SizedBox(width: 8),
+              Text(
+                'Add Education Entry',
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ];
   }
 
   Widget _buildTextField({
@@ -1000,6 +2795,9 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
         controller: controller,
         maxLines: maxLines,
         onChanged: onChanged,
+        showCursor: true,
+        cursorColor: Colors.white,
+        cursorHeight: 16,
         decoration: InputDecoration(
           labelText: label,
           labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
@@ -1041,15 +2839,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     return _buildAccordionSection(
       title: 'Contact Details',
       icon: Icons.contact_mail_rounded,
-      children: [
-        _buildTextField(controller: _nameController, label: 'Full Name'),
-        _buildTextField(controller: _emailController, label: 'Email Address'),
-        _buildTextField(controller: _phoneController, label: 'Phone / Mobile'),
-        _buildTextField(controller: _locationController, label: 'Location (e.g. Pune, India)'),
-        _buildTextField(controller: _githubController, label: 'GitHub Profile URL'),
-        _buildTextField(controller: _linkedinController, label: 'LinkedIn Profile URL'),
-        _buildTextField(controller: _portfolioController, label: 'LeetCode / Portfolio URL'),
-      ],
+      children: _buildPersonalInfoChildren(),
     );
   }
 
@@ -1058,13 +2848,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     return _buildAccordionSection(
       title: 'Professional Summary',
       icon: Icons.description_rounded,
-      children: [
-        _buildTextField(
-          controller: _summaryController,
-          label: 'Executive Summary',
-          maxLines: 5,
-        ),
-      ],
+      children: _buildSummaryChildren(),
     );
   }
 
@@ -1073,136 +2857,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     return _buildAccordionSection(
       title: 'Skills & Proficiencies',
       icon: Icons.psychology_rounded,
-      children: [
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _skillGroups.length,
-          itemBuilder: (context, sIdx) {
-            final group = _skillGroups[sIdx];
-            final categoryController = TextEditingController(text: group.category);
-            final skillsController = TextEditingController(text: group.skills.join(', '));
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.015),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Category #${sIdx + 1}',
-                        style: GoogleFonts.firaCode(
-                          color: const Color(0xFFCBE349),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() => _skillGroups.removeAt(sIdx));
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTextField(
-                    controller: categoryController,
-                    label: 'Category Name (e.g. Languages)',
-                    onChanged: (val) {
-                      _skillGroups[sIdx] = _skillGroups[sIdx].copyWith(category: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: skillsController,
-                    label: 'Skills (separated by commas)',
-                    onChanged: (val) {
-                      final sks = val.split(',').map((s) => s.trim()).toList();
-                      _skillGroups[sIdx] = _skillGroups[sIdx].copyWith(skills: sks);
-                    },
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        final cats = categoryController.text.trim();
-                        final sks = skillsController.text
-                            .split(',')
-                            .map((s) => s.trim())
-                            .where((s) => s.isNotEmpty)
-                            .toList();
-                        setState(() {
-                          _skillGroups[sIdx] = ResumeSkillGroup(category: cats, skills: sks);
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Skill Category saved!'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Confirm Changes',
-                        style: GoogleFonts.outfit(
-                          color: const Color(0xFFCBE349),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _skillGroups.add(const ResumeSkillGroup(category: 'New Category', skills: []));
-            });
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
-                const SizedBox(width: 8),
-                Text(
-                  'Add Skill Category',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+      children: _buildSkillGroupsChildren(),
     );
   }
 
@@ -1211,261 +2866,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     return _buildAccordionSection(
       title: 'Work / Training Experience',
       icon: Icons.work_rounded,
-      children: [
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _experience.length,
-          itemBuilder: (context, eIdx) {
-            final exp = _experience[eIdx];
-            final companyController = TextEditingController(text: exp.company);
-            final roleController = TextEditingController(text: exp.role);
-            final durationController = TextEditingController(text: exp.duration);
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.015),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Experience Position #${eIdx + 1}',
-                        style: GoogleFonts.firaCode(
-                          color: const Color(0xFFCBE349),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() => _experience.removeAt(eIdx));
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTextField(
-                    controller: companyController,
-                    label: 'Company / Organization',
-                    onChanged: (val) {
-                      _experience[eIdx] = _experience[eIdx].copyWith(company: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: roleController,
-                    label: 'Role / Designation',
-                    onChanged: (val) {
-                      _experience[eIdx] = _experience[eIdx].copyWith(role: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: durationController,
-                    label: 'Duration (e.g. June 2024 - Present)',
-                    onChanged: (val) {
-                      _experience[eIdx] = _experience[eIdx].copyWith(duration: val.trim());
-                    },
-                  ),
-
-                  // Bullets
-                  const SizedBox(height: 12),
-                  Text(
-                    'Description Bullet Points',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: Colors.white70,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  ...List.generate(_experience[eIdx].bullets.length, (bIdx) {
-                    final bulletController =
-                        TextEditingController(text: _experience[eIdx].bullets[bIdx]);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: bulletController,
-                              onChanged: (value) {
-                                final updatedBullets = List<String>.from(_experience[eIdx].bullets);
-                                updatedBullets[bIdx] = value;
-                                _experience[eIdx] =
-                                    _experience[eIdx].copyWith(bullets: updatedBullets);
-                              },
-                              decoration: InputDecoration(
-                                labelText: 'Bullet #${bIdx + 1}',
-                                labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
-                                suffixIcon: GestureDetector(
-                                  onTap: () async {
-                                    await _showAttachLinkDialog(bulletController);
-                                    final updatedBullets =
-                                        List<String>.from(_experience[eIdx].bullets);
-                                    updatedBullets[bIdx] = bulletController.text;
-                                    setState(() {
-                                      _experience[eIdx] =
-                                          _experience[eIdx].copyWith(bullets: updatedBullets);
-                                    });
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.04),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(Icons.link_rounded,
-                                        color: Color(0xFFCBE349), size: 14),
-                                  ),
-                                ),
-                                filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.015),
-                                enabledBorder: OutlineInputBorder(
-                                  borderSide:
-                                      BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-                                  borderRadius: const BorderRadius.all(Radius.circular(12)),
-                                ),
-                                focusedBorder: const OutlineInputBorder(
-                                  borderSide: BorderSide(color: Color(0xFF723FFD)),
-                                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                                ),
-                                contentPadding:
-                                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              ),
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () {
-                              final updatedBullets = List<String>.from(_experience[eIdx].bullets)
-                                ..removeAt(bIdx);
-                              setState(() {
-                                _experience[eIdx] =
-                                    _experience[eIdx].copyWith(bullets: updatedBullets);
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.remove_circle_outline_rounded,
-                                  color: Color(0xFFEF4444), size: 14),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () {
-                          final updatedBullets = List<String>.from(_experience[eIdx].bullets)
-                            ..add('');
-                          setState(() {
-                            _experience[eIdx] = _experience[eIdx].copyWith(bullets: updatedBullets);
-                          });
-                        },
-                        icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
-                        label: Text(
-                          'Add Bullet',
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            color: const Color(0xFF723FFD),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          final company = companyController.text.trim();
-                          final role = roleController.text.trim();
-                          final duration = durationController.text.trim();
-
-                          setState(() {
-                            _experience[eIdx] = _experience[eIdx].copyWith(
-                              company: company,
-                              role: role,
-                              duration: duration,
-                            );
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Experience details saved!'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Save Details',
-                          style: GoogleFonts.outfit(
-                            color: const Color(0xFFCBE349),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _experience.add(const ResumeExperience(
-                  company: 'New Company', role: 'Developer', duration: '', bullets: ['']));
-            });
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
-                const SizedBox(width: 8),
-                Text(
-                  'Add Experience Position',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+      children: _buildExperienceChildren(),
     );
   }
 
@@ -1474,267 +2875,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     return _buildAccordionSection(
       title: 'Projects Portfolio',
       icon: Icons.code_rounded,
-      children: [
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _projects.length,
-          itemBuilder: (context, pIdx) {
-            final proj = _projects[pIdx];
-            final titleController = TextEditingController(text: proj.title);
-            final techController = TextEditingController(text: proj.technologies.join(', '));
-            final githubController = TextEditingController(text: proj.githubUrl);
-            final liveController = TextEditingController(text: proj.liveUrl);
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.015),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Project #${pIdx + 1}',
-                        style: GoogleFonts.firaCode(
-                          color: const Color(0xFFCBE349),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() => _projects.removeAt(pIdx));
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTextField(
-                    controller: titleController,
-                    label: 'Project Name',
-                    onChanged: (val) {
-                      _projects[pIdx] = _projects[pIdx].copyWith(title: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: techController,
-                    label: 'Technologies Used (separated by commas)',
-                    onChanged: (val) {
-                      final tech = val.split(',').map((t) => t.trim()).toList();
-                      _projects[pIdx] = _projects[pIdx].copyWith(technologies: tech);
-                    },
-                  ),
-                  _buildTextField(
-                    controller: githubController,
-                    label: 'GitHub Repository URL',
-                    onChanged: (val) {
-                      _projects[pIdx] = _projects[pIdx].copyWith(githubUrl: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: liveController,
-                    label: 'Live Deploy / Project Link',
-                    onChanged: (val) {
-                      _projects[pIdx] = _projects[pIdx].copyWith(liveUrl: val.trim());
-                    },
-                  ),
-
-                  // Bullets
-                  const SizedBox(height: 12),
-                  Text(
-                    'Project Highlights Bullets (Max 2 recommended)',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      color: Colors.white70,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-
-                  ...List.generate(_projects[pIdx].bullets.length, (bIdx) {
-                    final bulletController = TextEditingController(text: _projects[pIdx].bullets[bIdx]);
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: bulletController,
-                              onChanged: (value) {
-                                final updatedBullets = List<String>.from(_projects[pIdx].bullets);
-                                updatedBullets[bIdx] = value;
-                                _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
-                              },
-                              decoration: InputDecoration(
-                                labelText: 'Bullet #${bIdx + 1}',
-                                labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
-                                suffixIcon: GestureDetector(
-                                  onTap: () async {
-                                    await _showAttachLinkDialog(bulletController);
-                                    final updatedBullets = List<String>.from(_projects[pIdx].bullets);
-                                    updatedBullets[bIdx] = bulletController.text;
-                                    setState(() {
-                                      _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
-                                    });
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.all(8),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(alpha: 0.04),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: const Icon(Icons.link_rounded,
-                                        color: Color(0xFFCBE349), size: 14),
-                                  ),
-                                ),
-                                filled: true,
-                                fillColor: Colors.white.withValues(alpha: 0.015),
-                                enabledBorder: OutlineInputBorder(
-                                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-                                  borderRadius: const BorderRadius.all(Radius.circular(12)),
-                                ),
-                                focusedBorder: const OutlineInputBorder(
-                                  borderSide: BorderSide(color: Color(0xFF723FFD)),
-                                  borderRadius: BorderRadius.all(Radius.circular(12)),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                              ),
-                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: () {
-                              final updatedBullets = List<String>.from(_projects[pIdx].bullets)..removeAt(bIdx);
-                              setState(() {
-                                _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
-                              });
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(10),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.remove_circle_outline_rounded,
-                                  color: Color(0xFFEF4444), size: 14),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }),
-
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      TextButton.icon(
-                        onPressed: () {
-                          final updatedBullets = List<String>.from(_projects[pIdx].bullets)..add('');
-                          setState(() {
-                            _projects[pIdx] = _projects[pIdx].copyWith(bullets: updatedBullets);
-                          });
-                        },
-                        icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
-                        label: Text(
-                          'Add Highlight Bullet',
-                          style: GoogleFonts.outfit(
-                            fontSize: 12,
-                            color: const Color(0xFF723FFD),
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {
-                          final title = titleController.text.trim();
-                          final tech = techController.text
-                              .split(',')
-                              .map((t) => t.trim())
-                              .where((t) => t.isNotEmpty)
-                              .toList();
-                          final git = githubController.text.trim();
-                          final live = liveController.text.trim();
-
-                          setState(() {
-                            _projects[pIdx] = _projects[pIdx].copyWith(
-                              title: title,
-                              technologies: tech,
-                              githubUrl: git,
-                              liveUrl: live,
-                            );
-                          });
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Project details saved!'),
-                              duration: Duration(seconds: 1),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Save Details',
-                          style: GoogleFonts.outfit(
-                            color: const Color(0xFFCBE349),
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _projects.add(const ResumeProject(
-                  title: 'New Project', technologies: [], bullets: [''], githubUrl: '', liveUrl: ''));
-            });
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
-                const SizedBox(width: 8),
-                Text(
-                  'Add Project Record',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+      children: _buildProjectsChildren(),
     );
   }
 
@@ -1743,167 +2884,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     return _buildAccordionSection(
       title: 'Education History',
       icon: Icons.school_rounded,
-      children: [
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _education.length,
-          itemBuilder: (context, eduIdx) {
-            final edu = _education[eduIdx];
-            final instController = TextEditingController(text: edu.institution);
-            final degreeController = TextEditingController(text: edu.degree);
-            final fieldController = TextEditingController(text: edu.field);
-            final cgpaController = TextEditingController(text: edu.cgpa);
-            final durationController = TextEditingController(text: edu.duration);
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.015),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Education Record #${eduIdx + 1}',
-                        style: GoogleFonts.firaCode(
-                          color: const Color(0xFFCBE349),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() => _education.removeAt(eduIdx));
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTextField(
-                    controller: instController,
-                    label: 'Institution Name',
-                    onChanged: (val) {
-                      _education[eduIdx] = _education[eduIdx].copyWith(institution: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: degreeController,
-                    label: 'Degree / Certificate',
-                    onChanged: (val) {
-                      _education[eduIdx] = _education[eduIdx].copyWith(degree: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: fieldController,
-                    label: 'Field of Study (e.g. Computer Science)',
-                    onChanged: (val) {
-                      _education[eduIdx] = _education[eduIdx].copyWith(field: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: cgpaController,
-                    label: 'CGPA / Percentage Score',
-                    onChanged: (val) {
-                      _education[eduIdx] = _education[eduIdx].copyWith(cgpa: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: durationController,
-                    label: 'Duration (e.g. 2020 - 2024)',
-                    onChanged: (val) {
-                      _education[eduIdx] = _education[eduIdx].copyWith(duration: val.trim());
-                    },
-                  ),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        final inst = instController.text.trim();
-                        final deg = degreeController.text.trim();
-                        final fld = fieldController.text.trim();
-                        final cgp = cgpaController.text.trim();
-                        final dur = durationController.text.trim();
-
-                        setState(() {
-                          _education[eduIdx] = ResumeEducation(
-                            institution: inst,
-                            degree: deg,
-                            field: fld,
-                            cgpa: cgp,
-                            duration: dur,
-                          );
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Education details saved!'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Save Record',
-                        style: GoogleFonts.outfit(
-                          color: const Color(0xFFCBE349),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _education.add(const ResumeEducation(
-                  institution: 'New University', degree: 'Bachelor of Engineering', duration: ''));
-            });
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
-                const SizedBox(width: 8),
-                Text(
-                  'Add Education Entry',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+      children: _buildEducationChildren(),
     );
   }
 
@@ -1972,503 +2953,22 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     return _buildAccordionSection(
       title: 'Certifications',
       icon: Icons.verified_user_rounded,
-      children: [
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _certifications.length,
-          itemBuilder: (context, certIdx) {
-            final cert = _certifications[certIdx];
-            final titleController = TextEditingController(text: cert.title);
-            final issuerController = TextEditingController(text: cert.issuer);
-            final urlController = TextEditingController(text: cert.credentialUrl);
-
-            return Container(
-              margin: const EdgeInsets.only(bottom: 16),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.015),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Certification #${certIdx + 1}',
-                        style: GoogleFonts.firaCode(
-                          color: const Color(0xFFCBE349),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() => _certifications.removeAt(certIdx));
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: Colors.red.withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  _buildTextField(
-                    controller: titleController,
-                    label: 'Certificate Title',
-                    onChanged: (val) {
-                      _certifications[certIdx] = _certifications[certIdx].copyWith(title: val.trim());
-                    },
-                  ),
-                  _buildTextField(
-                    controller: issuerController,
-                    label: 'Issuing Authority / Issuer',
-                    onChanged: (val) {
-                      _certifications[certIdx] = _certifications[certIdx].copyWith(issuer: val.trim());
-                    },
-                  ),
-                  
-                  // Month and Year selector dropdowns for date
-                  const Text(
-                    'Date Earned / Expiry',
-                    style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 8),
-                  Builder(
-                    builder: (context) {
-                      final dateMap = _parseCertDate(cert.date);
-                      final String currentMonth = dateMap['month']!;
-                      final String currentYear = dateMap['year']!;
-                      
-                      const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                      final years = List.generate(21, (index) => (2015 + index).toString());
-                      
-                      final String selectedMonth = shortMonths.contains(currentMonth) ? currentMonth : 'Jan';
-                      final String selectedYear = years.contains(currentYear) ? currentYear : '2025';
-
-                      return Row(
-                        children: [
-                          Expanded(
-                            child: Theme(
-                              data: Theme.of(context).copyWith(
-                                canvasColor: const Color(0xFF0C0B10),
-                              ),
-                              child: DropdownButtonFormField<String>(
-                                dropdownColor: const Color(0xFF0C0B10),
-                                value: selectedMonth,
-                                style: const TextStyle(color: Colors.white, fontSize: 15),
-                                decoration: InputDecoration(
-                                  labelText: 'Month',
-                                  labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-                                  floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
-                                  filled: true,
-                                  fillColor: Colors.white.withValues(alpha: 0.03),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                items: shortMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    final String yrShort = selectedYear.substring(selectedYear.length - 2);
-                                    setState(() {
-                                      _certifications[certIdx] = _certifications[certIdx].copyWith(date: "$val'$yrShort");
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Theme(
-                              data: Theme.of(context).copyWith(
-                                canvasColor: const Color(0xFF0C0B10),
-                              ),
-                              child: DropdownButtonFormField<String>(
-                                dropdownColor: const Color(0xFF0C0B10),
-                                value: selectedYear,
-                                style: const TextStyle(color: Colors.white, fontSize: 15),
-                                decoration: InputDecoration(
-                                  labelText: 'Year',
-                                  labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-                                  floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
-                                  filled: true,
-                                  fillColor: Colors.white.withValues(alpha: 0.03),
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                items: years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    final String yrShort = val.substring(val.length - 2);
-                                    setState(() {
-                                      _certifications[certIdx] = _certifications[certIdx].copyWith(date: "$selectedMonth'$yrShort");
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  _buildTextField(
-                    controller: urlController,
-                    label: 'Credential Verification URL',
-                    onChanged: (val) {
-                      _certifications[certIdx] = _certifications[certIdx].copyWith(credentialUrl: val.trim());
-                    },
-                  ),
-
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () {
-                        final tit = titleController.text.trim();
-                        final iss = issuerController.text.trim();
-                        final dat = _certifications[certIdx].date;
-                        final url = urlController.text.trim();
-
-                        setState(() {
-                          _certifications[certIdx] = ResumeCertification(
-                            title: tit,
-                            issuer: iss,
-                            date: dat,
-                            credentialUrl: url,
-                          );
-                        });
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Certification details saved!'),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      },
-                      child: Text(
-                        'Save Record',
-                        style: GoogleFonts.outfit(
-                          color: const Color(0xFFCBE349),
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _certifications
-                  .add(const ResumeCertification(title: 'New Certificate', issuer: '', date: "Jan'26"));
-            });
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.03),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.add_rounded, size: 16, color: Color(0xFFCBE349)),
-                const SizedBox(width: 8),
-                Text(
-                  'Add Certification Record',
-                  style: GoogleFonts.outfit(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+      children: _buildCertificationsChildren(),
     );
   }
+
+
 
   // ── SECTION 8: Achievements & Awards ─────────────────────────────
   Widget _buildAchievementsSection() {
     return _buildAccordionSection(
       title: 'Achievements & Awards',
       icon: Icons.emoji_events_rounded,
-      children: [
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: _achievements.length,
-          itemBuilder: (context, aIdx) {
-            final achValue = _achievements[aIdx];
-            final achParts = achValue.split('|');
-            final descPart = achParts[0].trim();
-            final datePart = achParts.length > 1 ? achParts[1].trim() : "Jan'25";
-
-            final bulletController = TextEditingController(text: descPart);
-
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.015),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Achievement #${aIdx + 1}',
-                          style: GoogleFonts.firaCode(
-                            color: const Color(0xFFCBE349),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() => _achievements.removeAt(aIdx));
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: bulletController,
-                      onChanged: (value) {
-                        final dateMap = _parseCertDate(datePart);
-                        final mShort = dateMap['month']!;
-                        final yShort = dateMap['year']!.substring(dateMap['year']!.length - 2);
-                        _achievements[aIdx] = "${value.trim()}|$mShort'$yShort";
-                      },
-                      decoration: InputDecoration(
-                        labelText: 'Achievement Details',
-                        labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
-                        suffixIcon: GestureDetector(
-                          onTap: () async {
-                            await _showAttachLinkDialog(bulletController);
-                            final dateMap = _parseCertDate(datePart);
-                            final mShort = dateMap['month']!;
-                            final yShort = dateMap['year']!.substring(dateMap['year']!.length - 2);
-                            setState(() {
-                              _achievements[aIdx] = "${bulletController.text.trim()}|$mShort'$yShort";
-                            });
-                          },
-                          child: Container(
-                            margin: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.04),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.link_rounded, color: Color(0xFFCBE349), size: 14),
-                          ),
-                        ),
-                        filled: true,
-                        fillColor: Colors.white.withValues(alpha: 0.015),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-                          borderRadius: const BorderRadius.all(Radius.circular(12)),
-                        ),
-                        focusedBorder: const OutlineInputBorder(
-                          borderSide: BorderSide(color: Color(0xFF723FFD)),
-                          borderRadius: BorderRadius.all(Radius.circular(12)),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-                    ),
-                    const SizedBox(height: 12),
-                    
-                    // Month/Year dropdown row for Achievement:
-                    const Text(
-                      'Date Earned / Achieved',
-                      style: TextStyle(color: Colors.white54, fontSize: 13, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Builder(
-                      builder: (context) {
-                        final dateMap = _parseCertDate(datePart);
-                        final String currentMonth = dateMap['month']!;
-                        final String currentYear = dateMap['year']!;
-                        
-                        const shortMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-                        final years = List.generate(21, (index) => (2015 + index).toString());
-                        
-                        final String selectedMonth = shortMonths.contains(currentMonth) ? currentMonth : 'Jan';
-                        final String selectedYear = years.contains(currentYear) ? currentYear : '2025';
-
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: Theme(
-                                data: Theme.of(context).copyWith(
-                                  canvasColor: const Color(0xFF0C0B10),
-                                ),
-                                child: DropdownButtonFormField<String>(
-                                  dropdownColor: const Color(0xFF0C0B10),
-                                  value: selectedMonth,
-                                  style: const TextStyle(color: Colors.white, fontSize: 15),
-                                  decoration: InputDecoration(
-                                    labelText: 'Month',
-                                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-                                    floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
-                                    filled: true,
-                                    fillColor: Colors.white.withValues(alpha: 0.03),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  items: shortMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      final String yrShort = selectedYear.substring(selectedYear.length - 2);
-                                      setState(() {
-                                        _achievements[aIdx] = "${bulletController.text.trim()}|$val'$yrShort";
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Theme(
-                                data: Theme.of(context).copyWith(
-                                  canvasColor: const Color(0xFF0C0B10),
-                                ),
-                                child: DropdownButtonFormField<String>(
-                                  dropdownColor: const Color(0xFF0C0B10),
-                                  value: selectedYear,
-                                  style: const TextStyle(color: Colors.white, fontSize: 15),
-                                  decoration: InputDecoration(
-                                    labelText: 'Year',
-                                    labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-                                    floatingLabelStyle: const TextStyle(color: Color(0xFFCBE349), fontSize: 12),
-                                    filled: true,
-                                    fillColor: Colors.white.withValues(alpha: 0.03),
-                                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    focusedBorder: OutlineInputBorder(
-                                      borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                  items: years.map((y) => DropdownMenuItem(value: y, child: Text(y))).toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      final String yrShort = val.substring(val.length - 2);
-                                      setState(() {
-                                        _achievements[aIdx] = "${bulletController.text.trim()}|$selectedMonth'$yrShort";
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            TextButton.icon(
-              onPressed: () {
-                setState(() => _achievements.add("New Achievement|Jan'26"));
-              },
-              icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
-              label: Text(
-                'Add Achievement',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  color: const Color(0xFF723FFD),
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Achievements saved!'),
-                    duration: Duration(seconds: 1),
-                  ),
-                );
-              },
-              child: Text(
-                'Confirm Saved',
-                style: GoogleFonts.outfit(
-                  color: const Color(0xFFCBE349),
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ],
+      children: _buildAchievementsChildren(),
     );
   }
+
+
 
   Widget _buildResearchSection() {
     final projectsAsync = ref.watch(projectsProvider);
@@ -2476,318 +2976,7 @@ class _ResumeEditScreenState extends ConsumerState<ResumeEditScreen> {
     return _buildAccordionSection(
       title: 'Research Work',
       icon: Icons.science_rounded,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Show Research Section in Resume',
-              style: GoogleFonts.outfit(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-              ),
-            ),
-            Switch(
-              value: _showResearch,
-              activeThumbColor: const Color(0xFFCBE349),
-              activeTrackColor: const Color(0xFFCBE349).withValues(alpha: 0.3),
-              inactiveThumbColor: Colors.white70,
-              inactiveTrackColor: Colors.white10,
-              onChanged: (val) {
-                setState(() {
-                  _showResearch = val;
-                });
-              },
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        if (_showResearch) ...[
-          projectsAsync.when(
-            data: (allProjects) {
-              final availableResearch = allProjects.where((p) => p.isResearch).toList();
-              if (availableResearch.isEmpty) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'No research work items found in your profile. Please add them in the Project and Research Work screen.',
-                    style: GoogleFonts.outfit(color: Colors.white38, fontSize: 12),
-                  ),
-                );
-              }
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Select Research Work to include:',
-                    style: GoogleFonts.outfit(
-                      color: Colors.white60,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: availableResearch.map((res) {
-                      final isSelected = _research.any((r) => r.title == res.title);
-                      return GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            if (!isSelected) {
-                              _research.add(ResumeProject(
-                                title: res.title,
-                                technologies: const [],
-                                bullets: res.bulletPoints.take(3).toList(),
-                                githubUrl: res.duration, // use githubUrl to store duration
-                                liveUrl: '',
-                              ));
-                            } else {
-                              _research.removeWhere((r) => r.title == res.title);
-                            }
-                          });
-                        },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFF723FFD).withValues(alpha: 0.15)
-                                : Colors.white.withValues(alpha: 0.03),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected
-                                  ? const Color(0xFF723FFD)
-                                  : Colors.white.withValues(alpha: 0.08),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (isSelected) ...[
-                                const Icon(
-                                  Icons.check_rounded,
-                                  color: Color(0xFFCBE349),
-                                  size: 14,
-                                ),
-                                const SizedBox(width: 6),
-                              ],
-                              Text(
-                                res.title,
-                                style: GoogleFonts.outfit(
-                                  color: isSelected ? Colors.white : Colors.white60,
-                                  fontSize: 12,
-                                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, stack) => Text('Error loading research items: $err',
-                style: GoogleFonts.outfit(color: Colors.redAccent)),
-          ),
-          const SizedBox(height: 16),
-          if (_research.isNotEmpty) ...[
-            const Divider(color: Colors.white10, height: 1),
-            const SizedBox(height: 16),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: _research.length,
-              itemBuilder: (context, rIdx) {
-                final item = _research[rIdx];
-                final topicController = TextEditingController(text: item.title);
-                final durationController = TextEditingController(text: item.githubUrl);
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.015),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Research Item #${rIdx + 1}',
-                            style: GoogleFonts.firaCode(
-                              color: const Color(0xFFCBE349),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () {
-                              setState(() => _research.removeAt(rIdx));
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(Icons.delete_rounded, color: Color(0xFFEF4444), size: 14),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      _buildTextField(
-                        controller: topicController,
-                        label: 'Research Topic / Title',
-                        onChanged: (val) {
-                          _research[rIdx] = _research[rIdx].copyWith(title: val.trim());
-                        },
-                      ),
-                      _buildTextField(
-                        controller: durationController,
-                        label: 'Duration (e.g. Oct 2025 - Present)',
-                        onChanged: (val) {
-                          _research[rIdx] = _research[rIdx].copyWith(githubUrl: val.trim());
-                        },
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Research Description Bullets (Max 3)',
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          color: Colors.white70,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      ...List.generate(item.bullets.length, (bIdx) {
-                        final bulletController = TextEditingController(text: item.bullets[bIdx]);
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: bulletController,
-                                  onChanged: (value) {
-                                    final updatedBullets = List<String>.from(item.bullets);
-                                    updatedBullets[bIdx] = value;
-                                    _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
-                                  },
-                                  decoration: InputDecoration(
-                                    labelText: 'Bullet #${bIdx + 1}',
-                                    labelStyle: GoogleFonts.outfit(color: Colors.white38, fontSize: 13),
-                                    filled: true,
-                                    fillColor: Colors.white.withValues(alpha: 0.015),
-                                    enabledBorder: OutlineInputBorder(
-                                      borderSide:
-                                          BorderSide(color: Colors.white.withValues(alpha: 0.06)),
-                                      borderRadius: const BorderRadius.all(Radius.circular(12)),
-                                    ),
-                                    focusedBorder: const OutlineInputBorder(
-                                      borderSide: BorderSide(color: Color(0xFF723FFD)),
-                                      borderRadius: BorderRadius.all(Radius.circular(12)),
-                                    ),
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                                  ),
-                                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 14),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              GestureDetector(
-                                onTap: () {
-                                  final updatedBullets = List<String>.from(item.bullets)
-                                    ..removeAt(bIdx);
-                                  setState(() {
-                                    _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red.withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Icon(Icons.remove_circle_outline_rounded,
-                                      color: Color(0xFFEF4444), size: 14),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          if (item.bullets.length < 3)
-                            TextButton.icon(
-                              onPressed: () {
-                                final updatedBullets = List<String>.from(item.bullets)..add('');
-                                setState(() {
-                                  _research[rIdx] = _research[rIdx].copyWith(bullets: updatedBullets);
-                                });
-                              },
-                              icon: const Icon(Icons.add_rounded, size: 14, color: Color(0xFF723FFD)),
-                              label: Text(
-                                'Add Bullet',
-                                style: GoogleFonts.outfit(
-                                  fontSize: 12,
-                                  color: const Color(0xFF723FFD),
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            )
-                          else
-                            const SizedBox.shrink(),
-                          TextButton(
-                            onPressed: () {
-                              final topic = topicController.text.trim();
-                              final dur = durationController.text.trim();
-                              setState(() {
-                                _research[rIdx] = _research[rIdx].copyWith(
-                                  title: topic,
-                                  githubUrl: dur,
-                                );
-                              });
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Research details saved!'),
-                                  duration: Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                            child: Text(
-                              'Save Details',
-                              style: GoogleFonts.outfit(
-                                color: const Color(0xFFCBE349),
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ],
-        ],
-      ],
+      children: _buildResearchChildren(projectsAsync),
     );
   }
 }

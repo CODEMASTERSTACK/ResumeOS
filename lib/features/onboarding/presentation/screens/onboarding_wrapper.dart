@@ -1158,7 +1158,9 @@ class _BasicDetailsStep extends ConsumerStatefulWidget {
 class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _locationCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _stateCtrl = TextEditingController();
+  final _pincodeCtrl = TextEditingController();
   final _githubCtrl = TextEditingController();
   final _linkedinCtrl = TextEditingController();
   String _selectedGender = '';
@@ -1172,7 +1174,10 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
       if (user != null) {
         _nameCtrl.text = user.name;
         _phoneCtrl.text = user.phone;
-        _locationCtrl.text = user.location;
+        final locParts = _parseLocationParts(user.location);
+        _cityCtrl.text = locParts['city']!;
+        _stateCtrl.text = locParts['state']!;
+        _pincodeCtrl.text = locParts['pincode']!;
         _githubCtrl.text = user.githubUrl;
         _linkedinCtrl.text = user.linkedinUrl;
         _selectedGender = user.gender;
@@ -1185,7 +1190,9 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
-    _locationCtrl.dispose();
+    _cityCtrl.dispose();
+    _stateCtrl.dispose();
+    _pincodeCtrl.dispose();
     _githubCtrl.dispose();
     _linkedinCtrl.dispose();
     super.dispose();
@@ -1207,12 +1214,19 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
     final uid = ref.read(currentUserProvider)?.uid;
     if (uid == null) return;
 
+    final city = _cityCtrl.text.trim();
+    final state = _stateCtrl.text.trim();
+    final pincode = _pincodeCtrl.text.trim();
+    final capCity = city.isNotEmpty ? city[0].toUpperCase() + city.substring(1) : '';
+    final capState = state.isNotEmpty ? state[0].toUpperCase() + state.substring(1) : '';
+    final locationStr = city.isEmpty ? '' : '$capCity, $capState, $pincode';
+
     setState(() => _saving = true);
     try {
       await ref.read(profileRepositoryProvider).updateUser(uid, {
         'name': name,
         'phone': phone,
-        'location': _locationCtrl.text.trim(),
+        'location': locationStr,
         'githubUrl': _githubCtrl.text.trim(),
         'linkedinUrl': _linkedinCtrl.text.trim(),
         'gender': _selectedGender,
@@ -1396,10 +1410,24 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
         ),
         const SizedBox(height: 14),
         _buildStepField(
-          label: 'Location',
-          ctrl: _locationCtrl,
-          hint: 'San Francisco, CA',
+          label: 'City',
+          ctrl: _cityCtrl,
+          hint: 'San Francisco',
           icon: Icons.location_on_outlined,
+        ),
+        const SizedBox(height: 14),
+        _buildStepField(
+          label: 'State',
+          ctrl: _stateCtrl,
+          hint: 'CA',
+          icon: Icons.location_on_outlined,
+        ),
+        const SizedBox(height: 14),
+        _buildStepField(
+          label: 'Pincode',
+          ctrl: _pincodeCtrl,
+          hint: '94103',
+          icon: Icons.pin_drop_outlined,
         ),
         const SizedBox(height: 14),
         _buildStepField(
@@ -1455,6 +1483,34 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
         ),
       ],
     );
+  }
+
+  Map<String, String> _parseLocationParts(String locationStr) {
+    final parts = locationStr.split(',').map((s) => s.trim()).toList();
+    if (parts.length >= 3) {
+      return {
+        'city': parts[0],
+        'state': parts[1],
+        'pincode': parts[2],
+      };
+    } else if (parts.length == 2) {
+      return {
+        'city': parts[0],
+        'state': parts[1],
+        'pincode': '',
+      };
+    } else if (parts.length == 1) {
+      return {
+        'city': parts[0],
+        'state': '',
+        'pincode': '',
+      };
+    }
+    return {
+      'city': '',
+      'state': '',
+      'pincode': '',
+    };
   }
 }
 

@@ -131,7 +131,12 @@ class TermsScreen extends StatelessWidget {
                     'You agree not to use ResumeOS to generate fraudulent credentials, falsify work experience, impersonate other entities, or attempt to reverse-engineer or abuse the Cloudflare serverless gateway or underlying database systems.',
                   ),
 
-                  _buildSectionHeader('7. Limitation of Liability'),
+                  _buildSectionHeader('7. Age Restrictions & User Eligibility'),
+                  _buildSectionBody(
+                    'You must be at least 18 years of age (or 16 in select jurisdictions) to register for an account and use the ResumeOS services. By using the services, you represent and warrant that you meet these age requirements and have the legal capacity to enter into these Terms of Service. If you do not meet these requirements, you must immediately cease using the platform.',
+                  ),
+
+                  _buildSectionHeader('8. Limitation of Liability'),
                   _buildSectionBody(
                     'ResumeOS and its developers are provided "as is" without warranties of any kind. We are not liable for any employment outcomes, candidate rejections, resume parsing errors by external systems, or data loss arising from your use of this software.',
                   ),

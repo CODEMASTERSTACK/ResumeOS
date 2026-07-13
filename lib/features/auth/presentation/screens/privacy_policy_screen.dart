@@ -133,7 +133,12 @@ class PrivacyPolicyScreen extends StatelessWidget {
                     'ResumeOS respects user rights under GDPR and CCPA. You have the right to request access to your stored files, correct errors in your profile, or request complete deletion. You can fulfill these directly within the application settings.',
                   ),
 
-                  _buildSectionHeader('7. Changes to this Policy'),
+                  _buildSectionHeader('7. Age Restrictions & Children\'s Privacy'),
+                  _buildSectionBody(
+                    'Our application is designed exclusively for the adult workforce. In alignment with Google Sign-In and developer guidelines, individuals under the age of 18 (or 16 in select jurisdictions) are prohibited from creating accounts, accessing OAuth authentication, or using our resume builder and career enhancement suite. We do not knowingly collect personal information from minors. If we discover a minor has created an account, we will permanently delete it and all associated data immediately.',
+                  ),
+
+                  _buildSectionHeader('8. Changes to this Policy'),
                   _buildSectionBody(
                     'We may update this Privacy Policy as our features evolve. If significant changes occur, we will notify you inside the dashboard or via your registered email.',
                   ),

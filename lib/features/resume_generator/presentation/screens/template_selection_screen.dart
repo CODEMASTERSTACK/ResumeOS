@@ -15,6 +15,8 @@ import '../../../../features/projects/domain/entities/project_model.dart';
 import 'generate_screen.dart';
 import 'ai_analysis_screen.dart';
 import 'project_selection_screen.dart';
+import 'ai_resume_crafting_overlay.dart';
+import '../../../../features/dashboard/presentation/screens/dashboard_screen.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../shared/providers/firebase_providers.dart';
 import 'package:uuid/uuid.dart';
@@ -37,6 +39,17 @@ class TemplateSelectionScreen extends ConsumerStatefulWidget {
 class _TemplateSelectionScreenState
     extends ConsumerState<TemplateSelectionScreen> {
   bool _isGenerating = false;
+  String? _generatedResumeId;
+
+  List<String> _getSelectedProjectNames() {
+    final selectedIds = ref.read(selectedProjectIdsProvider);
+    final rankedProjects = ref.read(rankedProjectsProvider).valueOrNull ?? [];
+    return rankedProjects
+        .map((record) => record.$1)
+        .where((p) => selectedIds.contains(p.id))
+        .map((p) => p.title)
+        .toList();
+  }
 
   void _showPreview(BuildContext context, String imagePath, String title) {
     showDialog(
@@ -53,7 +66,10 @@ class _TemplateSelectionScreenState
     final uid = ref.read(currentUserProvider)?.uid;
     if (uid == null) return;
 
-    setState(() => _isGenerating = true);
+    setState(() {
+      _isGenerating = true;
+      _generatedResumeId = null;
+    });
 
     try {
       final jd = ref.read(jobDescriptionProvider);
@@ -123,6 +139,41 @@ class _TemplateSelectionScreenState
         }
       }
 
+      // Fetch user profile sub-collections early (experience)
+      final expSnap = await ref
+          .read(firestoreProvider)
+          .collection('users')
+          .doc(uid)
+          .collection('experience')
+          .get();
+
+      // Convert to serializable format for prompt context
+      final rawExperiences = expSnap.docs.map((doc) {
+        final m = doc.data();
+        final startMonth = m['startMonth'] as String? ?? '';
+        final startYear = m['startYear'] as String? ?? '';
+        final endMonth = m['endMonth'] as String? ?? '';
+        final endYear = m['endYear'] as String? ?? '';
+        final isCurrent = m['isCurrent'] as bool? ?? false;
+
+        String dur = '';
+        if (startMonth.isNotEmpty || startYear.isNotEmpty) {
+          dur = '$startMonth $startYear'.trim();
+          if (isCurrent) {
+            dur += ' - Present';
+          } else if (endMonth.isNotEmpty || endYear.isNotEmpty) {
+            dur += ' - $endMonth $endYear'.trim();
+          }
+        }
+
+        return {
+          'role': m['role'] as String? ?? '',
+          'company': m['company'] as String? ?? '',
+          'duration': dur,
+          'bullets': m['bullets'] != null ? List<String>.from(m['bullets'] as List) : <String>[],
+        };
+      }).toList();
+
       // AI: generate professional summary
       final summary = await ai.generateProfessionalSummary(
         candidateBackground: user.summary.trim().isNotEmpty
@@ -138,6 +189,8 @@ class _TemplateSelectionScreenState
             .take(8)
             .cast<String>()
             .toList(),
+        experiences: rawExperiences,
+        jobDescription: jd,
       );
 
       // Fetch user profile sub-collections
@@ -205,13 +258,7 @@ class _TemplateSelectionScreenState
         );
       }).toList();
 
-      final expSnap = await ref
-          .read(firestoreProvider)
-          .collection('users')
-          .doc(uid)
-          .collection('experience')
-          .get();
-      final experienceList = expSnap.docs.map((doc) {
+      final experienceList = await Future.wait(expSnap.docs.map((doc) async {
         final m = doc.data();
         final bulletsList = m['bullets'] != null
             ? List<String>.from(m['bullets'] as List)
@@ -220,6 +267,8 @@ class _TemplateSelectionScreenState
         final startYear = m['startYear'] as String? ?? '';
         final endMonth = m['endMonth'] as String? ?? '';
         final endYear = m['endYear'] as String? ?? '';
+        final certLink = m['certificateLink'] as String? ?? '';
+        final hasCert = certLink.trim().isNotEmpty;
 
         String dur = '';
         if (startMonth.isNotEmpty || startYear.isNotEmpty) {
@@ -231,13 +280,35 @@ class _TemplateSelectionScreenState
           }
         }
 
+        final targetRole = analysis.role.trim().isNotEmpty ? analysis.role : 'Software Developer';
+        
+        List<String> refinedBullets = bulletsList;
+        try {
+          refinedBullets = await ai.refineExperienceBullets(
+            role: m['role'] as String? ?? '',
+            company: m['company'] as String? ?? '',
+            rawBullets: bulletsList,
+            targetRole: targetRole,
+            keywords: analysis.allKeywords,
+            hasCertificateLink: hasCert,
+          );
+        } catch (e) {
+          debugPrint('Error refining experience bullets via AI: $e');
+        }
+
+        final finalBullets = List<String>.from(refinedBullets);
+        if (hasCert) {
+          finalBullets.add('Certificate Link: $certLink');
+        }
+
         return ResumeExperience(
           company: m['company'] as String? ?? '',
           role: m['role'] as String? ?? '',
           duration: dur,
-          bullets: bulletsList,
+          bullets: finalBullets,
+          certificateLink: certLink,
         );
-      }).toList();
+      }));
 
       final certsSnap = await ref
           .read(firestoreProvider)
@@ -315,9 +386,9 @@ class _TemplateSelectionScreenState
       });
 
       if (mounted) {
-        context.pushReplacement(
-          RouteNames.generatePreview.replaceAll(':resumeId', resumeId),
-        );
+        setState(() {
+          _generatedResumeId = resumeId;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -328,8 +399,12 @@ class _TemplateSelectionScreenState
           ),
         );
       }
-    } finally {
-      if (mounted) setState(() => _isGenerating = false);
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+          _generatedResumeId = null;
+        });
+      }
     }
   }
 
@@ -372,6 +447,7 @@ class _TemplateSelectionScreenState
   Widget build(BuildContext context) {
     final selected = ref.watch(selectedTemplateProvider);
     final screenHeight = MediaQuery.of(context).size.height;
+    final candidateName = ref.watch(userProfileProvider).valueOrNull?.name ?? '';
 
     return Scaffold(
       backgroundColor: const Color(0xFF07060F),
@@ -560,6 +636,28 @@ class _TemplateSelectionScreenState
               ],
             ),
           ),
+          if (_isGenerating)
+            AiResumeCraftingOverlay(
+              candidateName: candidateName,
+              jobRole: ref.read(jdAnalysisProvider).valueOrNull?.role ?? '',
+              keywords: ref.read(jdAnalysisProvider).valueOrNull?.allKeywords ?? [],
+              projectNames: _getSelectedProjectNames(),
+              templateName: selected.name,
+              isGenerating: _isGenerating,
+              isGenerationFinished: _generatedResumeId != null,
+              onComplete: () {
+                if (mounted && _generatedResumeId != null) {
+                  final rid = _generatedResumeId!;
+                  setState(() {
+                    _isGenerating = false;
+                    _generatedResumeId = null;
+                  });
+                  context.pushReplacement(
+                    RouteNames.generatePreview.replaceAll(':resumeId', rid),
+                  );
+                }
+              },
+            ),
         ],
       ),
     );
@@ -1012,14 +1110,14 @@ class _GenerateCTA extends StatelessWidget {
             ),
           ),
           child: GestureDetector(
-            onTap: onTap,
+            onTap: isGenerating ? null : onTap,
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 250),
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 17),
               decoration: BoxDecoration(
                 color: isGenerating
-                    ? Colors.white.withValues(alpha: 0.06)
+                    ? const Color(0xFFCBE349).withValues(alpha: 0.3)
                     : const Color(0xFFCBE349),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: isGenerating
@@ -1033,49 +1131,26 @@ class _GenerateCTA extends StatelessWidget {
                         ),
                       ],
               ),
-              child: isGenerating
-                  ? Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white.withValues(alpha: 0.5),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'AI is crafting your resume...',
-                          style: GoogleFonts.outfit(
-                            color: Colors.white38,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(
-                          Icons.auto_awesome_rounded,
-                          color: Color(0xFF07060F),
-                          size: 18,
-                        ),
-                        const SizedBox(width: 10),
-                        Text(
-                          AppStrings.generateNow,
-                          style: GoogleFonts.outfit(
-                            color: const Color(0xFF07060F),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.1,
-                          ),
-                        ),
-                      ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.auto_awesome_rounded,
+                    color: const Color(0xFF07060F).withValues(alpha: isGenerating ? 0.4 : 1.0),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    AppStrings.generateNow,
+                    style: GoogleFonts.outfit(
+                      color: const Color(0xFF07060F).withValues(alpha: isGenerating ? 0.4 : 1.0),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.1,
                     ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),

@@ -276,6 +276,11 @@ class AppTheme {
         circularTrackColor: AppColors.accentContainer,
       ),
 
+      // ── Text Selection (Cursor Color) ────────────────────
+      textSelectionTheme: const TextSelectionThemeData(
+        cursorColor: Colors.white,
+        selectionHandleColor: Colors.white,
+      ),
     );
   }
 }

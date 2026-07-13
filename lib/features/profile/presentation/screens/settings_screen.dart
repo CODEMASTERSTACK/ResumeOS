@@ -1,12 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../routes/route_names.dart';
+import 'about_screen.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -40,6 +38,42 @@ class SettingsScreen extends ConsumerWidget {
           children: [
             const Padding(
               padding: EdgeInsets.only(left: 4, bottom: 12),
+              child: Text(
+                'APP INFORMATION',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white30,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+            
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _buildSettingTile(
+                    context: context,
+                    icon: Icons.info_outline_rounded,
+                    iconColor: const Color(0xFF00D2FF),
+                    title: 'About ResumeOS',
+                    subtitle: 'Overview, core problems solved, and architecture',
+                    topic: 'about',
+                  ),
+                ],
+              ),
+            ),
+            
+            const SizedBox(height: 20),
+            
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 12, top: 4),
               child: Text(
                 'LEGAL & COMPLIANCE',
                 style: TextStyle(
@@ -291,7 +325,14 @@ class SettingsScreen extends ConsumerWidget {
       ),
       trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
       onTap: () {
-        if (topic == 'byok') {
+        if (topic == 'about') {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AboutScreen(),
+            ),
+          );
+        } else if (topic == 'byok') {
           Navigator.push(
             context,
             MaterialPageRoute(

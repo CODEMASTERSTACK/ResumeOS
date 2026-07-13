@@ -253,7 +253,7 @@ Strict Prompting Rules:
 3. **Context + Tech Stack + Outcome Formula**: Every bullet point must tell a complete, structured story. Weave the technologies, libraries, or tools used directly into the action.
    - Format: [Strong Action Verb] + [What you built/engineered/implemented using specific tech/tools] + [Why/Outcome].
    - Example: "Engineered a microcontroller-based node system using ESP32 and Arduino, integrating relay modules to automate hardware recovery and reduce system downtime."
-4. **Vocabulary & Keyword Alignment**: Rephrase the candidate's actual work using high-impact, professional, ATS-optimized vocabulary that aligns with the target role and naturally incorporates relevant keywords from the list above. Change the phrasing, not the facts (e.g. translate "wrote python code to read data" to "Developed automated Python scripts to parse and process datasets").
+4. **Vocabulary & Keyword Alignment**: Rephrase the candidate's actual work using high-impact, professional, ATS-optimized vocabulary that aligns with the target role and naturally incorporates relevant keywords from the list above. **Do NOT repeat verbs like "developed", "built", "implemented", "wrote", or "created" across multiple bullets or lines; ensure each bullet starts with a distinct, powerful technical action verb (e.g., use engineered, designed, orchestrated, spearheaded, architected, formulated, optimized, integrated)**. Change the phrasing, not the facts (e.g. translate "wrote python code to read data" to "Engineered automated Python scripts to parse and process datasets").
 5. **Translate Research into Hard Skills**: If the project represents academic research, translate the abstract theory into concrete technical application. Detail the engineering methodology, dataset parsing, and programming tools used (e.g. Python, Pandas, PyTorch).
 6. **Clean ATS Formatting**: Keep the language professional, direct, and human-designed. Do not use special formatting symbols, emojis, or vague corporate clichés ("Built a simple app", "Helped team do X").
 7. **No Fake Tech**: Never mention tools or tech stacks that are not explicitly relevant or listed in the inputs.
@@ -269,15 +269,63 @@ Return ONLY valid JSON with this exact structure:
 }`;
   }
 
+  if (action === 'refineExperienceBullets') {
+    const { role, company, rawBullets = [], targetRole, keywords = [], hasCertificateLink = false } = data;
+    if (!role || !company || !targetRole) {
+      throw new Error('Missing required fields for refineExperienceBullets');
+    }
+    const maxBullets = hasCertificateLink ? 2 : 3;
+    return `You are a Senior Product & Resume Designer with 15+ years of experience optimizing candidates for Tier-1 technology companies.
+Your task is to refine the raw work experience description/bullet points into exactly ${maxBullets} ATS-optimized professional resume bullet points.
+
+Target Role: ${targetRole}
+Candidate's Role at Company: ${role} at ${company}
+Raw Experience / Description:
+${rawBullets.map((b) => `- ${b}`).join('\n')}
+
+Keywords to naturally incorporate (crucial for passing ATS filters): ${keywords.slice(0, 10).join(', ')}
+
+Strict Prompting Rules:
+1. **Exactly ${maxBullets} Bullet Points**: You must generate exactly ${maxBullets} bullet points. No more, no less. (Since hasCertificateLink is ${hasCertificateLink}, generate exactly ${maxBullets} bullet points).
+2. **Absolute Authenticity & No Fictional Content**: Base the bullet points strictly on the user's raw input description. **NEVER fabricate fake features, metrics, business scale, or outcomes** that are not stated in the raw input. Do not make up achievements or numbers unless the user's input explicitly states that.
+3. **Context + Tech Stack + Outcome Formula**: Every bullet point must tell a complete, structured story. Weave the technologies, libraries, or tools used directly into the action.
+   - Format: [Strong Action Verb] + [What you built/engineered/implemented using specific tech/tools] + [Why/Outcome].
+4. **Vocabulary & Keyword Alignment**: Rephrase the candidate's actual work using high-impact, professional, ATS-optimized vocabulary that aligns with the target role and naturally incorporates relevant keywords from the list above. **Do NOT repeat verbs like "developed", "built", "implemented", "wrote", or "created" across multiple bullets or lines; ensure each bullet starts with a distinct, powerful technical action verb (e.g., use engineered, designed, orchestrated, spearheaded, architected, formulated, optimized, integrated)**.
+5. **Clean ATS Formatting**: Keep the language professional, direct, and human-designed. Do not use special formatting symbols, emojis, or vague corporate clichés.
+
+Return ONLY valid JSON with this exact structure:
+{
+  "bullets": [
+    "Bullet point 1 detailing technical execution and outcomes",
+    "Bullet point 2 detailing tech stack application and metrics"
+    \${maxBullets === 3 ? ',\n    "Bullet point 3 detailing additional system integration and results"' : ''}
+  ]
+}`;
+  }
+
   if (action === 'generateProfessionalSummary') {
-    const { candidateBackground, targetRole, keywords = [], topSkills = [] } = data;
+    const { candidateBackground, targetRole, keywords = [], topSkills = [], experiences = [], jobDescription = '' } = data;
     if (!candidateBackground || !targetRole) {
       throw new Error('Missing required fields for generateProfessionalSummary');
     }
+
+    let expText = '';
+    if (Array.isArray(experiences) && experiences.length > 0) {
+      expText = experiences.map((e) => {
+        const role = e.role || '';
+        const company = e.company || '';
+        const duration = e.duration || '';
+        const bullets = Array.isArray(e.bullets) ? e.bullets.join('; ') : '';
+        return `- ${role} at ${company} (${duration}): ${bullets}`;
+      }).join('\n');
+    }
+
     return `You are a professional ATS resume writer. Write an optimized professional summary for a resume.
 
 Target Role: ${targetRole}
+${jobDescription ? `Target Job Description:\n"""\n${jobDescription}\n"""\n` : ''}
 Candidate Background/Context: ${candidateBackground}
+${expText ? `Candidate Work Experience:\n${expText}\n` : ''}
 Key Skills to Naturally Highlight: ${topSkills.slice(0, 6).join(', ')}
 ATS Keywords to Naturally Incorporate: ${keywords.slice(0, 6).join(', ')}
 
@@ -286,16 +334,18 @@ Strict Guidelines:
 Things to Consider (The Do's):
 1. **Lead with Your Professional Identity**: Start strong by defining the candidate's professional identity and experience level. State the core focus right away (e.g., data engineering, full-stack development, AI/ML integration).
 2. **Highlight Your Core Stack**: Mention specific, high-demand technologies the candidate excels in. Specifically name the strongest tools (e.g., Flutter, Next.js, PySpark, etc.) rather than generic terms.
-3. **Showcase Quantifiable Achievements**: Whenever possible, point to the results of their work (e.g. optimized a data pipeline, launched an application serving a specific user base). Action-driven results are highly persuasive.
-4. **Tailor for the Target Role**: Emphasize technical skills and focus areas that directly align with the target role: ${targetRole}.
-5. **Keep it Concise**: Aim for exactly 3 to 5 sentences. Keep it easily skimmable.
+3. **Showcase Quantifiable Achievements**: Whenever possible, point to the results of their work based on the provided experience and projects. Action-driven results are highly persuasive.
+4. **Tailor for the Target Role**: Emphasize technical skills and focus areas that directly align with the target role and target Job Description.
+5. **Strictly Authenticity & Natural Voice (No AI Touch)**: Avoid standard AI clichés, buzzwords, or predictable templates (e.g. do NOT use "highly motivated", "results-driven", "proven track record", "passionate developer", "seeking to leverage", "adept at", "versatile"). Write in a direct, natural, and authentic tone that feels written by a seasoned professional.
+6. **Keep it Concise**: Aim for exactly 3 to 4 sentences (approximately 80-120 words). Keep it easily skimmable.
 
 Things to Avoid (The Don'ts):
-1. **Avoid First-Person Pronouns**: NEVER use first-person pronouns like "I", "me", "my", or "we". Write in active professional voice (e.g., "Developed an AI-driven travel platform..." instead of "I developed...").
+1. **Avoid First-Person Pronouns**: NEVER use first-person pronouns like "I", "me", "my", or "we". Write in active professional voice (e.g., "Developed an AI-driven travel platform..." instead of "I developed..."). Do not use third-person biography pronouns ("he", "she", "they").
 2. **Skip the Fluff and Clichés**: Avoid generic terms like "hard worker", "team player", "highly motivated", or "detail-oriented". Let projects and experiences demonstrate these traits.
 3. **Don't List Everything**: Do not turn the summary into a skills dump or list every single tool or library. Highlight only the primary core stack.
 4. **Avoid the Traditional "Objective Statement"**: Do not state what the candidate wants from the company. Focus entirely on the value and solutions they provide.
 5. **Don't Exaggerate**: Keep every claim professional, realistic, and strictly backed by their background.
+6. **Do NOT start the summary with the word 'Versatile'** or other generic, overused adjectives (e.g., do NOT write 'Versatile software engineer...', 'Dynamic professional...'). Lead directly with the concrete professional title and core expertise (e.g., 'Software Engineer with...', 'Frontend Developer specializing in...').
 
 Return ONLY valid JSON:
 {
@@ -377,6 +427,7 @@ Things to Avoid (The Don'ts):
 3. **Don't List Everything**: Do not turn the summary into a skills dump. Highlight only their primary core stack.
 4. **Avoid the Traditional "Objective Statement"**: Do not state what the candidate wants from the company. Focus entirely on the value and solutions they provide.
 5. **Don't Exaggerate**: Do not fabricate or exaggerate numbers, metrics, or experiences.
+6. **Do NOT start the summary with the word 'Versatile'** or other generic adjectives. Lead directly with the professional title (e.g., 'Software Engineer with...').
 
 Return ONLY valid JSON:
 {
@@ -1307,6 +1358,18 @@ export default {
         const customOpenRouterKey = request.headers.get('x-custom-openrouter-key') || '';
 
         const result = await generateAI(prompt, customGeminiKey, customOpenRouterKey, env);
+
+        // Post-process to remove leading "versatile" (and variations) from professional summaries
+        if (result && typeof result.summary === 'string' && (action === 'generateProfessionalSummary' || action === 'generateAuthenticSummary')) {
+          let s = result.summary.trim();
+          if (/^(?:as\s+a\s+|as\s+an\s+|a\s+|an\s+)?versatile\s+/i.test(s)) {
+            s = s.replace(/^(?:as\s+a\s+|as\s+an\s+|a\s+|an\s+)?versatile\s+/i, '');
+            if (s.length > 0) {
+              s = s.charAt(0).toUpperCase() + s.slice(1);
+            }
+          }
+          result.summary = s;
+        }
 
         return new Response(JSON.stringify(result), {
           status: 200,
