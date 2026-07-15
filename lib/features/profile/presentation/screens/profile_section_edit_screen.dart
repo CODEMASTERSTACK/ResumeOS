@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
+import '../../../../shared/widgets/custom_toast.dart';
 import '../../../../shared/providers/firebase_providers.dart';
 
 const List<String> _kMonths = [
@@ -450,8 +451,10 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving details: $e'), backgroundColor: AppColors.error),
+        CustomToast.show(
+          context,
+          message: 'Error saving details: $e',
+          type: ToastType.error,
         );
       }
     } finally {

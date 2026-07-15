@@ -7,6 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
+import '../../../../shared/widgets/custom_toast.dart';
 import 'ai_analysis_screen.dart';
 
 // Recommended skills list for category lookup
@@ -132,8 +133,10 @@ class _SkillPreferenceScreenState extends ConsumerState<SkillPreferenceScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to add skill: $e'), backgroundColor: AppColors.error),
+        CustomToast.show(
+          context,
+          message: 'Failed to add skill: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -153,8 +156,10 @@ class _SkillPreferenceScreenState extends ConsumerState<SkillPreferenceScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to remove skill: $e'), backgroundColor: AppColors.error),
+        CustomToast.show(
+          context,
+          message: 'Failed to remove skill: $e',
+          type: ToastType.error,
         );
       }
     }

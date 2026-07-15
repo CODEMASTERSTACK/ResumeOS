@@ -9,11 +9,9 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../routes/route_names.dart';
 import '../providers/auth_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../../../shared/utils/error_sanitizer.dart';
 
-// ── Mode provider ──────────────────────────────────────────
-enum _AuthMode { signIn, signUp }
-
-final _authModeProvider = StateProvider((_) => _AuthMode.signIn);
+// Restricting login to Google Sign-In only
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -27,22 +25,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   late AnimationController _ctrl;
   late Animation<double> _fade;
   late Animation<Offset> _slide;
-
-  // Form controllers
-  final _emailCtrl = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-
-  // Focus Nodes for Bear Animation
-  final _emailFocusNode = FocusNode();
-  final _passwordFocusNode = FocusNode();
-  final _nameFocusNode = FocusNode();
-
-  bool _obscure = true;
-  bool _showEmailForm = false; // Landing vs Email Form State
-  bool _coverEyes = false;
-  double _eyeShift = 0.0;
 
   // Timers and states for interactive bear high-five feature
   bool _askingForHighFive = false;
@@ -60,11 +42,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         .animate(_fade);
     _ctrl.forward();
 
-    // Listeners for Bear Animation
-    _emailFocusNode.addListener(_onEmailFocusChange);
-    _passwordFocusNode.addListener(_onPasswordFocusChange);
-    _emailCtrl.addListener(_onEmailTextChange);
-
     // Start high five prompt timer
     _startHighFiveTimer();
   }
@@ -72,53 +49,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   @override
   void dispose() {
     _ctrl.dispose();
-    _emailCtrl.dispose();
-    _passwordCtrl.dispose();
-    _nameCtrl.dispose();
-
-    _emailFocusNode.removeListener(_onEmailFocusChange);
-    _passwordFocusNode.removeListener(_onPasswordFocusChange);
-    _emailCtrl.removeListener(_onEmailTextChange);
-
-    _emailFocusNode.dispose();
-    _passwordFocusNode.dispose();
-    _nameFocusNode.dispose();
-
     _highFiveTimer?.cancel();
     _highFiveResetTimer?.cancel();
     super.dispose();
   }
 
-  void _onEmailFocusChange() {
-    setState(() {
-      if (_emailFocusNode.hasFocus) {
-        _coverEyes = false;
-        _onEmailTextChange();
-      } else {
-        _eyeShift = 0.0;
-      }
-    });
-  }
-
-  void _onPasswordFocusChange() {
-    setState(() {
-      _coverEyes = _passwordFocusNode.hasFocus;
-      if (_coverEyes) {
-        _askingForHighFive = false;
-        _highFiveTimer?.cancel();
-        _highFiveResetTimer?.cancel();
-      } else {
-        _startHighFiveTimer();
-      }
-    });
-  }
-
   void _startHighFiveTimer({bool isRepeat = false}) {
     _highFiveTimer?.cancel();
     _highFiveResetTimer?.cancel();
-    final delay = isRepeat ? const Duration(minutes: 3) : const Duration(seconds: 2);
+    final delay =
+        isRepeat ? const Duration(minutes: 3) : const Duration(seconds: 2);
     _highFiveTimer = Timer(delay, () {
-      if (mounted && !_highFiveClicked && !_coverEyes) {
+      if (mounted && !_highFiveClicked) {
         setState(() {
           _askingForHighFive = true;
         });
@@ -148,21 +90,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       if (mounted) {
         setState(() {
           _highFiveClicked = false;
-          _startHighFiveTimer(isRepeat: true); // Repeat in 3 minutes after successful click!
+          _startHighFiveTimer(
+              isRepeat: true); // Repeat in 3 minutes after successful click!
         });
       }
     });
-  }
-
-  void _onEmailTextChange() {
-    if (_emailFocusNode.hasFocus) {
-      final len = _emailCtrl.text.length;
-      setState(() {
-        // Shift pupil horizontally based on typed character count
-        // 15 is roughly the center character count for emails
-        _eyeShift = ((len.toDouble() - 15.0) / 12.0).clamp(-4.0, 4.0);
-      });
-    }
   }
 
   Future<void> _navigateOnSuccess() async {
@@ -197,18 +129,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   String _friendlyError(String raw) {
-    if (raw.contains('wrong-password') ||
-        raw.contains('invalid-credential')) {
+    if (raw.contains('wrong-password') || raw.contains('invalid-credential')) {
       return 'Incorrect email or password.';
     }
-    if (raw.contains('user-not-found')) return 'No account found with that email.';
-    if (raw.contains('email-already-in-use') || raw.contains('account-exists-with-different-credential')) {
+    if (raw.contains('user-not-found'))
+      return 'No account found with that email.';
+    if (raw.contains('email-already-in-use') ||
+        raw.contains('account-exists-with-different-credential')) {
       return 'An account already exists with this email using a different sign-in method. Try logging in with your password or Google, or delete the old user in the Firebase Console.';
     }
     if (raw.contains('weak-password')) {
       return 'Password must be at least 6 characters.';
     }
-    if (raw.contains('invalid-email')) return 'Please enter a valid email address.';
+    if (raw.contains('invalid-email'))
+      return 'Please enter a valid email address.';
     if (raw.contains('network')) return 'Network error. Check your connection.';
     if (raw.contains('cancelled') || raw.contains('aborted')) {
       return 'Sign in was cancelled.';
@@ -217,13 +151,14 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   void _showError(String msg) {
+    final sanitizedMsg = ErrorSanitizer.sanitize(msg);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             const Icon(Icons.error_outline, color: Colors.white, size: 18),
             const SizedBox(width: 10),
-            Expanded(child: Text(msg)),
+            Expanded(child: Text(sanitizedMsg)),
           ],
         ),
         backgroundColor: AppColors.error,
@@ -238,7 +173,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       SnackBar(
         content: Row(
           children: [
-            const Icon(Icons.check_circle_outline, color: Colors.white, size: 18),
+            const Icon(Icons.check_circle_outline,
+                color: Colors.white, size: 18),
             const SizedBox(width: 10),
             Expanded(child: Text(msg)),
           ],
@@ -255,42 +191,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _navigateOnSuccess();
   }
 
-  Future<void> _submitEmailForm() async {
-    if (!_formKey.currentState!.validate()) return;
-    final mode = ref.read(_authModeProvider);
-    if (mode == _AuthMode.signIn) {
-      await ref.read(authNotifierProvider.notifier).signInWithEmail(
-            _emailCtrl.text,
-            _passwordCtrl.text,
-          );
-      _navigateOnSuccess();
-    } else {
-      await ref.read(authNotifierProvider.notifier).createAccount(
-            _emailCtrl.text,
-            _passwordCtrl.text,
-            _nameCtrl.text,
-          );
-      if (!mounted) return;
-      final error = ref.read(authNotifierProvider).error;
-      if (error == null) {
-        context.go(RouteNames.onboarding);
-      } else {
-        _showError(_friendlyError(error.toString()));
-      }
-    }
-  }
-
-  void _forgotPassword() {
-    context.push(RouteNames.forgotPassword);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final mode = ref.watch(_authModeProvider);
     final authState = ref.watch(authNotifierProvider);
     final isLoading = authState.isLoading;
     final screenWidth = MediaQuery.of(context).size.width;
-
 
     return Theme(
       data: Theme.of(context).copyWith(
@@ -308,31 +213,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
               end: Alignment.bottomCenter,
               colors: [
                 Color(0xFFFCFAF7), // Soft premium warm top
-                Colors.white,       // Clean white base
+                Colors.white, // Clean white base
               ],
             ),
           ),
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                 child: FadeTransition(
                   opacity: _fade,
                   child: SlideTransition(
                     position: _slide,
                     child: Container(
                       width: screenWidth > 500 ? 450 : double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 32, vertical: 40),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(screenWidth > 500 ? 28 : 0),
+                        borderRadius:
+                            BorderRadius.circular(screenWidth > 500 ? 28 : 0),
                         border: screenWidth > 500
-                            ? Border.all(color: const Color(0xFFF3EFEA), width: 1.5)
+                            ? Border.all(
+                                color: const Color(0xFFF3EFEA), width: 1.5)
                             : null,
                         boxShadow: screenWidth > 500
                             ? [
                                 BoxShadow(
-                                  color: const Color(0xFF5A453A).withValues(alpha: 0.04),
+                                  color: const Color(0xFF5A453A)
+                                      .withValues(alpha: 0.04),
                                   blurRadius: 32,
                                   offset: const Offset(0, 12),
                                 ),
@@ -349,7 +259,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             style: GoogleFonts.playfairDisplay(
                               fontSize: 72,
                               fontWeight: FontWeight.w700,
-                              color: const Color(0xFF8B6B58), // Signature brand brown
+                              color: const Color(
+                                  0xFF8B6B58), // Signature brand brown
                               letterSpacing: -2,
                               height: 1.0,
                             ),
@@ -363,14 +274,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               fontSize: 24,
                               fontStyle: FontStyle.italic,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xFF5A453A), // Dark slate-brown
+                              color:
+                                  const Color(0xFF5A453A), // Dark slate-brown
                               letterSpacing: 0.5,
                             ),
                           ),
                           const SizedBox(height: 8),
-                          
+
                           Text(
-                            'ANALYSE. CREATE. ACE', // Fixed typo with parenthesis
+                            'ANALYSE. CREATE. ACE',
                             style: const TextStyle(
                               fontSize: 14,
                               color: Color(0xFF8B6B58),
@@ -382,26 +294,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                           // Interactive Bear Animation
                           _InteractiveBear(
-                            coverEyes: _coverEyes,
-                            eyeShift: _eyeShift,
-                            showHi: !_showEmailForm,
+                            coverEyes: false,
+                            eyeShift: 0.0,
+                            showHi: true,
                             askingForHighFive: _askingForHighFive,
                             highFiveClicked: _highFiveClicked,
                             onHighFiveTapped: _onHighFiveTapped,
                           ),
                           const SizedBox(height: 36),
 
-                          // Layout switcher based on Landing vs Form state
-                          AnimatedCrossFade(
-                            duration: const Duration(milliseconds: 300),
-                            firstCurve: Curves.easeInOut,
-                            secondCurve: Curves.easeInOut,
-                            crossFadeState: _showEmailForm
-                                ? CrossFadeState.showSecond
-                                : CrossFadeState.showFirst,
-                            firstChild: _buildLandingButtons(isLoading, mode),
-                            secondChild: _buildEmailForm(isLoading, mode),
-                          ),
+                          _buildLandingButtons(isLoading),
                         ],
                       ),
                     ),
@@ -416,49 +318,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   // SCREEN 1: Choose Auth Provider
-  Widget _buildLandingButtons(bool isLoading, _AuthMode mode) {
+  Widget _buildLandingButtons(bool isLoading) {
     return Column(
       children: [
-        // 1. Email Button (pill, brown)
-        _TapScaleButton(
-          onTap: () {
-            setState(() => _showEmailForm = true);
-          },
-          child: Container(
-            width: double.infinity,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFF8B6B58),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF8B6B58).withValues(alpha: 0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.email_rounded, color: Colors.white, size: 18),
-                SizedBox(width: 12),
-                Text(
-                  'CONTINUE WITH EMAIL',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // 2. Branded Google Button (pill, clean white with border and official branding)
+        // Branded Google Button (pill, clean white with border and official branding)
         _TapScaleButton(
           onTap: isLoading ? null : _signInWithGoogle,
           child: Container(
@@ -498,17 +361,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             ),
           ),
         ),
-        const SizedBox(height: 28),
-
-        // Sign In / Sign Up Mode toggle link
-        _ModeToggleLink(
-          mode: mode,
-          onToggle: () {
-            setState(() {
-              _showEmailForm = true;
-            });
-          },
-        ),
         const SizedBox(height: 36),
 
         // Active Legal Links
@@ -516,215 +368,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       ],
     );
   }
-
-  // SCREEN 2: Email & Password Form Inputs
-  Widget _buildEmailForm(bool isLoading, _AuthMode mode) {
-    return Column(
-      children: [
-        Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              if (mode == _AuthMode.signUp) ...[
-                _buildFormField(
-                  key: 'field_name',
-                  ctrl: _nameCtrl,
-                  focusNode: _nameFocusNode,
-                  hint: 'Name',
-                  icon: Icons.person_outline_rounded,
-                  validator: (v) => (v ?? '').isEmpty ? 'Name required' : null,
-                ),
-                const SizedBox(height: 12),
-              ],
-              _buildFormField(
-                key: 'field_email',
-                ctrl: _emailCtrl,
-                focusNode: _emailFocusNode,
-                hint: 'Email Address',
-                icon: Icons.email_outlined,
-                keyboardType: TextInputType.emailAddress,
-                validator: (v) {
-                  if ((v ?? '').isEmpty) return 'Email required';
-                  if (!v!.contains('@')) return 'Enter a valid email';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              _buildFormField(
-                key: 'field_password',
-                ctrl: _passwordCtrl,
-                focusNode: _passwordFocusNode,
-                hint: 'Password',
-                icon: Icons.vpn_key_outlined,
-                obscure: _obscure,
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                    color: Colors.grey.shade500,
-                    size: 18,
-                  ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                ),
-                validator: (v) {
-                  if ((v ?? '').isEmpty) return 'Password required';
-                  if (mode == _AuthMode.signUp && v!.length < 6) {
-                    return 'Minimum 6 characters';
-                  }
-                  return null;
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Primary Submit Button with spring scale
-        _TapScaleButton(
-          onTap: isLoading ? null : _submitEmailForm,
-          child: Container(
-            width: double.infinity,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFF8B6B58),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF8B6B58).withValues(alpha: 0.15),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Center(
-              child: isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : Text(
-                      mode == _AuthMode.signIn ? 'LOGIN WITH EMAIL' : 'CREATE ACCOUNT',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        if (mode == _AuthMode.signIn) ...[
-          // Forgot Password Link
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                'Forgot Password ? ',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
-              ),
-              GestureDetector(
-                onTap: _forgotPassword,
-                child: const Text(
-                  'Click Here',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF5A453A),
-                    fontWeight: FontWeight.w700,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-        ],
-
-        // Sign In / Sign Up Mode toggle link inside form
-        _ModeToggleLink(mode: mode),
-        const SizedBox(height: 24),
-
-        // Back to landing options link
-        GestureDetector(
-          onTap: () {
-            setState(() {
-              _showEmailForm = false;
-              _coverEyes = false;
-              _eyeShift = 0.0;
-            });
-            _emailFocusNode.unfocus();
-            _passwordFocusNode.unfocus();
-          },
-          child: const Text(
-            '← Other Login Options',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF8B6B58),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Helper widget to construct beautifully rounded inputs matching reference
-  Widget _buildFormField({
-    required String key,
-    required TextEditingController ctrl,
-    required FocusNode focusNode,
-    required String hint,
-    required IconData icon,
-    bool obscure = false,
-    Widget? suffixIcon,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    return TextFormField(
-      key: Key(key),
-      controller: ctrl,
-      focusNode: focusNode,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      validator: validator,
-      style: const TextStyle(fontSize: 13, color: Color(0xFF5A453A), fontWeight: FontWeight.w600),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w500),
-        prefixIcon: Icon(icon, size: 16, color: const Color(0xFF8B6B58)),
-        suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: const Color(0xFFFAF8F5), // Cleaner, softer warm cream color
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide.none,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: Color(0xFF8B6B58), width: 1.5),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: AppColors.error, width: 1.0),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: AppColors.error, width: 1.5),
-        ),
-      ),
-    );
-  }
 }
 
-// ── Interactive Bear Rendering ─────────────────────────────
-
+// Interactive Bear Rendering
 class _InteractiveBear extends StatefulWidget {
   final bool coverEyes;
   final double eyeShift;
@@ -770,7 +416,8 @@ class _InteractiveBearState extends State<_InteractiveBear>
       vsync: this,
     );
     _breathingAnim = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _breathingController, curve: Curves.easeInOutSine),
+      CurvedAnimation(
+          parent: _breathingController, curve: Curves.easeInOutSine),
     );
     _breathingController.repeat(reverse: true);
 
@@ -797,15 +444,18 @@ class _InteractiveBearState extends State<_InteractiveBear>
     );
     _clapAnim = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.08).chain(CurveTween(curve: Curves.easeOutBack)),
+        tween: Tween<double>(begin: 1.0, end: 1.08)
+            .chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 40,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.08, end: 0.96).chain(CurveTween(curve: Curves.easeInOut)),
+        tween: Tween<double>(begin: 1.08, end: 0.96)
+            .chain(CurveTween(curve: Curves.easeInOut)),
         weight: 30,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 0.96, end: 1.0).chain(CurveTween(curve: Curves.easeOutBack)),
+        tween: Tween<double>(begin: 0.96, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOutBack)),
         weight: 30,
       ),
     ]).animate(_clapController);
@@ -845,11 +495,13 @@ class _InteractiveBearState extends State<_InteractiveBear>
 
   @override
   Widget build(BuildContext context) {
-    final showBubble = widget.askingForHighFive || widget.highFiveClicked || widget.showHi;
+    final showBubble =
+        widget.askingForHighFive || widget.highFiveClicked || widget.showHi;
 
     return SizedBox(
       width: 200,
-      height: 230, // Increased to fully allocate vertical space and prevent overlap
+      height:
+          230, // Increased to fully allocate vertical space and prevent overlap
       child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
@@ -881,14 +533,17 @@ class _InteractiveBearState extends State<_InteractiveBear>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 18, vertical: 10),
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: const Color(0xFFE5D5C8), width: 1.5),
+                          border: Border.all(
+                              color: const Color(0xFFE5D5C8), width: 1.5),
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF5A453A).withValues(alpha: 0.08),
+                              color: const Color(0xFF5A453A)
+                                  .withValues(alpha: 0.08),
                               blurRadius: 12,
                               offset: const Offset(0, 4),
                             ),
@@ -897,7 +552,9 @@ class _InteractiveBearState extends State<_InteractiveBear>
                         child: Text(
                           widget.highFiveClicked
                               ? "Nice to meet you!\nLet's start your journey"
-                              : (widget.askingForHighFive ? "High Five! 🖐️" : "Hi! 👋"),
+                              : (widget.askingForHighFive
+                                  ? "High Five! 🖐️"
+                                  : "Hi! 👋"),
                           style: TextStyle(
                             color: const Color(0xFF5A453A),
                             fontWeight: FontWeight.w900,
@@ -967,7 +624,8 @@ class _InteractiveBearState extends State<_InteractiveBear>
                             bottomLeft: Radius.circular(16),
                             bottomRight: Radius.circular(16),
                           ),
-                          border: Border.all(color: const Color(0xFF70452E), width: 1.5),
+                          border: Border.all(
+                              color: const Color(0xFF70452E), width: 1.5),
                           boxShadow: [
                             BoxShadow(
                               color: Colors.black.withValues(alpha: 0.05),
@@ -999,7 +657,8 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                     topRight: Radius.circular(20),
                                   ),
                                   border: Border.all(
-                                    color: const Color(0xFFE5D5C8).withValues(alpha: 0.5),
+                                    color: const Color(0xFFE5D5C8)
+                                        .withValues(alpha: 0.5),
                                     width: 1.0,
                                   ),
                                 ),
@@ -1039,7 +698,9 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(17),
-                                    border: Border.all(color: const Color(0xFF70452E), width: 1.5),
+                                    border: Border.all(
+                                        color: const Color(0xFF70452E),
+                                        width: 1.5),
                                   ),
                                   child: Center(
                                     child: Container(
@@ -1079,7 +740,9 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                       ],
                                     ),
                                     borderRadius: BorderRadius.circular(17),
-                                    border: Border.all(color: const Color(0xFF70452E), width: 1.5),
+                                    border: Border.all(
+                                        color: const Color(0xFF70452E),
+                                        width: 1.5),
                                   ),
                                   child: Center(
                                     child: Container(
@@ -1121,7 +784,8 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                   bottomLeft: Radius.circular(24),
                                   bottomRight: Radius.circular(24),
                                 ),
-                                border: Border.all(color: const Color(0xFF70452E), width: 1.5),
+                                border: Border.all(
+                                    color: const Color(0xFF70452E), width: 1.5),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withValues(alpha: 0.05),
@@ -1146,7 +810,9 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                     bottomLeft: Radius.circular(6),
                                     topRight: Radius.circular(2),
                                   ),
-                                  border: Border.all(color: const Color(0xFF70452E), width: 1.0),
+                                  border: Border.all(
+                                      color: const Color(0xFF70452E),
+                                      width: 1.0),
                                 ),
                               ),
                             ),
@@ -1163,7 +829,9 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                     bottomLeft: Radius.circular(8),
                                     topRight: Radius.circular(4),
                                   ),
-                                  border: Border.all(color: const Color(0xFF70452E), width: 1.0),
+                                  border: Border.all(
+                                      color: const Color(0xFF70452E),
+                                      width: 1.0),
                                 ),
                               ),
                             ),
@@ -1236,10 +904,13 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                     ],
                                   ),
                                   borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(color: const Color(0xFFE5D5C8), width: 1.0),
+                                  border: Border.all(
+                                      color: const Color(0xFFE5D5C8),
+                                      width: 1.0),
                                 ),
                                 child: CustomPaint(
-                                  painter: _SnoutPainter(highFiveClicked: widget.highFiveClicked),
+                                  painter: _SnoutPainter(
+                                      highFiveClicked: widget.highFiveClicked),
                                 ),
                               ),
                             ),
@@ -1285,7 +956,7 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                 builder: (context, _) {
                                   double shiftX = widget.eyeShift;
                                   double shiftY = 0.0;
-                                  
+
                                   if (widget.coverEyes) {
                                     shiftX = 0.0;
                                   } else if (widget.askingForHighFive) {
@@ -1349,7 +1020,10 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                 decoration: BoxDecoration(
                                   gradient: RadialGradient(
                                     colors: [
-                                      Colors.pink.withValues(alpha: widget.highFiveClicked ? 0.65 : 0.35),
+                                      Colors.pink.withValues(
+                                          alpha: widget.highFiveClicked
+                                              ? 0.65
+                                              : 0.35),
                                       Colors.pink.withValues(alpha: 0.0),
                                     ],
                                   ),
@@ -1366,7 +1040,10 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                 decoration: BoxDecoration(
                                   gradient: RadialGradient(
                                     colors: [
-                                      Colors.pink.withValues(alpha: widget.highFiveClicked ? 0.65 : 0.35),
+                                      Colors.pink.withValues(
+                                          alpha: widget.highFiveClicked
+                                              ? 0.65
+                                              : 0.35),
                                       Colors.pink.withValues(alpha: 0.0),
                                     ],
                                   ),
@@ -1382,10 +1059,13 @@ class _InteractiveBearState extends State<_InteractiveBear>
                     AnimatedPositioned(
                       duration: const Duration(milliseconds: 350),
                       curve: Curves.easeInOutBack,
-                      bottom: widget.coverEyes ? 42 : -36, // Cozy resting at torso base!
+                      bottom: widget.coverEyes
+                          ? 42
+                          : -36, // Cozy resting at torso base!
                       left: widget.coverEyes ? 16 : 14,
                       child: TweenAnimationBuilder<double>(
-                        tween: Tween<double>(begin: 0.0, end: widget.coverEyes ? 0.15 : 0.0),
+                        tween: Tween<double>(
+                            begin: 0.0, end: widget.coverEyes ? 0.15 : 0.0),
                         duration: const Duration(milliseconds: 350),
                         curve: Curves.easeOut,
                         builder: (context, angle, child) {
@@ -1399,7 +1079,8 @@ class _InteractiveBearState extends State<_InteractiveBear>
                           width: 32,
                           height: 76,
                           child: CustomPaint(
-                            painter: _BearArmPainter(isLeft: true, isHighFiveActive: false),
+                            painter: _BearArmPainter(
+                                isLeft: true, isHighFiveActive: false),
                           ),
                         ),
                       ),
@@ -1411,10 +1092,16 @@ class _InteractiveBearState extends State<_InteractiveBear>
                       curve: Curves.easeInOutBack,
                       bottom: widget.coverEyes
                           ? 42
-                          : ((widget.askingForHighFive || widget.highFiveClicked) ? 48 : -36),
+                          : ((widget.askingForHighFive ||
+                                  widget.highFiveClicked)
+                              ? 48
+                              : -36),
                       right: widget.coverEyes
                           ? 16
-                          : ((widget.askingForHighFive || widget.highFiveClicked) ? -12 : 14),
+                          : ((widget.askingForHighFive ||
+                                  widget.highFiveClicked)
+                              ? -12
+                              : 14),
                       child: AnimatedBuilder(
                         animation: _waveAnim,
                         builder: (context, child) {
@@ -1433,7 +1120,8 @@ class _InteractiveBearState extends State<_InteractiveBear>
                           );
                         },
                         child: GestureDetector(
-                          onTap: (widget.askingForHighFive || widget.highFiveClicked)
+                          onTap: (widget.askingForHighFive ||
+                                  widget.highFiveClicked)
                               ? widget.onHighFiveTapped
                               : null,
                           behavior: HitTestBehavior.opaque,
@@ -1443,7 +1131,8 @@ class _InteractiveBearState extends State<_InteractiveBear>
                             child: CustomPaint(
                               painter: _BearArmPainter(
                                 isLeft: false,
-                                isHighFiveActive: widget.askingForHighFive || widget.highFiveClicked,
+                                isHighFiveActive: widget.askingForHighFive ||
+                                    widget.highFiveClicked,
                               ),
                             ),
                           ),
@@ -1500,7 +1189,8 @@ class _BearEyePainter extends CustomPainter {
     paint
       ..color = const Color(0xFFF7F3EE)
       ..style = PaintingStyle.fill;
-    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(size.width / 2));
+    final rrect =
+        RRect.fromRectAndRadius(rect, Radius.circular(size.width / 2));
     canvas.drawRRect(rrect, paint);
 
     // Subtle inner shadow for eye depth
@@ -1515,11 +1205,12 @@ class _BearEyePainter extends CustomPainter {
     if (blinkProgress < 0.85) {
       final pupilWidth = size.width * 0.7;
       final pupilHeight = size.height * 0.75;
-      
+
       // Horizontal and vertical look gaze adjustment with clamping
       final pupilX = (size.width - pupilWidth) / 2 + eyeShift.clamp(-2.0, 2.0);
-      final pupilY = (size.height - pupilHeight) / 2 + eyeLookUp.clamp(-2.0, 2.0);
-      
+      final pupilY =
+          (size.height - pupilHeight) / 2 + eyeLookUp.clamp(-2.0, 2.0);
+
       final pupilRect = Rect.fromLTWH(pupilX, pupilY, pupilWidth, pupilHeight);
       paint.color = const Color(0xFF352219);
       canvas.drawRRect(
@@ -1535,20 +1226,21 @@ class _BearEyePainter extends CustomPainter {
     // 3. Draw Fur Eyelid (sliding down from top based on blinkProgress)
     if (blinkProgress > 0.0) {
       paint.color = const Color(0xFF8A593D); // Matching brown fur
-      
+
       final lidHeight = size.height * blinkProgress;
       final lidRect = Rect.fromLTWH(0, 0, size.width, lidHeight);
-      
+
       canvas.save();
       canvas.clipRRect(rrect);
       canvas.drawRect(lidRect, paint);
-      
+
       // Eyelash dividing border line
       paint
         ..color = const Color(0xFF352219)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.8;
-      canvas.drawLine(Offset(0, lidHeight), Offset(size.width, lidHeight), paint);
+      canvas.drawLine(
+          Offset(0, lidHeight), Offset(size.width, lidHeight), paint);
       canvas.restore();
     }
   }
@@ -1577,8 +1269,10 @@ class _BearArmPainter extends CustomPainter {
 
     // Outer soft drop shadow for limb separation
     final shadowPath = Path()
-      ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(size.width / 2)));
-    canvas.drawShadow(shadowPath, Colors.black.withValues(alpha: 0.1), 3.0, true);
+      ..addRRect(
+          RRect.fromRectAndRadius(rect, Radius.circular(size.width / 2)));
+    canvas.drawShadow(
+        shadowPath, Colors.black.withValues(alpha: 0.1), 3.0, true);
 
     // 1. Draw fuzzy connection arm sleeve (linear gradient fur)
     paint.shader = const LinearGradient(
@@ -1589,8 +1283,9 @@ class _BearArmPainter extends CustomPainter {
         Color(0xFF8A593D),
       ],
     ).createShader(rect);
-    
-    final armRRect = RRect.fromRectAndRadius(rect, Radius.circular(size.width * 0.45));
+
+    final armRRect =
+        RRect.fromRectAndRadius(rect, Radius.circular(size.width * 0.45));
     canvas.drawRRect(armRRect, paint);
     paint.shader = null;
 
@@ -1619,7 +1314,7 @@ class _BearArmPainter extends CustomPainter {
         Color(0xFFFFB7B2),
       ],
     ).createShader(palmRect);
-    
+
     canvas.drawRRect(
       RRect.fromRectAndRadius(palmRect, Radius.circular(palmWidth * 0.45)),
       paint,
@@ -1633,11 +1328,14 @@ class _BearArmPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     // Left finger pad
-    canvas.drawCircle(Offset(size.width * 0.26, size.height * 0.1), fingerRadius, fingerPaint);
+    canvas.drawCircle(Offset(size.width * 0.26, size.height * 0.1),
+        fingerRadius, fingerPaint);
     // Middle finger pad (slightly taller)
-    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.07), fingerRadius * 1.15, fingerPaint);
+    canvas.drawCircle(Offset(size.width * 0.5, size.height * 0.07),
+        fingerRadius * 1.15, fingerPaint);
     // Right finger pad
-    canvas.drawCircle(Offset(size.width * 0.74, size.height * 0.1), fingerRadius, fingerPaint);
+    canvas.drawCircle(Offset(size.width * 0.74, size.height * 0.1),
+        fingerRadius, fingerPaint);
 
     // 4. Draw tiny cute organic claws at the top tip of each finger pad
     final clawPaint = Paint()
@@ -1665,7 +1363,8 @@ class _BearArmPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _BearArmPainter oldDelegate) {
-    return oldDelegate.isLeft != isLeft || oldDelegate.isHighFiveActive != isHighFiveActive;
+    return oldDelegate.isLeft != isLeft ||
+        oldDelegate.isHighFiveActive != isHighFiveActive;
   }
 }
 
@@ -1788,7 +1487,8 @@ class _SnoutPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
 
     // Small vertical divider
-    canvas.drawLine(Offset(size.width / 2, 16), Offset(size.width / 2, 21), linePaint);
+    canvas.drawLine(
+        Offset(size.width / 2, 16), Offset(size.width / 2, 21), linePaint);
 
     if (highFiveClicked) {
       // Adorable open happy mouth with tongue!
@@ -1836,7 +1536,7 @@ class _GooglePainter extends CustomPainter {
       ..isAntiAlias = true;
 
     final rect = Rect.fromCircle(center: c, radius: r);
-    
+
     // 1. Red Top Arc
     paint.color = const Color(0xFFEA4335);
     canvas.drawArc(rect, -2.4, 1.8, true, paint);
@@ -1852,7 +1552,7 @@ class _GooglePainter extends CustomPainter {
     // 4. Blue Right Arc & Horizontal Bar
     paint.color = const Color(0xFF4285F4);
     canvas.drawArc(rect, -0.6, 1.4, true, paint);
-    
+
     final barRect = Rect.fromLTWH(c.dx, c.dy - r * 0.2, r * 0.95, r * 0.4);
     canvas.drawRect(barRect, paint);
 
@@ -1871,50 +1571,6 @@ class _GooglePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_) => false;
-}
-
-
-// ── Mode Toggle Link ────────────────────────────────────────
-
-class _ModeToggleLink extends ConsumerWidget {
-  final _AuthMode mode;
-  final VoidCallback? onToggle;
-  const _ModeToggleLink({required this.mode, this.onToggle});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          mode == _AuthMode.signIn ? "Didn't have an account ? " : "Already have an account ? ",
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade500,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        GestureDetector(
-          onTap: () {
-            ref.read(_authModeProvider.notifier).state =
-                mode == _AuthMode.signIn ? _AuthMode.signUp : _AuthMode.signIn;
-            if (onToggle != null) {
-              onToggle!();
-            }
-          },
-          child: Text(
-            mode == _AuthMode.signIn ? 'Sign Up' : 'Sign In',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF5A453A),
-              fontWeight: FontWeight.w800,
-              decoration: TextDecoration.underline,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 // ── Legal Active Hyperlinks ─────────────────────────────────

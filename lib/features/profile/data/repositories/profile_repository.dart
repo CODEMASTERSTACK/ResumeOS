@@ -37,6 +37,40 @@ class ProfileRepository {
     }, SetOptions(merge: true));
   }
 
+  // ── Points History ────────────────────────────────────
+
+  Stream<List<Map<String, dynamic>>> watchPointsHistory(String uid) {
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('points_history')
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs
+            .map((d) => {...d.data(), 'id': d.id})
+            .toList());
+  }
+
+  Future<void> addPointsTransaction(
+    String uid, {
+    required String title,
+    required String description,
+    required double points,
+    required String type,
+  }) async {
+    await _db
+        .collection('users')
+        .doc(uid)
+        .collection('points_history')
+        .add({
+      'title': title,
+      'description': description,
+      'points': points,
+      'type': type,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   // ── Skills ────────────────────────────────────────────
 
   Stream<List<Map<String, dynamic>>> watchSkills(String uid) {

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
+import '../../../../shared/widgets/custom_toast.dart';
 
 const Map<String, List<String>> _kRecommendedSkills = {
   'Languages': [
@@ -74,8 +75,10 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error adding skill: $e'), backgroundColor: AppColors.error),
+        CustomToast.show(
+          context,
+          message: 'Error adding skill: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -96,8 +99,10 @@ class _ProfileSkillsEditScreenState extends ConsumerState<ProfileSkillsEditScree
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating skills: $e'), backgroundColor: AppColors.error),
+        CustomToast.show(
+          context,
+          message: 'Error updating skills: $e',
+          type: ToastType.error,
         );
       }
     }

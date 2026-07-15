@@ -10,6 +10,7 @@ import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/projects/data/repositories/project_repository.dart';
 import '../../../../features/projects/domain/entities/project_model.dart';
+import '../../../../shared/widgets/custom_toast.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
 import '../../../../features/dashboard/presentation/screens/dashboard_screen.dart'; // for userProfileProvider
 import '../../../../services/ai/gemini_service.dart';
@@ -144,8 +145,10 @@ class _ProfileSummaryAiEnhanceScreenState extends ConsumerState<ProfileSummaryAi
     } catch (e) {
       setState(() => _loadingData = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load profile context: $e'), backgroundColor: AppColors.error),
+        CustomToast.show(
+          context,
+          message: 'Failed to load profile context: $e',
+          type: ToastType.error,
         );
       }
     }
@@ -256,8 +259,10 @@ class _ProfileSummaryAiEnhanceScreenState extends ConsumerState<ProfileSummaryAi
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Generation failed: $e'), backgroundColor: AppColors.error),
+        CustomToast.show(
+          context,
+          message: 'Generation failed: $e',
+          type: ToastType.error,
         );
       }
       // Return to selection if failed
@@ -340,8 +345,10 @@ class _ProfileSummaryAiEnhanceScreenState extends ConsumerState<ProfileSummaryAi
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save summary: $e'), backgroundColor: AppColors.error),
+        CustomToast.show(
+          context,
+          message: 'Failed to save summary: $e',
+          type: ToastType.error,
         );
       }
     } finally {

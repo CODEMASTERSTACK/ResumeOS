@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../utils/error_sanitizer.dart';
 
 enum ToastType { success, error, info }
 
@@ -13,6 +14,7 @@ class CustomToast {
     Duration duration = const Duration(seconds: 4),
   }) {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final sanitizedMessage = type == ToastType.error ? ErrorSanitizer.sanitize(message) : message;
     
     // Clear any active SnackBars to prevent queuing delays
     scaffoldMessenger.hideCurrentSnackBar();
@@ -102,7 +104,7 @@ class CustomToast {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          message,
+                          sanitizedMessage,
                           style: GoogleFonts.outfit(
                             color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 12.5,

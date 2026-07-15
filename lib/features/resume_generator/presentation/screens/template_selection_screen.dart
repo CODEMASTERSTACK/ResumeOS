@@ -86,6 +86,16 @@ class _TemplateSelectionScreenState
           await ref.read(profileRepositoryProvider).getUser(uid);
       if (user == null) throw Exception('User profile not found');
 
+      if (user.points < 2.5) {
+        if (mounted) {
+          _showLowBalanceDialog();
+        }
+        setState(() {
+          _isGenerating = false;
+        });
+        return;
+      }
+
       // Fetch selected projects
       final List<ProjectModel> allProjects =
           await ref.read(projectRepositoryProvider).getAllProjects(uid);
@@ -361,28 +371,56 @@ class _TemplateSelectionScreenState
       final resumeText = _resumeToText(resumeData);
       final atsScore = _computeAtsScore(resumeText, analysis.allKeywords);
 
-      // Save to Firestore
+      // Save to Firestore and deduct points atomically
       final resumeId = const Uuid().v4();
-      await ref
-          .read(firestoreProvider)
-          .collection('users')
-          .doc(uid)
-          .collection('resumes')
-          .doc(resumeId)
-          .set({
-        'jobDescription': jd,
-        'jobRole': analysis.role,
-        'detectedKeywords': analysis.keywords,
-        'requiredSkills': analysis.requiredSkills,
-        'matchedProjectIds': selectedIds.toList(),
-        'matchPercentage': atsScore,
-        'generatedResumeData': resumeData.toJson(),
-        'templateUsed': template.name,
-        'atsScore': atsScore,
-        'missingKeywords':
-            _findMissingKeywords(resumeText, analysis.allKeywords),
-        'status': 'complete',
-        'createdAt': FieldValue.serverTimestamp(),
+      final userRef = ref.read(firestoreProvider).collection('users').doc(uid);
+      final resumeRef = userRef.collection('resumes').doc(resumeId);
+      final historyRef = userRef.collection('points_history').doc();
+
+      await ref.read(firestoreProvider).runTransaction((transaction) async {
+        final userSnapshot = await transaction.get(userRef);
+        if (!userSnapshot.exists) {
+          throw Exception('User profile not found');
+        }
+        
+        final userData = userSnapshot.data() as Map<String, dynamic>;
+        final currentPoints = (userData['points'] as num? ?? 10.0).toDouble();
+        
+        if (currentPoints < 2.5) {
+          throw Exception('Low balance');
+        }
+
+        // Deduct points
+        transaction.update(userRef, {
+          'points': currentPoints - 2.5,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        // Write transaction history log
+        transaction.set(historyRef, {
+          'title': 'AI Resume Generation',
+          'description': 'Generated resume for role: ${analysis.role}',
+          'points': -2.5,
+          'type': 'deduction',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Write resume
+        transaction.set(resumeRef, {
+          'jobDescription': jd,
+          'jobRole': analysis.role,
+          'detectedKeywords': analysis.keywords,
+          'requiredSkills': analysis.requiredSkills,
+          'matchedProjectIds': selectedIds.toList(),
+          'matchPercentage': atsScore,
+          'generatedResumeData': resumeData.toJson(),
+          'templateUsed': template.name,
+          'atsScore': atsScore,
+          'missingKeywords':
+              _findMissingKeywords(resumeText, analysis.allKeywords),
+          'status': 'complete',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
       });
 
       if (mounted) {
@@ -392,12 +430,17 @@ class _TemplateSelectionScreenState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Generation failed: ${e.toString()}'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        final errorMsg = e.toString();
+        if (errorMsg.contains('Low balance')) {
+          _showLowBalanceDialog();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Generation failed: ${e.toString()}'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
       }
       if (mounted) {
         setState(() {
@@ -658,6 +701,58 @@ class _TemplateSelectionScreenState
                 }
               },
             ),
+        ],
+      ),
+    );
+  }
+
+  void _showLowBalanceDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 28),
+            const SizedBox(width: 12),
+            Text(
+              'Low Balance',
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Generating a resume costs 2.5 points. Your current balance is insufficient.\n\nYou can claim weekly points in My Rewards or complete profile milestones to earn points.',
+          style: GoogleFonts.outfit(color: Colors.white70, fontSize: 14),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Close',
+              style: GoogleFonts.outfit(color: Colors.white38),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFCBE349),
+              foregroundColor: Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            onPressed: () {
+              Navigator.pop(context);
+              context.push('/profile/points');
+            },
+            child: Text(
+              'Go to Rewards',
+              style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+            ),
+          ),
         ],
       ),
     );

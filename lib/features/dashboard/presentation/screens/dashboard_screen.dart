@@ -489,7 +489,7 @@ class _PointsIndicatorWidgetState extends ConsumerState<_PointsIndicatorWidget>
   Widget build(BuildContext context) {
     final user = ref.watch(userProfileProvider).valueOrNull;
     final completionPercent = ref.watch(profileCompletionProvider).valueOrNull ?? 0;
-    final points = user?.points ?? 10;
+    final points = user?.points ?? 10.0;
     final claimed = user?.claimedMilestones ?? [];
 
     final canClaim50 = completionPercent > 50 && !claimed.contains('profile_50');
@@ -536,7 +536,7 @@ class _PointsIndicatorWidgetState extends ConsumerState<_PointsIndicatorWidget>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  '$points',
+                  points.toStringAsFixed(points % 1 == 0 ? 0 : 1),
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,

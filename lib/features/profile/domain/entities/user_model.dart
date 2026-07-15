@@ -19,8 +19,9 @@ class UserModel {
   final bool isEmailVerified;
   final String domainBackground;
   final String gender;
-  final int points;
+  final double points;
   final List<String> claimedMilestones;
+  final String lastClaimedSunday;
 
   const UserModel({
     required this.uid,
@@ -40,8 +41,9 @@ class UserModel {
     this.isEmailVerified = true,
     this.domainBackground = '',
     this.gender = '',
-    this.points = 10,
+    this.points = 10.0,
     this.claimedMilestones = const [],
+    this.lastClaimedSunday = '',
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -65,11 +67,12 @@ class UserModel {
         isEmailVerified: json['isEmailVerified'] as bool? ?? true,
         domainBackground: json['domainBackground'] as String? ?? '',
         gender: json['gender'] as String? ?? '',
-        points: json['points'] as int? ?? 10,
+        points: (json['points'] as num? ?? 10).toDouble(),
         claimedMilestones: (json['claimedMilestones'] as List<dynamic>?)
                 ?.map((e) => e as String)
                 .toList() ??
             const [],
+        lastClaimedSunday: json['lastClaimedSunday'] as String? ?? '',
       );
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -96,6 +99,7 @@ class UserModel {
         'gender': gender,
         'points': points,
         'claimedMilestones': claimedMilestones,
+        'lastClaimedSunday': lastClaimedSunday,
       };
 
   UserModel copyWith({
@@ -115,8 +119,9 @@ class UserModel {
     bool? isEmailVerified,
     String? domainBackground,
     String? gender,
-    int? points,
+    double? points,
     List<String>? claimedMilestones,
+    String? lastClaimedSunday,
   }) =>
       UserModel(
         uid: uid ?? this.uid,
@@ -138,6 +143,7 @@ class UserModel {
         gender: gender ?? this.gender,
         points: points ?? this.points,
         claimedMilestones: claimedMilestones ?? this.claimedMilestones,
+        lastClaimedSunday: lastClaimedSunday ?? this.lastClaimedSunday,
       );
 }
 
