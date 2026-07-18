@@ -631,13 +631,13 @@ class _AiResumeCraftingOverlayState extends State<AiResumeCraftingOverlay> {
 
                           // Glowing Laser Scanline (Repaint isolated for high performance)
                           if (_progress < 99.8)
-                            RepaintBoundary(
-                              child: AnimatedPositioned(
-                                duration: const Duration(milliseconds: 50),
-                                curve: Curves.easeInOut,
-                                top: _getLaserY(),
-                                left: 8,
-                                right: 8,
+                            AnimatedPositioned(
+                              duration: const Duration(milliseconds: 50),
+                              curve: Curves.easeInOut,
+                              top: _getLaserY(),
+                              left: 8,
+                              right: 8,
+                              child: RepaintBoundary(
                                 child: Stack(
                                   alignment: Alignment.centerRight,
                                   children: [

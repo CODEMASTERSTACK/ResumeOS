@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -531,7 +532,9 @@ class _PointsIndicatorWidgetState extends ConsumerState<_PointsIndicatorWidget>
               children: [
                 Icon(
                   Icons.monetization_on_rounded,
-                  color: isEligible ? const Color(0xFFFFD60A) : const Color(0xFFFFD60A).withValues(alpha: 0.8),
+                  color: points < 4
+                      ? const Color(0xFFE53935)
+                      : (isEligible ? const Color(0xFFFFD60A) : const Color(0xFFFFD60A).withValues(alpha: 0.8)),
                   size: 18,
                 ),
                 const SizedBox(width: 6),
@@ -563,8 +566,63 @@ class _GenerateHeroCard extends ConsumerStatefulWidget {
   ConsumerState<_GenerateHeroCard> createState() => _GenerateHeroCardState();
 }
 
-class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> {
+class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> with SingleTickerProviderStateMixin {
   bool _hovered = false;
+  late AnimationController _promptController;
+  late Animation<double> _animationCurve;
+  Timer? _animationTimer;
+  bool _isAnimationTriggered = false;
+
+  // Track animation only once per session
+  static bool _hasAnimatedThisSession = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _promptController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _animationCurve = CurvedAnimation(
+      parent: _promptController,
+      curve: Curves.easeInOutBack,
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationTimer?.cancel();
+    _promptController.dispose();
+    super.dispose();
+  }
+
+  void _startTimerIfNeeded(int completionPercent) {
+    if (_animationTimer == null && completionPercent < 80 && !_isAnimationTriggered && !_hasAnimatedThisSession) {
+      _animationTimer = Timer(const Duration(seconds: 5), () {
+        if (mounted) {
+          _hasAnimatedThisSession = true;
+          setState(() {
+            _isAnimationTriggered = true;
+          });
+          _promptController.forward().then((_) {
+            if (mounted) {
+              _animationTimer = Timer(const Duration(seconds: 5), () {
+                if (mounted) {
+                  _promptController.reverse().then((_) {
+                    if (mounted) {
+                      setState(() {
+                        _isAnimationTriggered = false;
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
+        }
+      });
+    }
+  }
 
   static const String _kGithubSvg = '''
 <svg viewBox="0 0 24 24">
@@ -745,6 +803,20 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> {
     final completionPercent = ref.watch(profileCompletionProvider).valueOrNull ?? 0;
     final resumesCount = ref.watch(resumesCountProvider).valueOrNull ?? 0;
 
+    final Color completionColor;
+    if (completionPercent < 60) {
+      completionColor = const Color(0xFFFF5B5C); // Premium soft red
+    } else if (completionPercent < 80) {
+      completionColor = const Color(0xFFF59E0B); // Amber / yellow
+    } else {
+      completionColor = const Color(0xFF10B981); // Emerald green for high completion (>= 80%)
+    }
+
+    _startTimerIfNeeded(completionPercent);
+
+    final fadeOutAnim = Tween<double>(begin: 1.0, end: 0.0).animate(_animationCurve);
+    final scaleOutAnim = Tween<double>(begin: 1.0, end: 0.0).animate(_animationCurve);
+
     final name = user?.name ?? 'Your name';
     final String title;
     if (user != null && user.domainBackground.isNotEmpty) {
@@ -775,7 +847,6 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
-        onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeOutCubic,
@@ -800,7 +871,7 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(27),
             child: SizedBox(
-              height: 335,
+              height: 342,
               child: Stack(
                 children: [
                   // 1. Top half landscape image
@@ -881,154 +952,374 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> {
                     top: 168,
                     left: 24,
                     right: 24,
-                    bottom: 20,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Name and Title Column
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              name,
-                              style: const TextStyle(
-                                color: Color(0xFF1E1C24),
-                                fontSize: 18,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.4,
+                    bottom: 12,
+                    child: Builder(
+                      builder: (context) {
+                        final Widget contactInfoWidget;
+                        if (user != null) {
+                          final baseContact = _buildContactInfo(user);
+                          if (_isAnimationTriggered) {
+                            contactInfoWidget = SizeTransition(
+                              sizeFactor: Tween<double>(begin: 1.0, end: 0.0).animate(_animationCurve),
+                              child: FadeTransition(
+                                opacity: Tween<double>(begin: 1.0, end: 0.0).animate(_animationCurve),
+                                child: baseContact,
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              title,
-                              style: const TextStyle(
-                                color: Color(0xFF8A8894),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
+                            );
+                          } else {
+                            contactInfoWidget = baseContact;
+                          }
+                        } else {
+                          contactInfoWidget = const SizedBox.shrink();
+                        }
+
+                        final Widget bottomRowWidget;
+                        if (!_isAnimationTriggered) {
+                          bottomRowWidget = Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Stats Section (Profile Completed + Resume Created)
+                              Flexible(
+                                child: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: Row(
+                                    children: [
+                                      // Profile Completed
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                '★ ',
+                                                style: TextStyle(
+                                                  color: completionColor,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                              Text(
+                                                '$completionPercent%',
+                                                style: TextStyle(
+                                                  color: completionColor,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            'profile completed',
+                                            style: TextStyle(
+                                              color: Color(0xFF8A8894),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+
+                                      // Vertical Divider
+                                      Container(
+                                        margin: const EdgeInsets.symmetric(horizontal: 10),
+                                        height: 28,
+                                        width: 1,
+                                        color: Colors.black.withValues(alpha: 0.08),
+                                      ),
+
+                                      // Resume Created
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            resumesCount.toString(),
+                                            style: const TextStyle(
+                                              color: Color(0xFF1E1C24),
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          const Text(
+                                            'resume created',
+                                            style: TextStyle(
+                                              color: Color(0xFF8A8894),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            if (user != null) _buildContactInfo(user),
-                          ],
-                        ),
+                              const SizedBox(width: 8),
 
-                        const Spacer(),
-
-                        // Bottom Row: Stats and Button
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            // Stats Section (Profile Completed + Resume Created)
-                            Flexible(
-                              child: FittedBox(
-                                fit: BoxFit.scaleDown,
-                                alignment: Alignment.centerLeft,
+                              // Design Resume Button
+                              GestureDetector(
+                                onTap: widget.onTap,
+                                behavior: HitTestBehavior.opaque,
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 200),
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF07060F), // Sleek black
+                                    borderRadius: BorderRadius.circular(30),
+                                    boxShadow: _hovered
+                                        ? [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.15),
+                                              blurRadius: 10,
+                                              offset: const Offset(0, 4),
+                                            ),
+                                          ]
+                                        : null,
+                                  ),
+                                  child: const Text(
+                                    'Design Resume',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        } else {
+                          bottomRowWidget = Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              // Stats Section (Profile Completed + Resume Created)
+                              Flexible(
                                 child: Row(
                                   children: [
                                     // Profile Completed
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            const Text(
-                                              '★ ',
-                                              style: TextStyle(
-                                                color: Color(0xFF1E1C24),
-                                                fontSize: 15,
-                                              ),
-                                            ),
-                                            Text(
-                                              '$completionPercent%',
-                                              style: const TextStyle(
-                                                color: Color(0xFF1E1C24),
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w800,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 2),
-                                        const Text(
-                                          'profile completed',
-                                          style: TextStyle(
-                                            color: Color(0xFF8A8894),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w500,
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          AnimatedBuilder(
+                                            animation: _animationCurve,
+                                            builder: (context, child) {
+                                              return Transform.scale(
+                                                scale: 1.0 + (1.2 * _animationCurve.value),
+                                                alignment: Alignment.bottomLeft,
+                                                child: FittedBox(
+                                                  fit: BoxFit.scaleDown,
+                                                  alignment: Alignment.centerLeft,
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Text(
+                                                        '★ ',
+                                                        style: TextStyle(
+                                                          color: completionColor,
+                                                          fontSize: 18,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '$completionPercent%',
+                                                        style: TextStyle(
+                                                          color: completionColor,
+                                                          fontSize: 20,
+                                                          fontWeight: FontWeight.w800,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              );
+                                            },
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(height: 6),
+                                          Stack(
+                                            children: [
+                                              FadeTransition(
+                                                opacity: fadeOutAnim,
+                                                child: SizeTransition(
+                                                  sizeFactor: fadeOutAnim,
+                                                  child: const SizedBox(
+                                                    height: 12,
+                                                    child: Text(
+                                                      'profile completed',
+                                                      style: TextStyle(
+                                                        color: Color(0xFF8A8894),
+                                                        fontSize: 10,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              FadeTransition(
+                                                opacity: _animationCurve,
+                                                child: SizeTransition(
+                                                  sizeFactor: _animationCurve,
+                                                  child: SizedBox(
+                                                    height: 18,
+                                                    child: FittedBox(
+                                                      fit: BoxFit.scaleDown,
+                                                      alignment: Alignment.centerLeft,
+                                                      child: Text(
+                                                        'Complete your profile to get best results',
+                                                        style: GoogleFonts.outfit(
+                                                          color: completionColor,
+                                                          fontSize: 14, // Clearly visible warning size
+                                                          fontWeight: FontWeight.w800,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
                                     ),
 
-                                    // Vertical Divider
-                                    Container(
-                                      margin: const EdgeInsets.symmetric(horizontal: 10),
-                                      height: 28,
-                                      width: 1,
-                                      color: Colors.black.withValues(alpha: 0.08),
-                                    ),
-
-                                    // Resume Created
-                                    Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          resumesCount.toString(),
-                                          style: const TextStyle(
-                                            color: Color(0xFF1E1C24),
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w800,
+                                    // Spacer & Divider & Resume count
+                                    SizeTransition(
+                                      axis: Axis.horizontal,
+                                      axisAlignment: -1.0,
+                                      sizeFactor: fadeOutAnim,
+                                      child: ScaleTransition(
+                                        scale: scaleOutAnim,
+                                        child: FadeTransition(
+                                          opacity: fadeOutAnim,
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Container(
+                                                margin: const EdgeInsets.symmetric(horizontal: 10),
+                                                height: 28,
+                                                width: 1,
+                                                color: Colors.black.withValues(alpha: 0.08),
+                                              ),
+                                              Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    resumesCount.toString(),
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF1E1C24),
+                                                      fontSize: 16,
+                                                      fontWeight: FontWeight.w800,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  const Text(
+                                                    'resume created',
+                                                    style: TextStyle(
+                                                      color: Color(0xFF8A8894),
+                                                      fontSize: 10,
+                                                      fontWeight: FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
-                                        const Text(
-                                          'resume created',
-                                          style: TextStyle(
-                                            color: Color(0xFF8A8894),
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
 
-                            // Design Resume Button
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 200),
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF07060F), // Sleek black
-                                borderRadius: BorderRadius.circular(30),
-                                boxShadow: _hovered
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(alpha: 0.15),
-                                          blurRadius: 10,
-                                          offset: const Offset(0, 4),
+                              // Design Resume Button
+                              SizeTransition(
+                                axis: Axis.horizontal,
+                                axisAlignment: 1.0,
+                                sizeFactor: fadeOutAnim,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const SizedBox(width: 8),
+                                    GestureDetector(
+                                      onTap: _promptController.value > 0.5 ? null : widget.onTap,
+                                      behavior: HitTestBehavior.opaque,
+                                      child: ScaleTransition(
+                                        scale: scaleOutAnim,
+                                        child: FadeTransition(
+                                          opacity: fadeOutAnim,
+                                          child: AnimatedContainer(
+                                            duration: const Duration(milliseconds: 200),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xFF07060F), // Sleek black
+                                              borderRadius: BorderRadius.circular(30),
+                                              boxShadow: _hovered
+                                                  ? [
+                                                      BoxShadow(
+                                                        color: Colors.black.withValues(alpha: 0.15),
+                                                        blurRadius: 10,
+                                                        offset: const Offset(0, 4),
+                                                      ),
+                                                    ]
+                                                  : null,
+                                            ),
+                                            child: const Text(
+                                              'Design Resume',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                      ]
-                                    : null,
-                              ),
-                              child: const Text(
-                                'Design Resume',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                            ],
+                          );
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  name,
+                                  style: const TextStyle(
+                                    color: Color(0xFF1E1C24),
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.4,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  title,
+                                  style: const TextStyle(
+                                    color: Color(0xFF8A8894),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                contactInfoWidget,
+                              ],
                             ),
+                            const Spacer(),
+                            bottomRowWidget,
                           ],
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
                 ],

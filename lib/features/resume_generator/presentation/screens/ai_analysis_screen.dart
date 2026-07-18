@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../../shared/utils/error_sanitizer.dart';
 import '../../../../features/projects/data/repositories/project_repository.dart';
 import '../../../../features/projects/domain/entities/project_model.dart';
 import '../../../../routes/route_names.dart';
@@ -1197,16 +1198,19 @@ class _ErrorState extends StatelessWidget {
             const Icon(Icons.error_outline_rounded, size: 40, color: Color(0xFFEF4444)),
             const SizedBox(height: 20),
             Text(
-              AppStrings.aiError,
+              ErrorSanitizer.sanitize(message),
               style: GoogleFonts.outfit(
                 color: Colors.white,
                 fontWeight: FontWeight.w700,
-                fontSize: 18,
+                fontSize: 16,
               ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
-              'Trying fallback AI provider...',
+              message.contains('Insufficient points') || message.contains('points')
+                  ? 'Earn or claim points in My Rewards tab'
+                  : 'Please check your internet connection or try again later.',
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.4),
                 fontSize: 13,

@@ -1,8 +1,25 @@
 class ErrorSanitizer {
   static String sanitize(String rawError) {
-    final lower = rawError.toLowerCase();
+    // Clean up typical exception wrappers first
+    String cleanError = rawError;
     
-    // Allow user-friendly auth errors to pass through
+    // Loop to strip nested wrappers if any
+    bool cleaned = true;
+    while (cleaned) {
+      cleaned = false;
+      if (cleanError.startsWith('Exception: ')) {
+        cleanError = cleanError.substring('Exception: '.length);
+        cleaned = true;
+      }
+      if (cleanError.startsWith('API Gateway error: ')) {
+        cleanError = cleanError.substring('API Gateway error: '.length);
+        cleaned = true;
+      }
+    }
+    
+    final lower = cleanError.toLowerCase();
+    
+    // Allow user-friendly auth and points errors to pass through
     if (lower.contains('incorrect email or password') ||
         lower.contains('password must be at least') ||
         lower.contains('valid email address') ||
@@ -11,11 +28,18 @@ class ErrorSanitizer {
         lower.contains('aborted') ||
         lower.contains('no account found') ||
         lower.contains('already exists') ||
-        lower.contains('passwords do not match')) {
-      return rawError;
+        lower.contains('passwords do not match') ||
+        lower.contains('insufficient points') ||
+        lower.contains('low balance') ||
+        lower.contains('points') ||
+        lower.contains('api gateway error') ||
+        lower.contains('ai generation failed') ||
+        lower.contains('gemini') ||
+        lower.contains('openrouter')) {
+      return cleanError;
     }
     
-    // Map system-level errors (Firebase, Firestore, Database, Socket, Server, etc.) to a general user-friendly message
+    // Map system-level errors (Firebase, Firestore, Database, gRPC, Socket, HTTP, etc.)
     if (lower.contains('firestore') ||
         lower.contains('firebase') ||
         lower.contains('grpc') ||
@@ -30,13 +54,13 @@ class ErrorSanitizer {
         lower.contains('failed-precondition') ||
         lower.contains('internal-error') ||
         lower.contains('failed to dispatch email') ||
-        rawError.contains('Exception:') || 
-        rawError.contains('FirebaseException') ||
-        rawError.contains('SocketException') ||
-        rawError.contains('HttpException')) {
+        cleanError.contains('Exception') || 
+        cleanError.contains('FirebaseException') ||
+        cleanError.contains('SocketException') ||
+        cleanError.contains('HttpException')) {
       return 'Something went wrong. Please check your connection and try again.';
     }
     
-    return rawError;
+    return cleanError;
   }
 }

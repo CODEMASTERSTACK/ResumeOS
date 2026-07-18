@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../shared/providers/firebase_providers.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../routes/route_names.dart';
 import 'about_screen.dart';
@@ -144,6 +147,44 @@ class SettingsScreen extends ConsumerWidget {
             ),
             
             const SizedBox(height: 20),
+            
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 12, top: 4),
+              child: Text(
+                'SUPPORT & FEEDBACK',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white30,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+            
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _buildSettingTile(
+                    context: context,
+                    icon: Icons.bug_report_outlined,
+                    iconColor: const Color(0xFFEF4444),
+                    title: 'Report an Issue',
+                    subtitle: 'Describe a bug or technical issue you encountered',
+                    topic: 'report_issue',
+                    onTapOverride: () => _showReportIssueDialog(context, ref),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            
             const Padding(
               padding: EdgeInsets.only(left: 4, bottom: 12, top: 8),
               child: Text(
@@ -294,6 +335,7 @@ class SettingsScreen extends ConsumerWidget {
     required String title,
     required String subtitle,
     required String topic,
+    VoidCallback? onTapOverride,
   }) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -324,7 +366,7 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
       trailing: const Icon(Icons.chevron_right_rounded, color: Colors.white24),
-      onTap: () {
+      onTap: onTapOverride ?? () {
         if (topic == 'about') {
           Navigator.push(
             context,
@@ -500,6 +542,274 @@ class SettingsScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  void _showReportIssueDialog(BuildContext parentContext, WidgetRef ref) {
+    final controller = TextEditingController();
+    showDialog(
+      context: parentContext,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (builderContext, setStateDialog) {
+            return AlertDialog(
+              scrollable: true,
+              backgroundColor: const Color(0xFF1E1E2E),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                children: [
+                  const Icon(Icons.bug_report_outlined, color: Color(0xFFEF4444), size: 24),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Report an Issue',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Please describe the bug or issue you encountered in detail. We appreciate your feedback!',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    maxLines: 5,
+                    style: GoogleFonts.outfit(color: Colors.white, fontSize: 13),
+                    decoration: InputDecoration(
+                      hintText: 'Enter details here...',
+                      hintStyle: GoogleFonts.outfit(color: Colors.white30, fontSize: 13),
+                      filled: true,
+                      fillColor: Colors.white.withValues(alpha: 0.03),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: const BorderSide(color: Color(0xFFCBE349)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: Text(
+                    'Cancel',
+                    style: GoogleFonts.outfit(color: Colors.white38),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFCBE349),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  onPressed: () async {
+                    final desc = controller.text.trim();
+                    if (desc.isEmpty) {
+                      ScaffoldMessenger.of(builderContext).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Please describe the issue before submitting.',
+                            style: GoogleFonts.outfit(),
+                          ),
+                          backgroundColor: const Color(0xFFEF4444),
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Close the input dialog using the dialog's context
+                    Navigator.pop(dialogContext);
+
+                    // Show checking limit snackbar using parentContext
+                    final scaffoldMessenger = ScaffoldMessenger.of(parentContext);
+                    scaffoldMessenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Verifying submission limits...',
+                          style: GoogleFonts.outfit(),
+                        ),
+                        backgroundColor: const Color(0xFF1E1C2B),
+                      ),
+                    );
+
+                    try {
+                      final uid = ref.read(currentUserProvider)?.uid;
+                      if (uid == null) {
+                        throw Exception('User is not authenticated');
+                      }
+
+                      // Rate limit check: max 3 reports within 5 days
+                      final fiveDaysAgo = DateTime.now().subtract(const Duration(days: 5));
+                      final recentReports = await ref
+                          .read(firestoreProvider)
+                          .collection('users')
+                          .doc(uid)
+                          .collection('reported_issues')
+                          .where('createdAt', isGreaterThanOrEqualTo: Timestamp.fromDate(fiveDaysAgo))
+                          .get();
+
+                      if (recentReports.docs.length >= 3) {
+                        scaffoldMessenger.clearSnackBars();
+                        if (parentContext.mounted) {
+                          showDialog(
+                            context: parentContext,
+                            builder: (limitCtx) => AlertDialog(
+                              backgroundColor: const Color(0xFF1E1E2E),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              title: Row(
+                                children: [
+                                  const Icon(Icons.warning_rounded, color: Color(0xFFFFCC00), size: 24),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    'Submission Limit Reached',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              content: Text(
+                                'You can report a maximum of 3 issues within a 5-day period to prevent spam. Please try again later.',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              actions: [
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color(0xFFCBE349),
+                                    foregroundColor: Colors.black,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  onPressed: () => Navigator.pop(limitCtx),
+                                  child: Text(
+                                    'OK',
+                                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+                        return;
+                      }
+
+                      // Show loading indicator / progress snackbar using parentContext
+                      scaffoldMessenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Reporting issue...',
+                            style: GoogleFonts.outfit(),
+                          ),
+                          backgroundColor: const Color(0xFF1E1C2B),
+                        ),
+                      );
+
+                      await ref
+                          .read(firestoreProvider)
+                          .collection('users')
+                          .doc(uid)
+                          .collection('reported_issues')
+                          .add({
+                        'description': desc,
+                        'createdAt': FieldValue.serverTimestamp(),
+                        'status': 'pending',
+                      });
+
+                      scaffoldMessenger.clearSnackBars();
+
+                      // Show success message using parentContext
+                      if (parentContext.mounted) {
+                        showDialog(
+                          context: parentContext,
+                          builder: (successContext) => AlertDialog(
+                            backgroundColor: const Color(0xFF1E1E2E),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            title: Row(
+                              children: [
+                                const Icon(Icons.check_circle_rounded, color: Color(0xFFCBE349), size: 24),
+                                const SizedBox(width: 10),
+                                Text(
+                                  'Issue Reported',
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            content: Text(
+                              "Your issue has been reported and we'll look forward to solving it in the meantime.",
+                              style: GoogleFonts.outfit(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
+                            ),
+                            actions: [
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFFCBE349),
+                                  foregroundColor: Colors.black,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                onPressed: () => Navigator.pop(successContext),
+                                child: Text(
+                                  'OK',
+                                  style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      scaffoldMessenger.clearSnackBars();
+                      if (parentContext.mounted) {
+                        ScaffoldMessenger.of(parentContext).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'Failed to report issue: $e',
+                              style: GoogleFonts.outfit(),
+                            ),
+                            backgroundColor: const Color(0xFFEF4444),
+                          ),
+                        );
+                      }
+                    }
+                  },
+                  child: Text(
+                    'Submit',
+                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 }
 
