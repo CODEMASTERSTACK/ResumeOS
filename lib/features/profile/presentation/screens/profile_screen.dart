@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_typography.dart';
@@ -159,6 +161,25 @@ class _ProfileContent extends ConsumerWidget {
         _ProfileSection(
           title: 'Professional Summary',
           icon: Icons.description_outlined,
+          headerTrailing: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(
+              onTap: () => _showSummaryInfoDialog(context),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.04),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+                ),
+                child: const Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: Colors.white38,
+                ),
+              ),
+            ),
+          ),
           child: _SummaryContent(user: user),
         ),
         const SizedBox(height: 12),
@@ -323,11 +344,13 @@ class _ProfileSection extends StatefulWidget {
   final String title;
   final IconData icon;
   final Widget child;
+  final Widget? headerTrailing;
 
   const _ProfileSection({
     required this.title,
     required this.icon,
     required this.child,
+    this.headerTrailing,
   });
 
   @override
@@ -379,6 +402,10 @@ class _ProfileSectionState extends State<_ProfileSection> {
                       ),
                     ),
                   ),
+                  if (widget.headerTrailing != null) ...[
+                    widget.headerTrailing!,
+                    const SizedBox(width: 8),
+                  ],
                   AnimatedRotation(
                     turns: _expanded ? 0 : -0.25,
                     duration: const Duration(milliseconds: 200),
@@ -506,20 +533,51 @@ class _SummaryContentState extends ConsumerState<_SummaryContent> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 8),
-        TextButton.icon(
-          onPressed: () => context.push('/profile/summary-enhance'),
-          icon: const Icon(Icons.auto_awesome_rounded, size: 14, color: Color(0xFFD26EAB)),
-          label: const Text(
-            'AI Enhance',
-            style: TextStyle(
-              color: Color(0xFFD26EAB),
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 44,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: const Color(0xFF0052D4).withValues(alpha: 0.3),
+              elevation: 4,
+              padding: EdgeInsets.zero,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            ),
+            onPressed: () => context.push('/profile/summary-enhance'),
+            child: Ink(
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF0052D4), Color(0xFF1E5FF5), Color(0xFF6FB1FC)],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(22),
+              ),
+              child: Container(
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'AI Enhance Summary',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(width: 8),
+                    Icon(Icons.auto_awesome_rounded, size: 15, color: Colors.white),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         Align(
           alignment: Alignment.centerLeft,
           child: _EditButton(
@@ -1365,6 +1423,875 @@ class _EditButton extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+void _showSummaryInfoDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => const _SummaryHelpDialog(),
+  );
+}
+
+class _SummaryHelpDialog extends StatelessWidget {
+  const _SummaryHelpDialog({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Dialog(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: _SummaryHelpDialogContent(),
+    );
+  }
+}
+
+class _SummaryHelpDialogContent extends StatefulWidget {
+  const _SummaryHelpDialogContent({super.key});
+
+  @override
+  State<_SummaryHelpDialogContent> createState() => _SummaryHelpDialogContentState();
+}
+
+class _SummaryHelpDialogContentState extends State<_SummaryHelpDialogContent> with TickerProviderStateMixin {
+  late PageController _pageController;
+  int _currentPage = 0;
+
+  // Animations for Slide 1
+  late AnimationController _pulseController;
+
+  // Animations for Slide 2
+  int _selectedSkillIndex = -1;
+  int _selectedProjectIndex = -1;
+  Timer? _slide2Timer;
+
+  // Animations for Slide 3
+  String _typedText = "";
+  Timer? _slide3Timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+    
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    _startSlide2Animation();
+    _startSlide3Animation();
+  }
+
+  void _startSlide2Animation() {
+    _slide2Timer?.cancel();
+    _slide2Timer = Timer.periodic(const Duration(milliseconds: 1000), (timer) {
+      if (!mounted) return;
+      setState(() {
+        if (_selectedSkillIndex < 2) {
+          _selectedSkillIndex++;
+        } else if (_selectedProjectIndex < 0) {
+          _selectedProjectIndex++;
+        } else {
+          // Reset
+          _selectedSkillIndex = -1;
+          _selectedProjectIndex = -1;
+        }
+      });
+    });
+  }
+
+  void _startSlide3Animation() {
+    const fullText = "Flutter Developer";
+    int charIndex = 0;
+    _slide3Timer?.cancel();
+    _slide3Timer = Timer.periodic(const Duration(milliseconds: 200), (timer) {
+      if (!mounted) return;
+      setState(() {
+        if (charIndex <= fullText.length) {
+          _typedText = fullText.substring(0, charIndex);
+          charIndex++;
+        } else {
+          if (charIndex > fullText.length + 5) {
+            charIndex = 0;
+            _typedText = "";
+          } else {
+            charIndex++;
+          }
+        }
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    _pulseController.dispose();
+    _slide2Timer?.cancel();
+    _slide3Timer?.cancel();
+    super.dispose();
+  }
+
+  Widget _buildSlide1Visual() {
+    return Container(
+      height: 160,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F0E16),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Container(
+              width: 240,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B1926),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(width: 80, height: 8, decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(4))),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF723FFD).withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Icon(Icons.edit_outlined, size: 10, color: Color(0xFF723FFD)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Container(width: 180, height: 6, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(3))),
+                  const SizedBox(height: 4),
+                  Container(width: 140, height: 6, decoration: BoxDecoration(color: Colors.white12, borderRadius: BorderRadius.circular(3))),
+                  const SizedBox(height: 12),
+                  AnimatedBuilder(
+                    animation: _pulseController,
+                    builder: (context, child) {
+                      final scale = 1.0 + (_pulseController.value * 0.05);
+                      final glow = _pulseController.value * 8.0;
+                      return Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          width: double.infinity,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF723FFD), Color(0xFF6FB1FC)],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF723FFD).withValues(alpha: 0.4),
+                                blurRadius: glow,
+                                spreadRadius: glow / 4,
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.auto_awesome_rounded, size: 12, color: Color(0xFFCBE349)),
+                              const SizedBox(width: 4),
+                              Text(
+                                'AI Enhance Summary',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSlide2Visual() {
+    final skills = ['Flutter', 'Firebase', 'Dart'];
+    final projects = ['E-Commerce App'];
+
+    return Container(
+      height: 160,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F0E16),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Highlight Key Experience',
+            style: GoogleFonts.outfit(color: Colors.white38, fontSize: 10, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: List.generate(skills.length, (index) {
+              final isSelected = index <= _selectedSkillIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF723FFD).withValues(alpha: 0.15) : const Color(0xFF1B1926),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF723FFD) : Colors.white.withValues(alpha: 0.08),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isSelected) ...[
+                      const Icon(Icons.check_circle_rounded, size: 10, color: Color(0xFFCBE349)),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      skills[index],
+                      style: GoogleFonts.outfit(
+                        color: isSelected ? Colors.white : Colors.white60,
+                        fontSize: 10.5,
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+          const SizedBox(height: 12),
+          Column(
+            children: List.generate(projects.length, (index) {
+              final isSelected = index <= _selectedProjectIndex;
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isSelected ? const Color(0xFF723FFD).withValues(alpha: 0.08) : const Color(0xFF1B1926),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isSelected ? const Color(0xFF723FFD).withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.05),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      isSelected ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                      size: 14,
+                      color: isSelected ? const Color(0xFFCBE349) : Colors.white30,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        projects[index],
+                        style: GoogleFonts.outfit(
+                          color: isSelected ? Colors.white : Colors.white60,
+                          fontSize: 11,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSlide3Visual() {
+    return Container(
+      height: 160,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F0E16),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      child: Center(
+        child: Container(
+          width: 240,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1B1926),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Target Job Role',
+                style: GoogleFonts.outfit(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Container(
+                height: 32,
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFF723FFD).withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  children: [
+                    Text(
+                      _typedText,
+                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                    ),
+                    Container(
+                      width: 1.5,
+                      height: 14,
+                      color: const Color(0xFFCBE349),
+                      margin: const EdgeInsets.only(left: 2),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                height: 28,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF723FFD),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Generate summary',
+                  style: GoogleFonts.outfit(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSlide4Visual() {
+    return Container(
+      height: 160,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F0E16),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.check_circle_rounded, size: 12, color: Color(0xFF10B981)),
+              const SizedBox(width: 6),
+              Text(
+                'ATS-Optimized Result',
+                style: GoogleFonts.outfit(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1B1926),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+              ),
+              child: RichText(
+                text: TextSpan(
+                  style: GoogleFonts.outfit(color: Colors.white70, fontSize: 10.5, height: 1.35),
+                  children: [
+                    const TextSpan(text: 'Results-driven '),
+                    TextSpan(
+                      text: 'Flutter Developer',
+                      style: GoogleFonts.outfit(color: const Color(0xFFCBE349), fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(text: ' with hands-on experience building '),
+                    TextSpan(
+                      text: 'E-Commerce Apps',
+                      style: GoogleFonts.outfit(color: const Color(0xFF6FB1FC), fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(text: ' and native components. Skilled in '),
+                    TextSpan(
+                      text: 'Firebase Integration',
+                      style: GoogleFonts.outfit(color: const Color(0xFF723FFD), fontWeight: FontWeight.bold),
+                    ),
+                    const TextSpan(text: ' and cross-platform architecture to deliver beautiful, responsive UIs.'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInstructionCard({required String title, required Widget richText}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.02),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.outfit(
+              color: const Color(0xFFCBE349), // Neon accent
+              fontSize: 14.5,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          richText,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPageContent(int index) {
+    switch (index) {
+      case 0:
+        return Column(
+          key: const ValueKey(0),
+          children: [
+            _buildSlide1Visual(),
+            const SizedBox(height: 16),
+            _buildInstructionCard(
+              title: "Step 1: Open AI Enhance",
+              richText: RichText(
+                text: TextSpan(
+                  style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13, height: 1.5),
+                  children: [
+                    const TextSpan(text: 'Go to your Profile screen, locate the Professional Summary section, and tap the Edit button '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.05),
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+                        ),
+                        child: const Icon(Icons.edit_outlined, size: 11, color: Colors.white),
+                      ),
+                    ),
+                    const TextSpan(text: '. In the editing screen, tap the '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF723FFD), Color(0xFF6FB1FC)]),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.auto_awesome_rounded, size: 8, color: Color(0xFFCBE349)),
+                            const SizedBox(width: 3),
+                            Text(
+                              'AI Enhance',
+                              style: GoogleFonts.outfit(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const TextSpan(text: ' button to launch the AI wizard.'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      case 1:
+        return Column(
+          key: const ValueKey(1),
+          children: [
+            _buildSlide2Visual(),
+            const SizedBox(height: 16),
+            _buildInstructionCard(
+              title: "Step 2: Select Highlights",
+              richText: RichText(
+                text: TextSpan(
+                  style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13, height: 1.5),
+                  children: [
+                    const TextSpan(text: 'Tick the key skills '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF723FFD).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFF723FFD), width: 0.5),
+                        ),
+                        child: Text('Skill', style: GoogleFonts.outfit(color: Colors.white, fontSize: 8)),
+                      ),
+                    ),
+                    const TextSpan(text: ' and projects '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: const Icon(Icons.check_box_rounded, size: 14, color: Color(0xFFCBE349)),
+                    ),
+                    const TextSpan(text: ' that you want to showcase. The AI will weave these specific technical highlights and achievements directly into your customized bio.'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      case 2:
+        return Column(
+          key: const ValueKey(2),
+          children: [
+            _buildSlide3Visual(),
+            const SizedBox(height: 16),
+            _buildInstructionCard(
+              title: "Step 3: Define Target Role",
+              richText: RichText(
+                text: TextSpan(
+                  style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13, height: 1.5),
+                  children: [
+                    const TextSpan(text: 'Enter your desired target job role (e.g., '),
+                    TextSpan(text: '"Flutter Developer"', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const TextSpan(text: ') in the input field '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: const Icon(Icons.keyboard_alt_outlined, size: 14, color: Colors.white54),
+                    ),
+                    const TextSpan(text: '. This helps the AI optimize keywords to pass applicant tracking systems (ATS). Then tap '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF723FFD),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text('Generate', style: GoogleFonts.outfit(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const TextSpan(text: '.'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      case 3:
+        return Column(
+          key: const ValueKey(3),
+          children: [
+            _buildSlide4Visual(),
+            const SizedBox(height: 16),
+            _buildInstructionCard(
+              title: "Step 4: Review & Save",
+              richText: RichText(
+                text: TextSpan(
+                  style: GoogleFonts.outfit(color: Colors.white70, fontSize: 13, height: 1.5),
+                  children: [
+                    const TextSpan(text: 'Read the generated summary '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: const Icon(Icons.article_outlined, size: 14, color: Color(0xFFCBE349)),
+                    ),
+                    const TextSpan(text: '. You can make manual tweaks directly to the text. Once satisfied, tap the '),
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [Color(0xFF723FFD), Color(0xFF6FB1FC)]),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_rounded, size: 8, color: Colors.white),
+                            const SizedBox(width: 3),
+                            Text('Save Changes', style: GoogleFonts.outfit(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const TextSpan(text: ' button to save it to your profile.'),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 400, maxHeight: 520),
+      decoration: BoxDecoration(
+        color: const Color(0xFF13111C),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF723FFD).withValues(alpha: 0.15),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  width: 1.0,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF723FFD).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome_rounded,
+                    color: Color(0xFFCBE349),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'AI Resume Guide',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Step ${_currentPage + 1} of 4',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white38,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close_rounded, color: Colors.white54, size: 20),
+                  onPressed: () => Navigator.of(context).pop(),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+
+          // PageView content
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              onPageChanged: (page) {
+                setState(() {
+                  _currentPage = page;
+                });
+              },
+              itemCount: 4,
+              itemBuilder: (context, index) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: _buildPageContent(index),
+                );
+              },
+            ),
+          ),
+
+          // Dots Indicator & Navigation buttons
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.05),
+                  width: 1.0,
+                ),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Dots indicator
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(4, (index) {
+                    final isActive = index == _currentPage;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
+                      width: isActive ? 16 : 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: isActive ? const Color(0xFFCBE349) : Colors.white24,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                    );
+                  }),
+                ),
+                const SizedBox(height: 16),
+                
+                // Action Buttons row
+                Row(
+                  children: [
+                    if (_currentPage > 0) ...[
+                      Expanded(
+                        child: SizedBox(
+                          height: 46,
+                          child: OutlinedButton(
+                            onPressed: () {
+                              _pageController.previousPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            },
+                            style: OutlinedButton.styleFrom(
+                              side: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                              foregroundColor: Colors.white70,
+                            ),
+                            child: Text(
+                              'Back',
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13.5),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      flex: 2,
+                      child: SizedBox(
+                        height: 46,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (_currentPage < 3) {
+                              _pageController.nextPage(
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeInOut,
+                              );
+                            } else {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: const Color(0xFF723FFD).withValues(alpha: 0.2),
+                            elevation: 4,
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF723FFD), Color(0xFF6FB1FC)],
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                              ),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Container(
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (_currentPage == 3) ...[
+                                    const Icon(Icons.check_rounded, color: Colors.white, size: 16),
+                                    const SizedBox(width: 6),
+                                  ],
+                                  Text(
+                                    _currentPage < 3 ? 'Next' : 'Got it',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 13.5,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

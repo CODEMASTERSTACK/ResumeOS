@@ -1,9 +1,28 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../utils/error_sanitizer.dart';
 
 enum ToastType { success, error, info }
+
+class ToastEvent {
+  final String message;
+  final ToastType type;
+  final String? title;
+  final Duration duration;
+  final DateTime timestamp;
+
+  ToastEvent({
+    required this.message,
+    required this.type,
+    this.title,
+    required this.duration,
+    required this.timestamp,
+  });
+}
+
+final toastEventProvider = StateProvider<ToastEvent?>((ref) => null);
 
 class CustomToast {
   static void show(
@@ -13,10 +32,30 @@ class CustomToast {
     String? title,
     Duration duration = const Duration(seconds: 4),
   }) {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
     final sanitizedMessage = type == ToastType.error ? ErrorSanitizer.sanitize(message) : message;
-    
-    // Clear any active SnackBars to prevent queuing delays
+
+    try {
+      final container = ProviderScope.containerOf(context);
+      container.read(toastEventProvider.notifier).state = ToastEvent(
+        message: sanitizedMessage,
+        type: type,
+        title: title,
+        duration: duration,
+        timestamp: DateTime.now(),
+      );
+    } catch (_) {
+      _showFallbackSnackBar(context, sanitizedMessage, type, title, duration);
+    }
+  }
+
+  static void _showFallbackSnackBar(
+    BuildContext context,
+    String message,
+    ToastType type,
+    String? title,
+    Duration duration,
+  ) {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     scaffoldMessenger.hideCurrentSnackBar();
 
     Color primaryColor;
@@ -104,7 +143,7 @@ class CustomToast {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          sanitizedMessage,
+                          message,
                           style: GoogleFonts.outfit(
                             color: Colors.white.withValues(alpha: 0.7),
                             fontSize: 12.5,

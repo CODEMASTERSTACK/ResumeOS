@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -163,7 +163,9 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
               children: [
                 Icon(Icons.stars_rounded, color: Color(0xFFCBE349)),
                 SizedBox(width: 8),
-                Text('Claimed weekly Sunday +5 Points successfully!'),
+                Expanded(
+                  child: Text('Claimed weekly Sunday +5 Points successfully!'),
+                ),
               ],
             ),
             backgroundColor: Color(0xFF1E1C2B),
@@ -234,7 +236,9 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
               children: [
                 Icon(Icons.stars_rounded, color: Color(0xFFCBE349)),
                 SizedBox(width: 8),
-                Text('Claimed +5 Points successfully!'),
+                Expanded(
+                  child: Text('Claimed +5 Points successfully!'),
+                ),
               ],
             ),
             backgroundColor: Color(0xFF1E1C2B),
@@ -423,7 +427,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -432,7 +436,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: GoogleFonts.outfit(
+                  style: TextStyle(
                     fontSize: 11,
                     color: Colors.white54,
                     fontWeight: FontWeight.w500,
@@ -442,41 +446,31 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
             ),
           ),
           const SizedBox(width: 8),
-          if (onTapAction != null)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFCBE349),
-                foregroundColor: Colors.black,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: onTapAction,
-              child: Text(
-                actionText,
-                style: GoogleFonts.outfit(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            )
-          else
-            Container(
+          GestureDetector(
+            onTap: onTapAction,
+            child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.04),
+                color: onTapAction != null
+                    ? const Color(0xFFCBE349)
+                    : Colors.white.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: onTapAction != null
+                      ? const Color(0xFFCBE349)
+                      : Colors.white.withValues(alpha: 0.08),
+                ),
               ),
               child: Text(
                 actionText,
-                style: GoogleFonts.outfit(
-                  color: Colors.white30,
+                style: TextStyle(
+                  color: onTapAction != null ? Colors.black : Colors.white30,
                   fontSize: 10,
                   fontWeight: FontWeight.w900,
                 ),
               ),
             ),
+          ),
         ],
       ),
     );
@@ -645,7 +639,10 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
           padding: const EdgeInsets.symmetric(vertical: 32),
           child: Text(
             'Failed to load history: $err',
-            style: GoogleFonts.outfit(color: Colors.redAccent, fontSize: 13),
+            style: TextStyle(
+              color: Colors.redAccent,
+              fontSize: 13,
+            ),
           ),
         ),
       ),
@@ -750,7 +747,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                       children: [
                         Text(
                           item['title'] as String,
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w800,
                             color: Colors.white,
@@ -759,7 +756,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                         const SizedBox(height: 4),
                         Text(
                           item['description'] as String,
-                          style: GoogleFonts.outfit(
+                          style: TextStyle(
                             fontSize: 11,
                             color: Colors.white54,
                             fontWeight: FontWeight.w500,
@@ -769,7 +766,7 @@ class _PointsScreenState extends ConsumerState<PointsScreen> {
                           const SizedBox(height: 4),
                           Text(
                             formattedDate,
-                            style: GoogleFonts.outfit(
+                            style: TextStyle(
                               fontSize: 9,
                               color: Colors.white30,
                               fontWeight: FontWeight.w400,
