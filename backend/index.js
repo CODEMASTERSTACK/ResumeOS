@@ -331,20 +331,20 @@ ATS Keywords to Naturally Incorporate: ${keywords.slice(0, 6).join(', ')}
 Strict Guidelines:
 
 Things to Consider (The Do's):
-1. **Lead with Your Professional Identity**: Start strong by defining the candidate's professional identity and experience level. State the core focus right away (e.g., data engineering, full-stack development, AI/ML integration).
-2. **Highlight Your Core Stack**: Mention specific, high-demand technologies the candidate excels in. Specifically name the strongest tools (e.g., Flutter, Next.js, PySpark, etc.) rather than generic terms.
-3. **Showcase Quantifiable Achievements**: Whenever possible, point to the results of their work based on the provided experience and projects. Action-driven results are highly persuasive.
-4. **Tailor for the Target Role**: Emphasize technical skills and focus areas that directly align with the target role and target Job Description.
-5. **Strictly Authenticity & Natural Voice (No AI Touch)**: Avoid standard AI clichés, buzzwords, or predictable templates (e.g. do NOT use "highly motivated", "results-driven", "proven track record", "passionate developer", "seeking to leverage", "adept at", "versatile"). Write in a direct, natural, and authentic tone that feels written by a seasoned professional.
+1. **Lead with Your Professional Identity**: Start strong by defining the candidate's professional identity and experience level. State the core focus right away (e.g., software engineering, sales management, product marketing, graphic design, depending on the candidate's field).
+2. **Highlight Core Skills & Tools**: Mention specific, high-impact methodologies, domains, or tools the candidate excels in. Specifically name key platforms, methodologies, or tools (e.g., React/Python for tech, HubSpot/CRM for sales, SEO/Google Analytics for marketing, Figma for design) rather than using generic descriptions.
+3. **Showcase Quantifiable Achievements**: Whenever possible, point to the results of their work based on the provided experience and projects (e.g., revenue generated, conversion rates improved, system latency reduced, projects completed). Action-driven results are highly persuasive.
+4. **Tailor for the Target Role**: Emphasize skills and focus areas that directly align with the target role and target Job Description.
+5. **Strictly Authenticity & Natural Voice (No AI Touch)**: Avoid standard AI clichés, buzzwords, or predictable templates (e.g. do NOT use "highly motivated", "results-driven", "proven track record", "passionate professional", "seeking to leverage", "adept at", "versatile"). Write in a direct, natural, and authentic tone that feels written by a seasoned professional.
 6. **Keep it Concise**: Aim for exactly 3 to 4 sentences (approximately 80-120 words). Keep it easily skimmable.
 
 Things to Avoid (The Don'ts):
-1. **Avoid First-Person Pronouns**: NEVER use first-person pronouns like "I", "me", "my", or "we". Write in active professional voice (e.g., "Developed an AI-driven travel platform..." instead of "I developed..."). Do not use third-person biography pronouns ("he", "she", "they").
+1. **Avoid First-Person Pronouns**: NEVER use first-person pronouns like "I", "me", "my", or "we". Write in active professional voice (e.g., "Led sales expansion...", "Designed marketing campaigns...", or "Developed backend systems..." instead of "I did..."). Do not use third-person biography pronouns ("he", "she", "they").
 2. **Skip the Fluff and Clichés**: Avoid generic terms like "hard worker", "team player", "highly motivated", or "detail-oriented". Let projects and experiences demonstrate these traits.
-3. **Don't List Everything**: Do not turn the summary into a skills dump or list every single tool or library. Highlight only the primary core stack.
+3. **Don't List Everything**: Do not turn the summary into a skills dump or list every single tool or library. Highlight only the primary core domain skills or stack.
 4. **Avoid the Traditional "Objective Statement"**: Do not state what the candidate wants from the company. Focus entirely on the value and solutions they provide.
 5. **Don't Exaggerate**: Keep every claim professional, realistic, and strictly backed by their background.
-6. **Do NOT start the summary with the word 'Versatile'** or other generic, overused adjectives (e.g., do NOT write 'Versatile software engineer...', 'Dynamic professional...'). Lead directly with the concrete professional title and core expertise (e.g., 'Software Engineer with...', 'Frontend Developer specializing in...').
+6. **Do NOT start the summary with the word 'Versatile'** or other generic, overused adjectives (e.g., do NOT write 'Versatile sales manager...', 'Dynamic professional...'). Lead directly with the concrete professional title and core expertise (e.g., 'Software Engineer with...', 'Sales Manager specializing in B2B client acquisition...', 'Marketing Specialist focused on...').
 
 Return ONLY valid JSON:
 {
@@ -414,19 +414,19 @@ ${achsList}
 Strict Guidelines:
 
 Things to Consider (The Do's):
-1. **Lead with Your Professional Identity**: Start strong by defining the candidate's professional identity and experience level. State the core focus right away (e.g., data engineering, full-stack development, AI/ML integration).
-2. **Highlight Your Core Stack**: Mention specific, high-demand technologies the candidate excels in. Specifically name their strongest tools (e.g., Flutter, Next.js, PySpark, etc.) rather than generic terms.
-3. **Showcase Quantifiable Achievements**: Point to the results of their work based on the provided experience and projects. Action-driven results are highly persuasive.
-4. **Tailor for the Target Role**: Emphasize technical skills and focus areas that directly align with the target role: ${currentRole}.
+1. **Lead with Your Professional Identity**: Start strong by defining the candidate's professional identity and experience level. State the core focus right away (e.g., software engineering, sales management, product marketing, financial analysis, depending on the candidate's field).
+2. **Highlight Core Skills & Tools**: Mention specific, high-impact methodologies, domains, or tools the candidate excels in. Name their strongest expertise and platforms (e.g., React/Python for tech, HubSpot/CRM for sales, SEO/Google Analytics for marketing, Figma for design) rather than generic terms.
+3. **Showcase Quantifiable Achievements**: Point to the results of their work based on the provided experience and projects (e.g., revenue growth, system performance, customer acquisition). Action-driven results are highly persuasive.
+4. **Tailor for the Target Role**: Emphasize skills and focus areas that directly align with the target role: ${currentRole}.
 5. **Keep it Concise**: Aim for exactly 3 to 5 sentences. Keep it easily skimmable.
 
 Things to Avoid (The Don'ts):
-1. **Avoid First-Person Pronouns**: NEVER use first-person pronouns like "I", "me", "my", or "we". Write in active professional voice (e.g., starting with the role name, like "Software engineer building..." or "Backend developer focusing on..."). Do not use third-person biography pronouns ("he", "she", "they").
+1. **Avoid First-Person Pronouns**: NEVER use first-person pronouns like "I", "me", "my", or "we". Write in active professional voice (e.g., starting with the role name, like "Software engineer building...", "Sales Director driving...", or "Marketing Coordinator executing..."). Do not use third-person biography pronouns ("he", "she", "they").
 2. **Skip the Fluff and Clichés**: Avoid generic terms like "hard worker", "team player", "highly motivated", "results-driven", or "detail-oriented". Let projects and experiences demonstrate these traits naturally.
-3. **Don't List Everything**: Do not turn the summary into a skills dump. Highlight only their primary core stack.
+3. **Don't List Everything**: Do not turn the summary into a skills dump. Highlight only their primary core skills, methodologies, or tools.
 4. **Avoid the Traditional "Objective Statement"**: Do not state what the candidate wants from the company. Focus entirely on the value and solutions they provide.
 5. **Don't Exaggerate**: Do not fabricate or exaggerate numbers, metrics, or experiences.
-6. **Do NOT start the summary with the word 'Versatile'** or other generic adjectives. Lead directly with the professional title (e.g., 'Software Engineer with...').
+6. **Do NOT start the summary with the word 'Versatile'** or other generic adjectives. Lead directly with the professional title (e.g., 'Software Engineer with...', 'Sales Manager with...', 'Marketing Specialist specializing in...').
 
 Return ONLY valid JSON:
 {

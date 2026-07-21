@@ -10,11 +10,86 @@ import '../../../dashboard/presentation/screens/dashboard_screen.dart';
 // ── Step index provider ────────────────────────────────────
 final onboardingStepProvider = StateProvider.autoDispose<int>((ref) => 0);
 
-class OnboardingWrapper extends ConsumerWidget {
+class OnboardingWrapper extends ConsumerStatefulWidget {
   const OnboardingWrapper({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OnboardingWrapper> createState() => _OnboardingWrapperState();
+}
+
+class _OnboardingWrapperState extends ConsumerState<OnboardingWrapper>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _transitionController;
+  late Animation<double> _bgColorAnimation;
+  late Animation<double> _contentOpacityAnimation;
+  late Animation<double> _contentScaleAnimation;
+  bool _isTransitioning = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _transitionController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    );
+
+    // Radial expansion animation (using a premium cubic curve)
+    _bgColorAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _transitionController,
+        curve: Curves.easeInOutCubic,
+      ),
+    );
+
+    // Content fade out (slightly offset to let the wave start first)
+    _contentOpacityAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(
+        parent: _transitionController,
+        curve: const Interval(0.2, 0.8, curve: Curves.easeInOut),
+      ),
+    );
+
+    // Content scale down (giving it a depth/zoom-out effect)
+    _contentScaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
+      CurvedAnimation(
+        parent: _transitionController,
+        curve: Curves.easeInOutCubic,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _transitionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _startDashboardTransition() async {
+    if (_isTransitioning) return;
+    setState(() {
+      _isTransitioning = true;
+    });
+
+    final uid = ref.read(currentUserProvider)?.uid;
+    if (uid != null) {
+      try {
+        await ref.read(profileRepositoryProvider).updateUser(uid, {
+          'onboardingComplete': true,
+        });
+      } catch (e) {
+        debugPrint('Error completing onboarding: $e');
+      }
+    }
+
+    await _transitionController.forward();
+
+    if (mounted) {
+      context.go(RouteNames.dashboard);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final step = ref.watch(onboardingStepProvider);
     final steps = [
@@ -24,198 +99,245 @@ class OnboardingWrapper extends ConsumerWidget {
       const _SkillsStep(),
       const _EducationStep(),
       const _SummaryStep(),
-      const _CompletionStep(),
+      _CompletionStep(
+        onGoToDashboard: _startDashboardTransition,
+      ),
     ];
 
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFFFCFAF7), // Soft premium warm top
-              Colors.white,       // Clean white base
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              // Top Header Bar containing Back button, Step progress indicator, Skip, and Logout button
-              Padding(
-                padding: const EdgeInsets.only(
-                    left: 24, right: 24, top: 12, bottom: 4),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        // Left Side: Step count and Back button
-                        if (step > 0 && step < steps.length - 1)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (step > 0) ...[
-                                GestureDetector(
-                                  onTap: () {
-                                    ref.read(onboardingStepProvider.notifier).state--;
-                                  },
-                                  child: MouseRegion(
-                                    cursor: SystemMouseCursors.click,
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0xFFFAF8F5),
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: const Color(0xFFE5D5C8).withValues(alpha: 0.5),
-                                          width: 1,
+      body: IgnorePointer(
+        ignoring: _isTransitioning,
+        child: AnimatedBuilder(
+          animation: _transitionController,
+          builder: (context, child) {
+            return Stack(
+              children: [
+                // 1. Original gradient background
+                Positioned.fill(
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFFFCFAF7),
+                          Colors.white,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                // 2. Home screen background radial transition overlay (premium motion graphics)
+                if (_isTransitioning)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: RadialGradient(
+                          center: Alignment.center,
+                          radius: _bgColorAnimation.value * 2.8,
+                          colors: [
+                            const Color(0xFF07060F), // Rich dark indigo base
+                            const Color(0xFF07060F),
+                            const Color(0xFF723FFD).withValues(alpha: 0.85), // Glowing purple leading edge
+                            const Color(0xFFEC53B0).withValues(alpha: 0.45), // Glowing magenta ring
+                            Colors.transparent,
+                          ],
+                          stops: const [0.0, 0.78, 0.88, 0.96, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                // 3. Fading and scaling onboarding content
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: _contentOpacityAnimation.value,
+                    child: Transform.scale(
+                      scale: _contentScaleAnimation.value,
+                      child: child,
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+          child: SafeArea(
+            child: Column(
+              children: [
+                // Top Header Bar containing Back button, Step progress indicator, Skip, and Logout button
+                Padding(
+                  padding: const EdgeInsets.only(
+                      left: 24, right: 24, top: 12, bottom: 4),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Left Side: Step count and Back button
+                          if (step > 0 && step < steps.length - 1)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (step > 0) ...[
+                                  GestureDetector(
+                                    onTap: () {
+                                      ref.read(onboardingStepProvider.notifier).state--;
+                                    },
+                                    child: MouseRegion(
+                                      cursor: SystemMouseCursors.click,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFAF8F5),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: const Color(0xFFE5D5C8).withValues(alpha: 0.5),
+                                            width: 1,
+                                          ),
                                         ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.arrow_back_ios_new_rounded,
-                                        size: 12,
-                                        color: Color(0xFF8B6B58),
+                                        child: const Icon(
+                                          Icons.arrow_back_ios_new_rounded,
+                                          size: 12,
+                                          color: Color(0xFF8B6B58),
+                                        ),
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
+                                ],
+                                Text(
+                                  'Step $step of ${steps.length - 2}',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF8B6B58),
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
-                                const SizedBox(width: 8),
                               ],
-                              Text(
-                                'Step $step of ${steps.length - 2}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF8B6B58),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          )
-                        else
-                          const SizedBox.shrink(),
+                            )
+                          else
+                            const SizedBox.shrink(),
 
-                        // Right Side: Skip button (if applicable) & Logout button
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (step > 2 && step < steps.length - 1) ...[
-                              TextButton(
-                                onPressed: () async {
-                                  final notifier = ref.read(onboardingStepProvider.notifier);
-                                  if (step == steps.length - 2) {
-                                    final uid = ref.read(currentUserProvider)?.uid;
-                                    if (uid != null) {
-                                      try {
-                                        await ref.read(profileRepositoryProvider).updateUser(uid, {
-                                          'onboardingComplete': true,
-                                        });
-                                      } catch (e) {
-                                        debugPrint('Error updating onboardingComplete: $e');
+                          // Right Side: Skip button (if applicable) & Logout button
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (step > 2 && step < steps.length - 1) ...[
+                                TextButton(
+                                  onPressed: () async {
+                                    final notifier = ref.read(onboardingStepProvider.notifier);
+                                    if (step == steps.length - 2) {
+                                      final uid = ref.read(currentUserProvider)?.uid;
+                                      if (uid != null) {
+                                        try {
+                                          await ref.read(profileRepositoryProvider).updateUser(uid, {
+                                            'onboardingComplete': true,
+                                          });
+                                        } catch (e) {
+                                          debugPrint('Error updating onboardingComplete: $e');
+                                        }
                                       }
                                     }
+                                    notifier.state++;
+                                  },
+                                  child: const Text(
+                                    'Skip',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFF8B6B58),
+                                      fontWeight: FontWeight.w700,
+                                      decoration: TextDecoration.underline,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                              ],
+                              
+                              // Logout Button
+                              TextButton.icon(
+                                onPressed: () async {
+                                  await ref.read(authNotifierProvider.notifier).signOut();
+                                  if (context.mounted) {
+                                    context.go(RouteNames.login);
                                   }
-                                  notifier.state++;
                                 },
-                                child: const Text(
-                                  'Skip',
+                                icon: const Icon(
+                                  Icons.logout_rounded,
+                                  size: 14,
+                                  color: Color(0xFF8B6B58),
+                                ),
+                                label: const Text(
+                                  'Logout',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Color(0xFF8B6B58),
                                     fontWeight: FontWeight.w700,
-                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  backgroundColor: const Color(0xFFFAF8F5),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(
+                                      color: const Color(0xFFE5D5C8).withValues(alpha: 0.5),
+                                    ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 12),
                             ],
-                            
-                            // Logout Button
-                            TextButton.icon(
-                              onPressed: () async {
-                                await ref.read(authNotifierProvider.notifier).signOut();
-                                if (context.mounted) {
-                                  context.go(RouteNames.login);
-                                }
-                              },
-                              icon: const Icon(
-                                Icons.logout_rounded,
-                                size: 14,
-                                color: Color(0xFF8B6B58),
-                              ),
-                              label: const Text(
-                                'Logout',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF8B6B58),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                minimumSize: Size.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                backgroundColor: const Color(0xFFFAF8F5),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(
-                                    color: const Color(0xFFE5D5C8).withValues(alpha: 0.5),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    if (step > 0 && step < steps.length - 1) ...[
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(3),
-                        child: LinearProgressIndicator(
-                          value: step / (steps.length - 2),
-                          minHeight: 6,
-                          backgroundColor: const Color(0xFFF3EFEA),
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF8B6B58)),
-                        ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ],
-                ),
-              ),
-              // Step content
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    child: SizedBox(
-                      width: screenWidth > 550 ? 500 : double.infinity,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (child, anim) => FadeTransition(
-                          opacity: anim,
-                          child: SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(0.04, 0),
-                              end: Offset.zero,
-                            ).animate(anim),
-                            child: child,
+                      if (step > 0 && step < steps.length - 1) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(3),
+                          child: LinearProgressIndicator(
+                            value: step / (steps.length - 2),
+                            minHeight: 6,
+                            backgroundColor: const Color(0xFFF3EFEA),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                                Color(0xFF8B6B58)),
                           ),
                         ),
-                        child: SizedBox(
-                          key: ValueKey(step),
-                          width: double.infinity,
-                          child: steps[step],
+                      ],
+                    ],
+                  ),
+                ),
+                // Step content
+                Expanded(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                      child: SizedBox(
+                        width: screenWidth > 550 ? 500 : double.infinity,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 300),
+                          transitionBuilder: (child, anim) => FadeTransition(
+                            opacity: anim,
+                            child: SlideTransition(
+                              position: Tween<Offset>(
+                                begin: const Offset(0.04, 0),
+                                end: Offset.zero,
+                              ).animate(anim),
+                              child: child,
+                            ),
+                          ),
+                          child: SizedBox(
+                            key: ValueKey(step),
+                            width: double.infinity,
+                            child: steps[step],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -2631,7 +2753,8 @@ class _SummaryStepState extends ConsumerState<_SummaryStep> {
 
 
 class _CompletionStep extends ConsumerWidget {
-  const _CompletionStep();
+  final VoidCallback? onGoToDashboard;
+  const _CompletionStep({this.onGoToDashboard});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -2664,21 +2787,7 @@ class _CompletionStep extends ConsumerWidget {
         ),
         const SizedBox(height: 36),
         _TapScaleButton(
-          onTap: () async {
-            final uid = ref.read(currentUserProvider)?.uid;
-            if (uid != null) {
-              try {
-                await ref.read(profileRepositoryProvider).updateUser(uid, {
-                  'onboardingComplete': true,
-                });
-              } catch (e) {
-                debugPrint('Error completing onboarding: $e');
-              }
-            }
-            if (context.mounted) {
-              context.go(RouteNames.dashboard);
-            }
-          },
+          onTap: onGoToDashboard,
           child: Container(
             width: double.infinity,
             height: 48,
