@@ -596,8 +596,25 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> with Singl
     super.dispose();
   }
 
-  void _startTimerIfNeeded(int completionPercent) {
-    if (_animationTimer == null && completionPercent < 80 && !_isAnimationTriggered && !_hasAnimatedThisSession) {
+  void _startTimerIfNeeded(int completionPercent, bool hasValue) {
+    if (!hasValue) return;
+    if (completionPercent >= 100) {
+      if (_animationTimer != null) {
+        _animationTimer?.cancel();
+        _animationTimer = null;
+      }
+      if (_isAnimationTriggered) {
+        _promptController.reverse().then((_) {
+          if (mounted) {
+            setState(() {
+              _isAnimationTriggered = false;
+            });
+          }
+        });
+      }
+      return;
+    }
+    if (_animationTimer == null && completionPercent < 100 && !_isAnimationTriggered && !_hasAnimatedThisSession) {
       _animationTimer = Timer(const Duration(seconds: 5), () {
         if (mounted) {
           _hasAnimatedThisSession = true;
@@ -800,7 +817,9 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> with Singl
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(userProfileProvider).valueOrNull;
-    final completionPercent = ref.watch(profileCompletionProvider).valueOrNull ?? 0;
+    final completionPercentAsync = ref.watch(profileCompletionProvider);
+    final completionPercent = completionPercentAsync.valueOrNull ?? 0;
+    final hasValue = completionPercentAsync.hasValue;
     final resumesCount = ref.watch(resumesCountProvider).valueOrNull ?? 0;
 
     final Color completionColor;
@@ -812,7 +831,7 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> with Singl
       completionColor = const Color(0xFF10B981); // Emerald green for high completion (>= 80%)
     }
 
-    _startTimerIfNeeded(completionPercent);
+    _startTimerIfNeeded(completionPercent, hasValue);
 
     final fadeOutAnim = Tween<double>(begin: 1.0, end: 0.0).animate(_animationCurve);
     final scaleOutAnim = Tween<double>(begin: 1.0, end: 0.0).animate(_animationCurve);
@@ -955,10 +974,11 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> with Singl
                     bottom: 12,
                     child: Builder(
                       builder: (context) {
+                        final showEnlargeAnimation = _isAnimationTriggered && completionPercent < 100;
                         final Widget contactInfoWidget;
                         if (user != null) {
                           final baseContact = _buildContactInfo(user);
-                          if (_isAnimationTriggered) {
+                          if (showEnlargeAnimation) {
                             contactInfoWidget = SizeTransition(
                               sizeFactor: Tween<double>(begin: 1.0, end: 0.0).animate(_animationCurve),
                               child: FadeTransition(
@@ -974,7 +994,7 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> with Singl
                         }
 
                         final Widget bottomRowWidget;
-                        if (!_isAnimationTriggered) {
+                        if (!showEnlargeAnimation) {
                           bottomRowWidget = Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [

@@ -31,6 +31,7 @@ import '../features/profile/presentation/screens/profile_skills_edit_screen.dart
 import '../features/profile/presentation/screens/profile_summary_ai_enhance_screen.dart';
 import '../features/profile/presentation/screens/settings_screen.dart';
 import '../features/profile/presentation/screens/points_screen.dart';
+import '../features/profile/presentation/screens/profile_context_screen.dart';
 import '../features/jobs/presentation/screens/job_openings_screen.dart';
 import '../features/dashboard/presentation/screens/resume_guide_screen.dart';
 import '../shared/widgets/app_shell.dart';
@@ -383,6 +384,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                   return _slideTransition(
                     state,
                     const SettingsScreen(),
+                  );
+                },
+              ),
+              GoRoute(
+                path: 'context',
+                parentNavigatorKey: _rootNavigatorKey,
+                pageBuilder: (context, state) {
+                  return _slideTransition(
+                    state,
+                    const ProfileContextScreen(),
                   );
                 },
               ),

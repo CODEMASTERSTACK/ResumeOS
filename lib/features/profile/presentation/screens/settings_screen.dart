@@ -42,6 +42,42 @@ class SettingsScreen extends ConsumerWidget {
             const Padding(
               padding: EdgeInsets.only(left: 4, bottom: 12),
               child: Text(
+                'PROFILE',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white30,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.03),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  _buildSettingTile(
+                    context: context,
+                    icon: Icons.person_outline_rounded,
+                    iconColor: const Color(0xFFFF5B5C),
+                    title: 'Profile Context',
+                    subtitle: 'View your complete profile summary & download as PDF',
+                    topic: 'profile_context',
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 12),
+              child: Text(
                 'APP INFORMATION',
                 style: TextStyle(
                   fontSize: 10,
@@ -381,6 +417,8 @@ class SettingsScreen extends ConsumerWidget {
               builder: (context) => const OwnerOfWillScreen(),
             ),
           );
+        } else if (topic == 'profile_context') {
+          context.go('/profile/context');
         } else {
           Navigator.push(
             context,

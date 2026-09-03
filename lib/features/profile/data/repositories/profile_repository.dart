@@ -165,11 +165,25 @@ class ProfileRepository {
         .collection('users')
         .doc(uid)
         .collection('experience')
-        .orderBy('startDate', descending: true)
         .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => {...d.data(), 'id': d.id})
-            .toList());
+        .map((snap) {
+          final list = snap.docs
+              .map((d) => {...d.data(), 'id': d.id})
+              .toList();
+
+          final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          list.sort((a, b) {
+            final aYear = a['startYear'] as String? ?? '';
+            final bYear = b['startYear'] as String? ?? '';
+            final yearCompare = bYear.compareTo(aYear);
+            if (yearCompare != 0) return yearCompare;
+
+            final aMonth = monthNames.indexOf(a['startMonth'] as String? ?? 'Jan');
+            final bMonth = monthNames.indexOf(b['startMonth'] as String? ?? 'Jan');
+            return bMonth.compareTo(aMonth);
+          });
+          return list;
+        });
   }
 
   Future<void> addExperience(

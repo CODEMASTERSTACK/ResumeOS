@@ -101,7 +101,9 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
   late TextEditingController _cityCtrl;     // City
   late TextEditingController _stateCtrl;    // State
   late TextEditingController _linkCtrl;     // Certificate Link
-  late TextEditingController _bulletsCtrl;  // Experience Description (Bullets)
+  late TextEditingController _bullet1Ctrl;  // Experience Bullet Point 1
+  late TextEditingController _bullet2Ctrl;  // Experience Bullet Point 2
+  late TextEditingController _bullet3Ctrl;  // Experience Bullet Point 3
 
   // Personal Info Controllers
   late TextEditingController _nameCtrl;
@@ -133,8 +135,6 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
     _boardCtrl = TextEditingController(text: item['board'] as String? ?? '');
     _streamCtrl = TextEditingController(text: item['stream'] as String? ?? item['specialisation'] as String? ?? item['field'] as String? ?? '');
     _pctCtrl = TextEditingController(text: item['percentage'] as String? ?? item['cgpa'] as String? ?? '');
-    _cityCtrl = TextEditingController(text: item['city'] as String? ?? '');
-    _stateCtrl = TextEditingController(text: item['state'] as String? ?? '');
     _linkCtrl = TextEditingController(text: item['certificateLink'] as String? ?? '');
 
     // Personal Info Fields
@@ -142,20 +142,33 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
     _emailCtrl = TextEditingController(text: item['email'] as String? ?? '');
     _phoneCtrl = TextEditingController(text: item['phone'] as String? ?? '');
     _locationCtrl = TextEditingController(text: item['location'] as String? ?? '');
-    final locParts = _parseLocationParts(item['location'] as String? ?? '');
-    _cityCtrl = TextEditingController(text: locParts['city']);
-    _stateCtrl = TextEditingController(text: locParts['state']);
-    _pincodeCtrl = TextEditingController(text: locParts['pincode']);
     _headlineCtrl = TextEditingController(text: item['currentRole'] as String? ?? '');
     _githubCtrl = TextEditingController(text: item['githubUrl'] as String? ?? '');
     _linkedinCtrl = TextEditingController(text: item['linkedinUrl'] as String? ?? '');
     _summaryCtrl = TextEditingController(text: item['summary'] as String? ?? '');
 
-    // Bullets parsing (experience points)
+    if (widget.section == 'personal_info') {
+      final locParts = _parseLocationParts(item['location'] as String? ?? '');
+      _cityCtrl = TextEditingController(text: locParts['city']);
+      _stateCtrl = TextEditingController(text: locParts['state']);
+      _pincodeCtrl = TextEditingController(text: locParts['pincode']);
+    } else {
+      _cityCtrl = TextEditingController(text: item['city'] as String? ?? '');
+      _stateCtrl = TextEditingController(text: item['state'] as String? ?? '');
+      _pincodeCtrl = TextEditingController();
+    }
+
+    // Bullets parsing (experience points) — split into 3 individual fields
     final bulletsList = item['bullets'] as List?;
-    final initialBullets = bulletsList != null ? bulletsList.join('\n') : (item['description'] as String? ?? '');
-    _bulletsCtrl = TextEditingController(text: initialBullets);
-    _bulletsCtrl.addListener(_onBulletsChanged);
+    final rawBullets = bulletsList != null
+        ? bulletsList.cast<String>()
+        : (item['description'] as String? ?? '').split('\n').where((s) => s.trim().isNotEmpty).toList();
+    _bullet1Ctrl = TextEditingController(text: rawBullets.length > 0 ? rawBullets[0] : '');
+    _bullet2Ctrl = TextEditingController(text: rawBullets.length > 1 ? rawBullets[1] : '');
+    _bullet3Ctrl = TextEditingController(text: rawBullets.length > 2 ? rawBullets[2] : '');
+    _bullet1Ctrl.addListener(_onBulletsChanged);
+    _bullet2Ctrl.addListener(_onBulletsChanged);
+    _bullet3Ctrl.addListener(_onBulletsChanged);
 
     // Month / Year Parsing
     _startYearCtrl = TextEditingController(text: item['startYear'] as String? ?? '');
@@ -230,7 +243,9 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
 
   @override
   void dispose() {
-    _bulletsCtrl.removeListener(_onBulletsChanged);
+    _bullet1Ctrl.removeListener(_onBulletsChanged);
+    _bullet2Ctrl.removeListener(_onBulletsChanged);
+    _bullet3Ctrl.removeListener(_onBulletsChanged);
     _instCtrl.dispose();
     _titleCtrl.dispose();
     _boardCtrl.dispose();
@@ -241,7 +256,9 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
     _cityCtrl.dispose();
     _stateCtrl.dispose();
     _linkCtrl.dispose();
-    _bulletsCtrl.dispose();
+    _bullet1Ctrl.dispose();
+    _bullet2Ctrl.dispose();
+    _bullet3Ctrl.dispose();
 
     _nameCtrl.dispose();
     _emailCtrl.dispose();
@@ -257,16 +274,15 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
   }
 
   void _onBulletsChanged() {
-    final text = _bulletsCtrl.text;
-    final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    final ctrls = [_bullet1Ctrl, _bullet2Ctrl, _bullet3Ctrl];
     final errors = <String>[];
 
-    for (int i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      final cleaned = line.replaceFirst(RegExp(r'^[\s\-*•\d\.\)]+'), '').trim();
-      final words = cleaned.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    for (int i = 0; i < ctrls.length; i++) {
+      final text = ctrls[i].text.trim();
+      if (text.isEmpty) continue;
+      final words = text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
       if (words.length > 30) {
-        errors.add('Point ${i + 1} exceeds 30 words (${words.length} words limit). Please shorten.');
+        errors.add('Bullet ${i + 1} exceeds 30 words (${words.length} words). Please shorten.');
       }
     }
 
@@ -342,8 +358,9 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
           break;
 
         case 'education':
-          final degree = widget.editItem?['degree'] as String? ?? 'Higher Education';
-          final isSchool = degree == '10th Standard' || degree == '12th Standard';
+          final origDegree = widget.editItem?['degree'] as String? ?? 'Higher Education';
+          final isSchool = origDegree == '10th Standard' || origDegree == '12th Standard';
+          final degree = isSchool ? origDegree : _titleCtrl.text.trim();
 
           final data = {
             'degree': degree,
@@ -368,9 +385,8 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
           break;
 
         case 'experience':
-          final bulletsList = _bulletsCtrl.text
-              .split('\n')
-              .map((s) => s.trim())
+          final bulletsList = [_bullet1Ctrl, _bullet2Ctrl, _bullet3Ctrl]
+              .map((c) => c.text.trim())
               .where((s) => s.isNotEmpty)
               .toList();
 
@@ -379,17 +395,25 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
           final endStr = _isCurrent ? 'Present' : '${_endMonth ?? 'Dec'} ${_endYearCtrl.text.trim()}';
           final durationStr = '$startStr - $endStr';
 
+          // Construct startDate string for database consistency (YYYY-MM)
+          final monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          final monthIndex = monthNames.indexOf(_startMonth ?? 'Jan') + 1;
+          final monthStr = monthIndex.toString().padLeft(2, '0');
+          final startYearStr = _startYearCtrl.text.trim();
+          final startDateStr = '$startYearStr-$monthStr';
+
           final data = {
             'role': _titleCtrl.text.trim(),
             'company': _instCtrl.text.trim(),
             'startMonth': _startMonth ?? '',
-            'startYear': _startYearCtrl.text.trim(),
+            'startYear': startYearStr,
             'endMonth': _isCurrent ? '' : (_endMonth ?? ''),
             'endYear': _isCurrent ? 'Present' : _endYearCtrl.text.trim(),
             'isCurrent': _isCurrent,
             'duration': durationStr,
             'certificateLink': _linkCtrl.text.trim(),
             'bullets': bulletsList,
+            'startDate': startDateStr,
           };
 
           if (isEdit) {
@@ -753,19 +777,20 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
 
         _buildTextField(_linkCtrl, 'Certificate Link (Optional)', isCompulsory: false, type: TextInputType.url),
 
-        // Job description / Bullet points text area
+        // Job description / Bullet Points — 3 individual input rows
         const Text(
           'Work Description / Bullet Points',
           style: TextStyle(fontSize: 13, color: Colors.white54, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 8),
-        _buildTextField(
-          _bulletsCtrl,
-          '',
-          isCompulsory: true,
-          maxLines: 6,
-          hint: 'Enter each bullet point detail on a new line.\n• Every line must not exceed 30 words.',
+        const SizedBox(height: 4),
+        const Text(
+          'Enter up to 3 bullet points (max 30 words each)',
+          style: TextStyle(fontSize: 11, color: Colors.white30),
         ),
+        const SizedBox(height: 12),
+        _buildBulletInputRow(_bullet1Ctrl, 1),
+        _buildBulletInputRow(_bullet2Ctrl, 2),
+        _buildBulletInputRow(_bullet3Ctrl, 3),
 
         // Dynamic bullet word-limit validation feedback area
         if (_bulletValidationErrors.isNotEmpty) ...[
@@ -802,7 +827,9 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
               ],
             ),
           ),
-        ] else if (_bulletsCtrl.text.trim().isNotEmpty) ...[
+        ] else if (_bullet1Ctrl.text.trim().isNotEmpty ||
+                   _bullet2Ctrl.text.trim().isNotEmpty ||
+                   _bullet3Ctrl.text.trim().isNotEmpty) ...[
           const Padding(
             padding: EdgeInsets.only(bottom: 16.0),
             child: Row(
@@ -818,6 +845,64 @@ class _ProfileSectionEditScreenState extends ConsumerState<ProfileSectionEditScr
           ),
         ],
       ],
+    );
+  }
+
+  Widget _buildBulletInputRow(TextEditingController ctrl, int index) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFCBE349).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Center(
+              child: Text(
+                '•',
+                style: TextStyle(
+                  fontSize: 22,
+                  color: Color(0xFFCBE349),
+                  fontWeight: FontWeight.bold,
+                  height: 1,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextFormField(
+              controller: ctrl,
+              style: const TextStyle(color: Colors.white, fontSize: 14),
+              maxLines: 2,
+              minLines: 1,
+              decoration: InputDecoration(
+                hintText: 'Bullet point $index (max 30 words)...',
+                hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+                filled: true,
+                fillColor: Colors.white.withValues(alpha: 0.04),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFCBE349), width: 1.5),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
