@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Secure Edge API Gateway for ResumeOS",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "deploy": "wrangler deploy"
   },
