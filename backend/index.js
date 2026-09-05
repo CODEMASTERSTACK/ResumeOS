@@ -51,7 +51,7 @@ async function getJwks() {
 // Verify Firebase ID Token
 async function verifyFirebaseToken(token, projectId) {
   const { header, payload, parts } = decodeJwt(token);
-  
+
   const now = Math.floor(Date.now() / 1000);
   if (payload.exp && payload.exp < now) {
     throw new Error('Token is expired');
@@ -62,13 +62,13 @@ async function verifyFirebaseToken(token, projectId) {
   if (payload.aud !== projectId) {
     throw new Error('Invalid token audience');
   }
-  
+
   const jwks = await getJwks();
   const jwk = jwks.keys.find(k => k.kid === header.kid);
   if (!jwk) {
     throw new Error('JWK public key not found for kid');
   }
-  
+
   const key = await crypto.subtle.importKey(
     'jwk',
     jwk,
@@ -79,22 +79,22 @@ async function verifyFirebaseToken(token, projectId) {
     false,
     ['verify']
   );
-  
+
   const encoder = new TextEncoder();
   const data = encoder.encode(`${parts[0]}.${parts[1]}`);
   const signature = base64urlDecode(parts[2]);
-  
+
   const valid = await crypto.subtle.verify(
     'RSASSA-PKCS1-v1_5',
     key,
     signature,
     data
   );
-  
+
   if (!valid) {
     throw new Error('Invalid signature');
   }
-  
+
   return payload;
 }
 
@@ -116,7 +116,7 @@ function pemToArrayBuffer(pem) {
 async function getGoogleAccessToken(serviceAccountJson) {
   const sa = JSON.parse(serviceAccountJson);
   const privateKeyBuffer = pemToArrayBuffer(sa.private_key);
-  
+
   const key = await crypto.subtle.importKey(
     'pkcs8',
     privateKeyBuffer,
@@ -127,7 +127,7 @@ async function getGoogleAccessToken(serviceAccountJson) {
     false,
     ['sign']
   );
-  
+
   const header = { alg: 'RS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const payload = {
@@ -137,34 +137,34 @@ async function getGoogleAccessToken(serviceAccountJson) {
     exp: now + 3600,
     iat: now
   };
-  
+
   const encoder = new TextEncoder();
   const stringify = (obj) => btoa(JSON.stringify(obj)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
-  
+
   const partialToken = `${stringify(header)}.${stringify(payload)}`;
   const signatureBuffer = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
     key,
     encoder.encode(partialToken)
   );
-  
+
   const signature = btoa(String.fromCharCode(...new Uint8Array(signatureBuffer)))
     .replace(/=/g, '')
     .replace(/\+/g, '-')
     .replace(/\//g, '_');
-    
+
   const assertion = `${partialToken}.${signature}`;
-  
+
   const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${assertion}`
   });
-  
+
   if (!tokenRes.ok) {
     throw new Error(`Google OAuth token exchange failed: ${await tokenRes.text()}`);
   }
-  
+
   const tokenData = await tokenRes.json();
   return tokenData.access_token;
 }
@@ -179,6 +179,83 @@ function safeParseAiJson(raw) {
   } catch (_) {
     return null;
   }
+}
+
+// Validate parsed JSON shape and constraints per action
+function validateShape(action, parsed, data) {
+  if (!parsed || typeof parsed !== 'object') {
+    return { valid: false, error: 'Output must be a valid JSON object' };
+  }
+
+  if (action === 'analyzeJobDescription') {
+    if (typeof parsed.role !== 'string' || !parsed.role.trim()) {
+      return { valid: false, error: 'Missing or empty "role" string' };
+    }
+    const validLevels = ['junior', 'mid', 'senior'];
+    if (typeof parsed.experienceLevel !== 'string' || !validLevels.includes(parsed.experienceLevel.toLowerCase())) {
+      parsed.experienceLevel = validLevels.includes((parsed.experienceLevel || '').toLowerCase()) ? parsed.experienceLevel.toLowerCase() : 'mid';
+    }
+    if (!Array.isArray(parsed.requiredSkills) || parsed.requiredSkills.length === 0) {
+      return { valid: false, error: '"requiredSkills" must be a non-empty array of strings' };
+    }
+    return { valid: true };
+  }
+
+  if (action === 'rewriteProjectBullets') {
+    if (!Array.isArray(parsed.bullets) || parsed.bullets.length !== 3) {
+      return { valid: false, error: '"bullets" must be an array of exactly 3 bullet points' };
+    }
+    for (let i = 0; i < parsed.bullets.length; i++) {
+      if (typeof parsed.bullets[i] !== 'string' || !parsed.bullets[i].trim()) {
+        return { valid: false, error: `Bullet point ${i + 1} is empty or invalid` };
+      }
+    }
+    return { valid: true };
+  }
+
+  if (action === 'refineExperienceBullets') {
+    const expectedCount = data?.hasCertificateLink ? 2 : 3;
+    if (!Array.isArray(parsed.bullets) || parsed.bullets.length !== expectedCount) {
+      return { valid: false, error: `"bullets" must be an array of exactly ${expectedCount} bullet points` };
+    }
+    for (let i = 0; i < parsed.bullets.length; i++) {
+      if (typeof parsed.bullets[i] !== 'string' || !parsed.bullets[i].trim()) {
+        return { valid: false, error: `Bullet point ${i + 1} is empty or invalid` };
+      }
+    }
+    return { valid: true };
+  }
+
+  if (action === 'generateProfessionalSummary') {
+    if (typeof parsed.summary !== 'string' || !parsed.summary.trim()) {
+      return { valid: false, error: 'Missing or empty "summary" string' };
+    }
+    const words = parsed.summary.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 50 || words.length > 170) {
+      return { valid: false, error: `Summary word count (${words.length}) is outside expected range (60-150 words)` };
+    }
+    return { valid: true };
+  }
+
+  if (action === 'generateAuthenticSummary') {
+    if (typeof parsed.summary !== 'string' || !parsed.summary.trim()) {
+      return { valid: false, error: 'Missing or empty "summary" string' };
+    }
+    const words = parsed.summary.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 70 || words.length > 200) {
+      return { valid: false, error: `Summary word count (${words.length}) is outside expected range (80-180 words)` };
+    }
+    return { valid: true };
+  }
+
+  if (action === 'parseResume') {
+    if (!parsed || typeof parsed !== 'object') {
+      return { valid: false, error: 'Parsed resume must be a JSON object' };
+    }
+    return { valid: true };
+  }
+
+  return { valid: true };
 }
 
 // Build Prompt
@@ -235,8 +312,8 @@ Return ONLY a valid JSON object matching this exact schema (do not wrap in markd
       throw new Error('Missing required fields for rewriteProjectBullets');
     }
     const skillsPrompt = linkedSkills.length > 0
-        ? `Linked skills to naturally incorporate and highlight: ${linkedSkills.join(', ')}\n`
-        : '';
+      ? `Linked skills to naturally incorporate and highlight: ${linkedSkills.join(', ')}\n`
+      : '';
     return `You are a Senior Product & Resume Designer with 15+ years of experience optimizing candidates for Tier-1 technology companies.
 Your task is to rewrite the project/research description into exactly 3 ATS-optimized professional resume bullet points.
 
@@ -512,14 +589,23 @@ Return ONLY a valid JSON object matching this exact structure with no markdown o
   throw new Error(`Unsupported action: ${action}`);
 }
 
-// Generate AI core execution logic
-async function generateAI(prompt, customGeminiKey, customOpenRouterKey, env) {
-  const activeGeminiKey = customGeminiKey || env.GEMINI_API_KEY;
-  let primaryError = null;
+// Helper to invoke Gemini with automatic model fallback
+async function callGemini(prompt, activeGeminiKey, env) {
+  const modelsToTry = [
+    env.GEMINI_MODEL,
+    'gemini-3.6-flash',
+    'gemini-3.8-flash',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-flash'
+  ].filter(Boolean);
 
-  if (activeGeminiKey) {
+  let lastError = null;
+
+  for (const model of modelsToTry) {
     try {
-      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${activeGeminiKey}`, {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${activeGeminiKey}`;
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -544,17 +630,127 @@ async function generateAI(prompt, customGeminiKey, customOpenRouterKey, env) {
         })
       });
 
-      if (response.ok) {
-        const resJson = await response.json();
-        const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) {
-          const parsed = safeParseAiJson(text);
-          if (parsed) return parsed;
-        }
-      } else {
+      if (!response.ok) {
         const errText = await response.text();
-        primaryError = `Gemini API returned status ${response.status}: ${errText}`;
+        lastError = `Gemini model (${model}) returned status ${response.status}: ${errText}`;
+        // If model not found or deprecated, try next model in candidate list
+        if (response.status === 404 || errText.includes('no longer available') || errText.includes('NOT_FOUND')) {
+          console.warn(`Gemini model ${model} unavailable (${response.status}), trying next candidate...`);
+          continue;
+        }
+        throw new Error(lastError);
       }
+
+      const resJson = await response.json();
+      const text = resJson.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) {
+        throw new Error(`Gemini model (${model}) returned empty text in candidate`);
+      }
+      const parsed = safeParseAiJson(text);
+      if (!parsed) {
+        throw new Error(`Gemini model (${model}) output could not be parsed as JSON: ${text.slice(0, 150)}`);
+      }
+      return parsed;
+    } catch (e) {
+      lastError = e.message || e.toString();
+      if (lastError.includes('404') || lastError.includes('no longer available') || lastError.includes('NOT_FOUND')) {
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  throw new Error(lastError || 'All candidate Gemini models failed.');
+}
+
+// Helper to invoke OpenRouter fallback with candidate models
+async function callOpenRouter(prompt, activeOpenRouterKey, env) {
+  const modelsToTry = [
+    env.OPENROUTER_MODEL,
+    'anthropic/claude-3.7-sonnet',
+    'anthropic/claude-3-5-sonnet',
+    'google/gemini-2.0-flash-exp:free',
+    'meta-llama/llama-3.3-70b-instruct:free',
+    'anthropic/claude-3-haiku'
+  ].filter(Boolean);
+
+  let lastError = null;
+
+  for (const model of modelsToTry) {
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${activeOpenRouterKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://resumeos.com',
+          'X-Title': 'ResumeOS',
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 2048,
+          response_format: { type: 'json_object' }
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        lastError = `OpenRouter (${model}) returned status ${response.status}: ${errText}`;
+        if (response.status === 404 || errText.includes('No endpoints found') || errText.includes('not found')) {
+          console.warn(`OpenRouter model ${model} unavailable, trying next candidate...`);
+          continue;
+        }
+        throw new Error(lastError);
+      }
+
+      const resJson = await response.json();
+      const text = resJson.choices?.[0]?.message?.content || '{}';
+      const parsed = safeParseAiJson(text);
+      if (!parsed) {
+        throw new Error(`OpenRouter (${model}) output could not be parsed as JSON: ${text.slice(0, 150)}`);
+      }
+      return parsed;
+    } catch (e) {
+      lastError = e.message || e.toString();
+      if (lastError.includes('404') || lastError.includes('No endpoints found')) {
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  throw new Error(lastError || 'All candidate OpenRouter models failed.');
+}
+
+// Generate AI core execution logic with Gemini 2.5, shape validation, repair retry, and fallback
+async function generateAI(prompt, action, data, customGeminiKey, customOpenRouterKey, env) {
+  const activeGeminiKey = customGeminiKey || env.GEMINI_API_KEY;
+  let primaryError = null;
+
+  if (activeGeminiKey) {
+    try {
+      const parsed = await callGemini(prompt, activeGeminiKey, env);
+      const validation = validateShape(action, parsed, data);
+      if (validation.valid) {
+        return parsed;
+      }
+
+      // Repair attempt
+      console.warn(`Gemini output failed validation: ${validation.error}. Retrying with repair prompt...`);
+      const repairPrompt = `${prompt}\n\nCRITICAL FIX REQUIRED: Your previous response failed validation: "${validation.error}". Fix this issue and return ONLY the valid JSON object matching the exact schema requirements.`;
+      const repaired = await callGemini(repairPrompt, activeGeminiKey, env);
+      const repairValidation = validateShape(action, repaired, data);
+      if (repairValidation.valid) {
+        return repaired;
+      }
+      primaryError = `Gemini failed shape validation on repair: ${repairValidation.error}`;
     } catch (e) {
       primaryError = e.message || e.toString();
     }
@@ -570,39 +766,21 @@ async function generateAI(prompt, customGeminiKey, customOpenRouterKey, env) {
   }
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${activeOpenRouterKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://resumeos.com',
-        'X-Title': 'ResumeOS',
-      },
-      body: JSON.stringify({
-        model: 'anthropic/claude-3-haiku',
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 2048
-      })
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`OpenRouter API returned status ${response.status}: ${errText}`);
+    const parsed = await callOpenRouter(prompt, activeOpenRouterKey, env);
+    const validation = validateShape(action, parsed, data);
+    if (validation.valid) {
+      return parsed;
     }
 
-    const resJson = await response.json();
-    const text = resJson.choices?.[0]?.message?.content || '{}';
-    const parsed = safeParseAiJson(text);
-    if (!parsed) {
-      throw new Error('Failed to parse OpenRouter response as JSON');
+    // Repair attempt for OpenRouter
+    console.warn(`OpenRouter output failed validation: ${validation.error}. Retrying with repair prompt...`);
+    const repairPrompt = `${prompt}\n\nCRITICAL FIX REQUIRED: Your previous response failed validation: "${validation.error}". Fix this issue and return ONLY the valid JSON object matching the exact schema requirements.`;
+    const repaired = await callOpenRouter(repairPrompt, activeOpenRouterKey, env);
+    const repairValidation = validateShape(action, repaired, data);
+    if (repairValidation.valid) {
+      return repaired;
     }
-    return parsed;
+    throw new Error(`OpenRouter output failed shape validation on repair: ${repairValidation.error}`);
   } catch (openRouterError) {
     throw new Error(`AI generation failed. Primary Gemini error: ${primaryError}. Fallback OpenRouter error: ${openRouterError.message || openRouterError}`);
   }
@@ -790,7 +968,7 @@ export default {
         const customGeminiKey = request.headers.get('x-custom-gemini-key') || '';
         const customOpenRouterKey = request.headers.get('x-custom-openrouter-key') || '';
 
-        const result = await generateAI(prompt, customGeminiKey, customOpenRouterKey, env);
+        const result = await generateAI(prompt, action, data, customGeminiKey, customOpenRouterKey, env);
 
         // Post-process to remove leading "versatile" (and variations) from professional summaries
         if (result && typeof result.summary === 'string' && (action === 'generateProfessionalSummary' || action === 'generateAuthenticSummary')) {
