@@ -59,42 +59,47 @@ class _AiResumeCraftingOverlayState extends State<AiResumeCraftingOverlay> {
         final isFinished = widget.isGenerationFinished;
 
         if (isFinished) {
-          // Accelerate progress to 100% when generation completes
+          // Accelerate progress smoothly to 100% when generation completes
           _progress += 2.5;
-          _activeStatus = _progress < 96 ? 'Finalizing PDF Layout...' : 'Ready!';
+          _activeStatus = _progress < 98 ? 'Finalizing PDF Layout...' : 'Ready!';
         } else {
-          // Standard simulation climbing and capping at 92%
-          if (_progress < 15) {
-            _progress += 0.6; // Writing Header
+          // Continuous, smooth non-linear progression that never gets stuck
+          if (_progress < 18) {
+            _progress += 0.45;
             _activeStatus = 'Writing Resume Header...';
-          } else if (_progress < 35) {
-            _progress += 0.45; // Professional Summary
+          } else if (_progress < 38) {
+            _progress += 0.35;
             _activeStatus = 'Drafting Professional Summary...';
           } else if (_progress < 60) {
-            _progress += 0.3; // Work Experience
+            _progress += 0.25;
             _activeStatus = 'Structuring Work Experience...';
           } else if (_progress < 75) {
-            _progress += 0.35; // Education
+            _progress += 0.20;
             _activeStatus = 'Formatting Education & Degrees...';
-          } else if (_progress < 88) {
-            _progress += 0.3; // Projects
+          } else if (_progress < 86) {
+            _progress += 0.16;
             _activeStatus = 'Writing STAR Project Bullets...';
-          } else if (_progress < 92) {
-            _progress += 0.2; // Skills
+          } else if (_progress < 93) {
+            _progress += 0.10;
             _activeStatus = 'Injecting ATS Keywords & Skills...';
-          } else {
-            // Stay at 92% until generation finishes
-            _progress += 0.01;
-            _activeStatus = 'Analyzing & optimizing document structure...';
+          } else if (_progress < 98.5) {
+            // Smooth non-stopping decay: continuously moves forward without getting stuck
+            final remaining = 99.0 - _progress;
+            _progress += (remaining * 0.02).clamp(0.015, 0.06);
+            if (_progress < 96) {
+              _activeStatus = 'Optimizing Document Hierarchy & Spacing...';
+            } else {
+              _activeStatus = 'Compiling ATS-Compliant Layout...';
+            }
           }
-          if (_progress > 92.0) _progress = 92.0;
+          if (_progress > 98.5) _progress = 98.5;
         }
 
         if (_progress >= 100.0) {
           _progress = 100.0;
           _progressTimer?.cancel();
           // Delay briefly for visual satisfaction before triggering redirect
-          Future.delayed(const Duration(milliseconds: 400), () {
+          Future.delayed(const Duration(milliseconds: 350), () {
             if (mounted) {
               widget.onComplete?.call();
             }
@@ -713,7 +718,7 @@ class _AiResumeCraftingOverlayState extends State<AiResumeCraftingOverlay> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          _progress < 92 
+                          _progress < 96 
                               ? ' Structuring & optimizing resume...'
                               : 'Compiling premium resume...',
                               

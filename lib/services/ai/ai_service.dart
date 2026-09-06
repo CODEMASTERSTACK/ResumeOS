@@ -28,6 +28,7 @@ abstract class AIService {
     List<Map<String, dynamic>>? experiences,
     String? jobDescription,
   });
+  Future<Map<String, dynamic>> parseResume(String resumeText);
 }
 
 class JdAnalysisResult {

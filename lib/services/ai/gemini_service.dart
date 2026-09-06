@@ -184,6 +184,14 @@ class GeminiService implements AIService {
     });
     return result['summary'] as String? ?? '';
   }
+
+  @override
+  Future<Map<String, dynamic>> parseResume(String resumeText) async {
+    final result = await _callGateway('parseResume', {
+      'resumeText': resumeText,
+    });
+    return result;
+  }
 }
 
 final geminiServiceImplProvider = Provider<GeminiService>((ref) {

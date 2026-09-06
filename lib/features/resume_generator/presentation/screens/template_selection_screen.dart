@@ -96,68 +96,39 @@ class _TemplateSelectionScreenState
         return;
       }
 
-      // Fetch selected projects
-      final List<ProjectModel> allProjects =
-          await ref.read(projectRepositoryProvider).getAllProjects(uid);
+      // Fetch all sub-collections and projects concurrently
+      final expFuture = ref.read(firestoreProvider).collection('users').doc(uid).collection('experience').get();
+      final skillsFuture = ref.read(firestoreProvider).collection('users').doc(uid).collection('skills').orderBy('createdAt', descending: false).get();
+      final eduFuture = ref.read(firestoreProvider).collection('users').doc(uid).collection('education').get();
+      final certsFuture = ref.read(firestoreProvider).collection('users').doc(uid).collection('certifications').get();
+      final achsFuture = ref.read(firestoreProvider).collection('users').doc(uid).collection('achievements').get();
+      final projectsFuture = ref.read(projectRepositoryProvider).getAllProjects(uid);
+
+      final fetched = await Future.wait([
+        expFuture,
+        skillsFuture,
+        eduFuture,
+        certsFuture,
+        achsFuture,
+        projectsFuture,
+      ]);
+
+      final expSnap = fetched[0] as QuerySnapshot<Map<String, dynamic>>;
+      final skillsSnap = fetched[1] as QuerySnapshot<Map<String, dynamic>>;
+      final eduSnap = fetched[2] as QuerySnapshot<Map<String, dynamic>>;
+      final certsSnap = fetched[3] as QuerySnapshot<Map<String, dynamic>>;
+      final achsSnap = fetched[4] as QuerySnapshot<Map<String, dynamic>>;
+      final allProjects = fetched[5] as List<ProjectModel>;
+
       final List<ProjectModel> selectedProjects = allProjects
           .where((ProjectModel p) => selectedIds.contains(p.id))
           .toList();
 
-      // AI: rewrite bullets for each project and research item
-      final rewrittenProjects = <ResumeProject>[];
-      final rewrittenResearch = <ResumeProject>[];
-      for (final ProjectModel project in selectedProjects) {
-        // Fallback target role
-        final targetRole = analysis.role.trim().isNotEmpty
-            ? analysis.role
-            : 'Software Developer';
+      final targetRole = analysis.role.trim().isNotEmpty
+          ? analysis.role
+          : 'Software Developer';
 
-        // Fallback description context (ensures never empty)
-        final projectDesc = project.description.trim().isNotEmpty
-            ? project.description
-            : (project.bulletPoints.isNotEmpty
-                ? project.bulletPoints.join('\n')
-                : 'A project titled "${project.title}" utilizing ${project.technologies.join(', ')}.');
-
-        final result = await ai.rewriteProjectBullets(
-          projectTitle: project.title,
-          projectDescription: projectDesc,
-          technologies: project.technologies,
-          targetRole: targetRole,
-          keywords: analysis.allKeywords,
-          linkedSkills: project.linkedSkills,
-        );
-
-        final combinedTech = <String>{
-          ...result.selectedSkills,
-          ...project.technologies,
-        }.toList();
-
-        final resumeProj = ResumeProject(
-          title: project.title,
-          technologies: combinedTech,
-          bullets: result.bullets,
-          githubUrl: project.githubRepo,
-          liveUrl: project.liveUrl,
-          duration: project.duration,
-        );
-
-        if (project.isResearch) {
-          rewrittenResearch.add(resumeProj);
-        } else {
-          rewrittenProjects.add(resumeProj);
-        }
-      }
-
-      // Fetch user profile sub-collections early (experience)
-      final expSnap = await ref
-          .read(firestoreProvider)
-          .collection('users')
-          .doc(uid)
-          .collection('experience')
-          .get();
-
-      // Convert to serializable format for prompt context
+      // Convert experiences to serializable format for summary context
       final rawExperiences = expSnap.docs.map((doc) {
         final m = doc.data();
         final startMonth = m['startMonth'] as String? ?? '';
@@ -184,14 +155,46 @@ class _TemplateSelectionScreenState
         };
       }).toList();
 
-      // AI: generate professional summary
-      final summary = await ai.generateProfessionalSummary(
+      // Launch ALL AI operations concurrently (Project rewrites + Professional Summary + Experience bullet refinements)
+      final projectRewriteFutures = selectedProjects.map((project) async {
+        final projectDesc = project.description.trim().isNotEmpty
+            ? project.description
+            : (project.bulletPoints.isNotEmpty
+                ? project.bulletPoints.join('\n')
+                : 'A project titled "${project.title}" utilizing ${project.technologies.join(', ')}.');
+
+        final result = await ai.rewriteProjectBullets(
+          projectTitle: project.title,
+          projectDescription: projectDesc,
+          technologies: project.technologies,
+          targetRole: targetRole,
+          keywords: analysis.allKeywords,
+          linkedSkills: project.linkedSkills,
+        );
+
+        final combinedTech = <String>{
+          ...result.selectedSkills,
+          ...project.technologies,
+        }.toList();
+
+        return (
+          project: ResumeProject(
+            title: project.title,
+            technologies: combinedTech,
+            bullets: result.bullets,
+            githubUrl: project.githubRepo,
+            liveUrl: project.liveUrl,
+            duration: project.duration,
+          ),
+          isResearch: project.isResearch,
+        );
+      });
+
+      final summaryFuture = ai.generateProfessionalSummary(
         candidateBackground: user.summary.trim().isNotEmpty
             ? user.summary
             : 'Experienced software developer / IT professional',
-        targetRole: analysis.role.trim().isNotEmpty
-            ? analysis.role
-            : 'Software Professional',
+        targetRole: targetRole,
         keywords: analysis.allKeywords,
         topSkills: selectedProjects
             .expand((ProjectModel p) => p.technologies)
@@ -203,14 +206,78 @@ class _TemplateSelectionScreenState
         jobDescription: jd,
       );
 
+      final experienceFutures = expSnap.docs.map((doc) async {
+        final m = doc.data();
+        final bulletsList = m['bullets'] != null
+            ? List<String>.from(m['bullets'] as List)
+            : <String>[];
+        final startMonth = m['startMonth'] as String? ?? '';
+        final startYear = m['startYear'] as String? ?? '';
+        final endMonth = m['endMonth'] as String? ?? '';
+        final endYear = m['endYear'] as String? ?? '';
+        final certLink = m['certificateLink'] as String? ?? '';
+        final hasCert = certLink.trim().isNotEmpty;
+
+        String dur = '';
+        if (startMonth.isNotEmpty || startYear.isNotEmpty) {
+          dur = '$startMonth $startYear'.trim();
+          if (endMonth.isNotEmpty || endYear.isNotEmpty) {
+            dur += ' - $endMonth $endYear'.trim();
+          } else {
+            dur += ' - Present';
+          }
+        }
+
+        List<String> refinedBullets = bulletsList;
+        try {
+          refinedBullets = await ai.refineExperienceBullets(
+            role: m['role'] as String? ?? '',
+            company: m['company'] as String? ?? '',
+            rawBullets: bulletsList,
+            targetRole: targetRole,
+            keywords: analysis.allKeywords,
+            hasCertificateLink: hasCert,
+          );
+        } catch (e) {
+          debugPrint('Error refining experience bullets via AI: $e');
+        }
+
+        final finalBullets = List<String>.from(refinedBullets);
+        if (hasCert) {
+          finalBullets.add('Certificate Link: $certLink');
+        }
+
+        return ResumeExperience(
+          company: m['company'] as String? ?? '',
+          role: m['role'] as String? ?? '',
+          duration: dur,
+          bullets: finalBullets,
+          certificateLink: certLink,
+        );
+      });
+
+      // Await all AI tasks concurrently
+      final aiResults = await Future.wait([
+        Future.wait(projectRewriteFutures),
+        summaryFuture,
+        Future.wait(experienceFutures),
+      ]);
+
+      final rewrittenItems = aiResults[0] as List<({ResumeProject project, bool isResearch})>;
+      final summary = aiResults[1] as String;
+      final experienceList = aiResults[2] as List<ResumeExperience>;
+
+      final rewrittenProjects = <ResumeProject>[];
+      final rewrittenResearch = <ResumeProject>[];
+      for (final item in rewrittenItems) {
+        if (item.isResearch) {
+          rewrittenResearch.add(item.project);
+        } else {
+          rewrittenProjects.add(item.project);
+        }
+      }
+
       // Fetch user profile sub-collections
-      final skillsSnap = await ref
-          .read(firestoreProvider)
-          .collection('users')
-          .doc(uid)
-          .collection('skills')
-          .orderBy('createdAt', descending: false)
-          .get();
       final skillGroupsMap = <String, List<String>>{};
       for (final doc in skillsSnap.docs) {
         final d = doc.data();
@@ -224,12 +291,6 @@ class _TemplateSelectionScreenState
           .map((e) => ResumeSkillGroup(category: e.key, skills: e.value))
           .toList();
 
-      final eduSnap = await ref
-          .read(firestoreProvider)
-          .collection('users')
-          .doc(uid)
-          .collection('education')
-          .get();
       final educationList = eduSnap.docs.map((doc) {
         final m = doc.data();
         final cgpaVal =
@@ -268,64 +329,6 @@ class _TemplateSelectionScreenState
         );
       }).toList();
 
-      final experienceList = await Future.wait(expSnap.docs.map((doc) async {
-        final m = doc.data();
-        final bulletsList = m['bullets'] != null
-            ? List<String>.from(m['bullets'] as List)
-            : <String>[];
-        final startMonth = m['startMonth'] as String? ?? '';
-        final startYear = m['startYear'] as String? ?? '';
-        final endMonth = m['endMonth'] as String? ?? '';
-        final endYear = m['endYear'] as String? ?? '';
-        final certLink = m['certificateLink'] as String? ?? '';
-        final hasCert = certLink.trim().isNotEmpty;
-
-        String dur = '';
-        if (startMonth.isNotEmpty || startYear.isNotEmpty) {
-          dur = '$startMonth $startYear'.trim();
-          if (endMonth.isNotEmpty || endYear.isNotEmpty) {
-            dur += ' - $endMonth $endYear'.trim();
-          } else {
-            dur += ' - Present';
-          }
-        }
-
-        final targetRole = analysis.role.trim().isNotEmpty ? analysis.role : 'Software Developer';
-        
-        List<String> refinedBullets = bulletsList;
-        try {
-          refinedBullets = await ai.refineExperienceBullets(
-            role: m['role'] as String? ?? '',
-            company: m['company'] as String? ?? '',
-            rawBullets: bulletsList,
-            targetRole: targetRole,
-            keywords: analysis.allKeywords,
-            hasCertificateLink: hasCert,
-          );
-        } catch (e) {
-          debugPrint('Error refining experience bullets via AI: $e');
-        }
-
-        final finalBullets = List<String>.from(refinedBullets);
-        if (hasCert) {
-          finalBullets.add('Certificate Link: $certLink');
-        }
-
-        return ResumeExperience(
-          company: m['company'] as String? ?? '',
-          role: m['role'] as String? ?? '',
-          duration: dur,
-          bullets: finalBullets,
-          certificateLink: certLink,
-        );
-      }));
-
-      final certsSnap = await ref
-          .read(firestoreProvider)
-          .collection('users')
-          .doc(uid)
-          .collection('certifications')
-          .get();
       final certificationsList = certsSnap.docs.map((doc) {
         final m = doc.data();
         return ResumeCertification(
@@ -336,12 +339,6 @@ class _TemplateSelectionScreenState
         );
       }).toList();
 
-      final achsSnap = await ref
-          .read(firestoreProvider)
-          .collection('users')
-          .doc(uid)
-          .collection('achievements')
-          .get();
       final achievementsList = achsSnap.docs
           .map((doc) => doc.data()['title'] as String? ?? '')
           .where((s) => s.isNotEmpty)
@@ -484,7 +481,7 @@ class _TemplateSelectionScreenState
         .toList();
   }
 
-  // ── Build ────────────────────────────────────────────────
+  // ── Build ───────────────────────────────────
 
   @override
   Widget build(BuildContext context) {

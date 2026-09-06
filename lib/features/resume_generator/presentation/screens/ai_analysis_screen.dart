@@ -1,10 +1,10 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../core/constants/app_strings.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../shared/utils/error_sanitizer.dart';
 import '../../../../features/projects/data/repositories/project_repository.dart';
@@ -196,6 +196,8 @@ class _AnalyzingAnimationState extends State<_AnalyzingAnimation>
   late Animation<double> _stepFade;
 
   int _step = 0;
+  double _progress = 0.0;
+  Timer? _progressTimer;
 
   final List<Map<String, dynamic>> _steps = [
     {'label': 'Reading job description', 'sub': 'Parsing structure and intent...', 'icon': Icons.article_outlined},
@@ -210,27 +212,52 @@ class _AnalyzingAnimationState extends State<_AnalyzingAnimation>
     super.initState();
     _orbitalCtrl = AnimationController(duration: const Duration(seconds: 4), vsync: this)..repeat();
     _pulseCtrl = AnimationController(duration: const Duration(milliseconds: 1800), vsync: this)..repeat(reverse: true);
-    _stepCtrl = AnimationController(duration: const Duration(milliseconds: 400), vsync: this);
+    _stepCtrl = AnimationController(duration: const Duration(milliseconds: 350), vsync: this);
     _orbital = Tween<double>(begin: 0, end: 1).animate(_orbitalCtrl);
     _pulse = Tween<double>(begin: 0.88, end: 1.0).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeInOut));
     _stepFade = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _stepCtrl, curve: Curves.easeOut));
     _stepCtrl.forward();
-    _cycleSteps();
+    _startProgress();
   }
 
-  void _cycleSteps() async {
-    while (mounted) {
-      await Future.delayed(const Duration(milliseconds: 1400));
-      if (!mounted) break;
-      await _stepCtrl.reverse();
-      if (!mounted) break;
-      setState(() => _step = (_step + 1) % _steps.length);
-      _stepCtrl.forward();
-    }
+  void _startProgress() {
+    _progressTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (!mounted) return;
+      setState(() {
+        if (_progress < 20) {
+          _progress += 0.55;
+        } else if (_progress < 42) {
+          _progress += 0.40;
+        } else if (_progress < 66) {
+          _progress += 0.35;
+        } else if (_progress < 85) {
+          _progress += 0.28;
+        } else if (_progress < 98.2) {
+          final remaining = 99.0 - _progress;
+          _progress += (remaining * 0.025).clamp(0.015, 0.06);
+        }
+        if (_progress > 98.2) _progress = 98.2;
+
+        final newStep = _getStepForProgress(_progress);
+        if (newStep != _step && newStep > _step) {
+          _step = newStep;
+          _stepCtrl.forward(from: 0.0);
+        }
+      });
+    });
+  }
+
+  int _getStepForProgress(double p) {
+    if (p < 20) return 0;
+    if (p < 42) return 1;
+    if (p < 66) return 2;
+    if (p < 85) return 3;
+    return 4;
   }
 
   @override
   void dispose() {
+    _progressTimer?.cancel();
     _orbitalCtrl.dispose();
     _pulseCtrl.dispose();
     _stepCtrl.dispose();
@@ -354,16 +381,19 @@ class _AnalyzingAnimationState extends State<_AnalyzingAnimation>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(_steps.length, (i) {
                         final isActive = i == _step;
+                        final isCompleted = i < _step;
                         return AnimatedContainer(
                           duration: const Duration(milliseconds: 300),
                           margin: const EdgeInsets.symmetric(horizontal: 3),
-                          width: isActive ? 18 : 5,
+                          width: isActive ? 20 : (isCompleted ? 8 : 5),
                           height: 5,
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(4),
                             color: isActive
                                 ? const Color(0xFFCBE349)
-                                : Colors.white.withValues(alpha: 0.15),
+                                : (isCompleted
+                                    ? const Color(0xFFCBE349).withValues(alpha: 0.45)
+                                    : Colors.white.withValues(alpha: 0.15)),
                           ),
                         );
                       }),
@@ -372,35 +402,30 @@ class _AnalyzingAnimationState extends State<_AnalyzingAnimation>
                     SizedBox(height: constraints.maxHeight * 0.04),
 
                     // Progress bar
-                    AnimatedBuilder(
-                      animation: _orbitalCtrl,
-                      builder: (_, __) {
-                        final progress = ((_step + _orbitalCtrl.value) / _steps.length).clamp(0.0, 1.0);
-                        return Column(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: SizedBox(
-                                height: 2,
-                                child: LinearProgressIndicator(
-                                  value: progress,
-                                  backgroundColor: Colors.white.withValues(alpha: 0.06),
-                                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFCBE349)),
-                                ),
-                              ),
+                    Column(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: SizedBox(
+                            height: 3,
+                            child: LinearProgressIndicator(
+                              value: (_progress / 100.0).clamp(0.0, 1.0),
+                              backgroundColor: Colors.white.withValues(alpha: 0.06),
+                              valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFFCBE349)),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Step ${_step + 1} of ${_steps.length}',
-                              style: GoogleFonts.outfit(
-                                color: Colors.white24,
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        );
-                      },
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_progress.toInt()}% • Step ${_step + 1} of ${_steps.length}',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white38,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1190,10 +1215,11 @@ class _ErrorState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(40),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             const Icon(Icons.error_outline_rounded, size: 40, color: Color(0xFFEF4444)),
             const SizedBox(height: 20),

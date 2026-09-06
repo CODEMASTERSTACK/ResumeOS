@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../routes/route_names.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
+import '../../../../services/ai/ai_service.dart';
 import '../../../dashboard/presentation/screens/dashboard_screen.dart';
 
 // ── Step index provider ────────────────────────────────────
@@ -741,6 +744,7 @@ class _DomainBackgroundStep extends ConsumerStatefulWidget {
 
 class _DomainBackgroundStepState extends ConsumerState<_DomainBackgroundStep> {
   String _selectedDomain = '';
+  String? _domainError;
   bool _saving = false;
   bool _showInfo = false;
 
@@ -758,12 +762,9 @@ class _DomainBackgroundStepState extends ConsumerState<_DomainBackgroundStep> {
 
   Future<void> _save() async {
     if (_selectedDomain.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select your domain background to continue'),
-          backgroundColor: AppColors.error,
-        ),
-      );
+      setState(() {
+        _domainError = 'Please select your domain background to continue';
+      });
       return;
     }
 
@@ -1208,6 +1209,25 @@ class _DomainBackgroundStepState extends ConsumerState<_DomainBackgroundStep> {
         _buildDomainCard('Technical', 'Software, Engineering, IT, Data Science, etc.', Icons.code_rounded),
         _buildDomainCard('Non-Technical', 'Marketing, Design, HR, Management, Finance, etc.', Icons.palette_rounded),
         _buildDomainCard('Both', 'Hybrid roles, IT Project Management, Product, etc.', Icons.layers_rounded),
+        if (_domainError != null) ...[
+          Padding(
+            padding: const EdgeInsets.only(left: 12, top: 4, bottom: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, size: 14, color: Color(0xFFEF4444)),
+                const SizedBox(width: 6),
+                Text(
+                  _domainError!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFFEF4444),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
         _TapScaleButton(
           onTap: _saving ? null : _save,
@@ -1288,6 +1308,19 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
   String _selectedGender = '';
   bool _saving = false;
 
+  // Autofill states
+  bool _isParsingResume = false;
+  String? _extractedPdfName;
+  String? _autofillError;
+
+  // Rate limiter: Max 5 uploads per 10 minutes
+  static final List<DateTime> _uploadTimestamps = [];
+
+  // In-field warning error states
+  String? _nameError;
+  String? _phoneError;
+  String? _genderError;
+
   @override
   void initState() {
     super.initState();
@@ -1320,17 +1353,404 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
     super.dispose();
   }
 
+  String _sanitizeInput(String input, {int maxLength = 100}) {
+    return input
+        .replaceAll(RegExp(r'[\x00-\x1F\x7F]'), '')
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .trim();
+  }
+
+  String _sanitizeUrl(String url, String expectedDomain) {
+    final cleaned = url.trim();
+    if (cleaned.isEmpty) return '';
+    try {
+      final uri = Uri.parse(cleaned.startsWith('http') ? cleaned : 'https://$cleaned');
+      if (uri.host.contains(expectedDomain) && (uri.scheme == 'http' || uri.scheme == 'https')) {
+        return uri.toString();
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  Map<String, dynamic> _fallbackRegexExtract(String text) {
+    final result = <String, dynamic>{};
+
+    // Phone regex
+    final phoneMatch = RegExp(r'(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?[\d\s-]{6,14}\d').firstMatch(text);
+    if (phoneMatch != null) {
+      result['phone'] = phoneMatch.group(0)?.trim() ?? '';
+    }
+
+    // GitHub regex
+    final ghMatch = RegExp(r'(?:https?:\/\/)?(?:www\.)?github\.com\/([a-zA-Z0-9_-]+)', caseSensitive: false).firstMatch(text);
+    if (ghMatch != null) {
+      final raw = ghMatch.group(0) ?? '';
+      result['githubUrl'] = raw.startsWith('http') ? raw : 'https://$raw';
+    }
+
+    // LinkedIn regex
+    final liMatch = RegExp(r'(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/([a-zA-Z0-9_-]+)', caseSensitive: false).firstMatch(text);
+    if (liMatch != null) {
+      final raw = liMatch.group(0) ?? '';
+      result['linkedinUrl'] = raw.startsWith('http') ? raw : 'https://$raw';
+    }
+
+    // First clean non-link line as candidate name
+    final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    if (lines.isNotEmpty) {
+      final firstLine = lines.first;
+      if (firstLine.length < 40 && !firstLine.contains('@') && !firstLine.contains('http') && !firstLine.contains('www.')) {
+        result['name'] = firstLine;
+      }
+    }
+
+    // Extract common skills via keyword dictionary
+    const knownSkills = [
+      'Flutter', 'Dart', 'React', 'React Native', 'Python', 'JavaScript', 'TypeScript',
+      'Node.js', 'Express.js', 'Next.js', 'Java', 'C++', 'C#', 'Go', 'Rust', 'PHP',
+      'HTML', 'CSS', 'Tailwind CSS', 'SQL', 'PostgreSQL', 'MySQL', 'MongoDB', 'Redis',
+      'Firebase', 'AWS', 'Google Cloud', 'Azure', 'Docker', 'Kubernetes', 'Git', 'GitHub',
+      'REST APIs', 'GraphQL', 'Figma', 'UI/UX Design', 'Machine Learning', 'Data Analysis'
+    ];
+    final foundSkills = <String>[];
+    for (final skill in knownSkills) {
+      final pattern = RegExp('\\b${RegExp.escape(skill)}\\b', caseSensitive: false);
+      if (pattern.hasMatch(text)) {
+        foundSkills.add(skill);
+      }
+    }
+    if (foundSkills.isNotEmpty) {
+      result['skills'] = foundSkills;
+    }
+
+    // Extract summary/objective section if available
+    final summaryMatch = RegExp(r'(?:summary|objective|about\s+me|profile\s+summary)\s*[:\-\n]+([\s\S]{30,400}?)(?=\n\s*(?:skills|education|experience|projects|certifications|\n\n))', caseSensitive: false).firstMatch(text);
+    if (summaryMatch != null) {
+      final rawSum = summaryMatch.group(1)?.replaceAll('\n', ' ').trim() ?? '';
+      if (rawSum.isNotEmpty) {
+        result['summary'] = rawSum;
+      }
+    }
+
+    return result;
+  }
+
+  Future<void> _pickAndAutofillResume() async {
+    // 1. Rate Limit Enforcement: Max 5 uploads per 10 minutes
+    final now = DateTime.now();
+    _uploadTimestamps.removeWhere((ts) => now.difference(ts).inMinutes >= 10);
+    if (_uploadTimestamps.length >= 5) {
+      final oldest = _uploadTimestamps.first;
+      final waitMins = 10 - now.difference(oldest).inMinutes;
+      setState(() {
+        _autofillError = 'Upload limit reached (max 5 in 10 min). Please try in ${waitMins <= 0 ? 1 : waitMins} min.';
+      });
+      return;
+    }
+
+    try {
+      final files = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+      );
+
+      if (files.isEmpty) {
+        return; // User cancelled
+      }
+
+      final file = files.first;
+      if (file.extension?.toLowerCase() != 'pdf') {
+        setState(() {
+          _autofillError = 'Only genuine .pdf files are allowed.';
+        });
+        return;
+      }
+
+      setState(() {
+        _isParsingResume = true;
+        _autofillError = null;
+      });
+
+      // 2. Read in-memory only (never stored to cloud)
+      final bytes = await file.readAsBytes();
+
+      // 3. Security Check: File Size Limit (Max 5 MB)
+      if (bytes.lengthInBytes > 5 * 1024 * 1024) {
+        throw Exception('File size exceeds 5MB limit.');
+      }
+
+      // 4. Security Check: PDF Header Signature (%PDF)
+      if (bytes.length < 4 ||
+          bytes[0] != 0x25 || // %
+          bytes[1] != 0x50 || // P
+          bytes[2] != 0x44 || // D
+          bytes[3] != 0x46) { // F
+        throw Exception('Invalid file format: Not a genuine PDF.');
+      }
+
+      // Record successful upload attempt for rate limiting
+      _uploadTimestamps.add(now);
+
+      // 5. In-memory Text Extraction & Immediate Document Disposal
+      String extractedText = '';
+      PdfDocument? document;
+      try {
+        document = PdfDocument(inputBytes: bytes);
+        final textExtractor = PdfTextExtractor(document);
+        extractedText = textExtractor.extractText();
+      } finally {
+        document?.dispose(); // Strict in-memory cleanup
+      }
+
+      // Sanitize extracted text
+      extractedText = extractedText.replaceAll(RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F]'), '').trim();
+      if (extractedText.isEmpty) {
+        throw Exception('No readable text found in PDF.');
+      }
+
+      Map<String, dynamic> parsedData = {};
+      try {
+        final ai = ref.read(geminiServiceProvider);
+        parsedData = await ai.parseResume(extractedText);
+      } catch (aiError) {
+        debugPrint('AI parse failed, using secure fallback regex extraction: $aiError');
+        parsedData = _fallbackRegexExtract(extractedText);
+      }
+
+      if (parsedData.isEmpty) {
+        parsedData = _fallbackRegexExtract(extractedText);
+      }
+
+      // 6. Sanitize & Populate form controllers (no auto-submit)
+      final rawName = _sanitizeInput(parsedData['name'] as String? ?? '', maxLength: 60);
+      final rawPhone = _sanitizeInput(parsedData['phone'] as String? ?? '', maxLength: 25);
+      final rawCity = _sanitizeInput(parsedData['city'] as String? ?? '', maxLength: 50);
+      final rawState = _sanitizeInput(parsedData['state'] as String? ?? '', maxLength: 50);
+      final rawPincode = _sanitizeInput(parsedData['pincode'] as String? ?? '', maxLength: 20);
+      final rawGithub = _sanitizeUrl(parsedData['githubUrl'] as String? ?? '', 'github.com');
+      final rawLinkedin = _sanitizeUrl(parsedData['linkedinUrl'] as String? ?? '', 'linkedin.com');
+      final rawGender = _sanitizeInput(parsedData['gender'] as String? ?? '', maxLength: 10);
+      final rawSummary = _sanitizeInput(parsedData['summary'] as String? ?? '', maxLength: 1000);
+      final rawRole = _sanitizeInput(parsedData['currentRole'] as String? ?? '', maxLength: 80);
+
+      int filledCount = 0;
+      if (rawName.isNotEmpty) {
+        _nameCtrl.text = rawName;
+        _nameError = null;
+        filledCount++;
+      }
+      if (rawPhone.isNotEmpty) {
+        _phoneCtrl.text = rawPhone;
+        _phoneError = null;
+        filledCount++;
+      }
+      if (rawCity.isNotEmpty) {
+        _cityCtrl.text = rawCity;
+        filledCount++;
+      }
+      if (rawState.isNotEmpty) {
+        _stateCtrl.text = rawState;
+        filledCount++;
+      }
+      if (rawPincode.isNotEmpty) {
+        _pincodeCtrl.text = rawPincode;
+        filledCount++;
+      }
+      if (rawGithub.isNotEmpty) {
+        _githubCtrl.text = rawGithub;
+        filledCount++;
+      }
+      if (rawLinkedin.isNotEmpty) {
+        _linkedinCtrl.text = rawLinkedin;
+        filledCount++;
+      }
+      if (rawGender.isNotEmpty) {
+        final gLower = rawGender.toLowerCase();
+        if (gLower.startsWith('m')) {
+          _selectedGender = 'Male';
+          _genderError = null;
+          filledCount++;
+        } else if (gLower.startsWith('f')) {
+          _selectedGender = 'Female';
+          _genderError = null;
+          filledCount++;
+        }
+      }
+
+      // 7. Persist comprehensive extracted data (skills, education, summary, experience) to Firestore
+      final uid = ref.read(currentUserProvider)?.uid;
+      if (uid != null) {
+        final profileRepo = ref.read(profileRepositoryProvider);
+
+        // Update user summary and target role
+        final userUpdates = <String, dynamic>{};
+        if (rawSummary.isNotEmpty) {
+          userUpdates['summary'] = rawSummary;
+          filledCount++;
+        }
+        if (rawRole.isNotEmpty) {
+          userUpdates['currentRole'] = rawRole;
+        }
+        if (userUpdates.isNotEmpty) {
+          try {
+            await profileRepo.updateUser(uid, userUpdates);
+          } catch (e) {
+            debugPrint('Error updating user summary during resume autofill: $e');
+          }
+        }
+
+        // Save extracted skills
+        final rawSkills = parsedData['skills'];
+        if (rawSkills is List && rawSkills.isNotEmpty) {
+          try {
+            final existingSkills = await profileRepo.watchSkills(uid).first;
+            final existingNames = existingSkills.map((s) => (s['name'] as String? ?? '').toLowerCase().trim()).toSet();
+            for (final s in rawSkills) {
+              final skillStr = _sanitizeInput(s.toString(), maxLength: 40);
+              if (skillStr.isNotEmpty && !existingNames.contains(skillStr.toLowerCase())) {
+                await profileRepo.addSkill(uid, skillStr, 'Technical');
+                existingNames.add(skillStr.toLowerCase());
+                filledCount++;
+              }
+            }
+          } catch (e) {
+            debugPrint('Error saving skills during resume autofill: $e');
+          }
+        }
+
+        // Save extracted education
+        final rawEduList = parsedData['education'];
+        if (rawEduList is List && rawEduList.isNotEmpty) {
+          try {
+            final existingEdu = await profileRepo.watchEducation(uid).first;
+            for (final item in rawEduList) {
+              if (item is Map) {
+                final degree = _sanitizeInput(item['degree'] as String? ?? '', maxLength: 80);
+                final inst = _sanitizeInput(item['institution'] as String? ?? '', maxLength: 100);
+                final board = _sanitizeInput(item['board'] as String? ?? '', maxLength: 60);
+                final pct = _sanitizeInput((item['percentage'] ?? item['cgpa'] ?? '').toString(), maxLength: 20);
+                final startYr = _sanitizeInput(item['startYear'] as String? ?? '', maxLength: 10);
+                final endYr = _sanitizeInput(item['endYear'] as String? ?? '', maxLength: 10);
+
+                if (inst.isNotEmpty || degree.isNotEmpty) {
+                  String standardDegree = degree;
+                  final degLower = degree.toLowerCase();
+                  if (degLower.contains('10th') || degLower.contains('matric') || degLower.contains('secondary school') || degLower.contains('ssc') || degLower.contains('high school')) {
+                    standardDegree = '10th Standard';
+                  } else if (degLower.contains('12th') || degLower.contains('intermediate') || degLower.contains('higher secondary') || degLower.contains('hsc') || degLower.contains('senior secondary') || degLower.contains('+2')) {
+                    standardDegree = '12th Standard';
+                  }
+
+                  final existingMatch = existingEdu.where((e) => (e['degree'] as String? ?? '').toLowerCase() == standardDegree.toLowerCase()).firstOrNull;
+                  final eduPayload = <String, dynamic>{
+                    'degree': standardDegree,
+                    'institution': inst,
+                    'board': board,
+                    'percentage': pct,
+                    'startYear': startYr,
+                    'endYear': endYr,
+                  };
+
+                  if (existingMatch != null) {
+                    final id = existingMatch['id'] as String?;
+                    if (id != null) {
+                      await profileRepo.updateEducation(uid, id, eduPayload);
+                    }
+                  } else {
+                    await profileRepo.addEducation(uid, eduPayload);
+                  }
+                  filledCount++;
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('Error saving education during resume autofill: $e');
+          }
+        }
+
+        // Save extracted experience
+        final rawExpList = parsedData['experience'];
+        if (rawExpList is List && rawExpList.isNotEmpty) {
+          try {
+            final existingExp = await profileRepo.watchExperience(uid).first;
+            for (final item in rawExpList) {
+              if (item is Map) {
+                final role = _sanitizeInput(item['role'] as String? ?? '', maxLength: 80);
+                final company = _sanitizeInput(item['company'] as String? ?? '', maxLength: 100);
+                final startYr = _sanitizeInput(item['startYear'] as String? ?? '', maxLength: 10);
+                final endYr = _sanitizeInput(item['endYear'] as String? ?? '', maxLength: 10);
+                final desc = _sanitizeInput(item['description'] as String? ?? '', maxLength: 500);
+
+                if (role.isNotEmpty || company.isNotEmpty) {
+                  final exists = existingExp.any((e) =>
+                      (e['role'] as String? ?? '').toLowerCase() == role.toLowerCase() &&
+                      (e['company'] as String? ?? '').toLowerCase() == company.toLowerCase());
+                  if (!exists) {
+                    await profileRepo.addExperience(uid, {
+                      'role': role,
+                      'company': company,
+                      'startYear': startYr,
+                      'endYear': endYr,
+                      'description': desc,
+                    });
+                    filledCount++;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('Error saving experience during resume autofill: $e');
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _isParsingResume = false;
+          if (filledCount > 0) {
+            _extractedPdfName = file.name;
+            _autofillError = null;
+          } else {
+            _autofillError = 'Could not extract enough information from ${file.name}.';
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error parsing resume in onboarding: $e');
+      if (mounted) {
+        setState(() {
+          _isParsingResume = false;
+          _autofillError = e.toString().replaceAll('Exception: ', '');
+        });
+      }
+    }
+  }
+
   Future<void> _save() async {
     final name = _nameCtrl.text.trim();
     final phone = _phoneCtrl.text.trim();
-    if (name.isEmpty || _selectedGender.isEmpty || phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Name, Gender, and Phone Number are required fields.'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-      return;
+
+    String? nameErr;
+    String? phoneErr;
+    String? genderErr;
+
+    if (name.isEmpty) {
+      nameErr = 'Full name is required';
+    }
+    if (_selectedGender.isEmpty) {
+      genderErr = 'Please select your gender';
+    }
+    if (phone.isEmpty) {
+      phoneErr = 'Phone number is required';
+    }
+
+    if (nameErr != null || genderErr != null || phoneErr != null) {
+      setState(() {
+        _nameError = nameErr;
+        _phoneError = phoneErr;
+        _genderError = genderErr;
+      });
+      return; // Do NOT show any toast or snackbar
     }
 
     final uid = ref.read(currentUserProvider)?.uid;
@@ -1372,13 +1792,152 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
     }
   }
 
+  Widget _buildAutofillBox() {
+    final isExtracted = _extractedPdfName != null && _extractedPdfName!.isNotEmpty;
+    final hasError = _autofillError != null && _autofillError!.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _TapScaleButton(
+          onTap: _isParsingResume ? null : _pickAndAutofillResume,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeInOut,
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: isExtracted
+                  ? const Color(0xFFF0FDF4)
+                  : (hasError ? const Color(0xFFFEF2F2) : const Color(0xFFFAF8F5)),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: isExtracted
+                    ? const Color(0xFF10B981)
+                    : (hasError ? const Color(0xFFEF4444) : const Color(0xFFE5D5C8)),
+                width: isExtracted ? 1.5 : 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (isExtracted ? const Color(0xFF10B981) : const Color(0xFF8B6B58))
+                      .withValues(alpha: 0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: _isParsingResume
+                ? const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Color(0xFF8B6B58),
+                        ),
+                      ),
+                      SizedBox(width: 10),
+                      Text(
+                        'Extracting details from resume...',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF8B6B58),
+                        ),
+                      ),
+                    ],
+                  )
+                : isExtracted
+                    ? Row(
+                        children: [
+                          const Icon(
+                            Icons.check_circle_rounded,
+                            size: 20,
+                            color: Color(0xFF10B981),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Extracted details from $_extractedPdfName',
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF065F46),
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Change',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF10B981),
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ],
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_rounded,
+                            size: 18,
+                            color: Color(0xFF8B6B58),
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            'Autofill with Resume / CV (PDF)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF5A453A),
+                            ),
+                          ),
+                        ],
+                      ),
+          ),
+        ),
+        if (hasError) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, size: 13, color: Color(0xFFEF4444)),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    _autofillError!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFEF4444),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _buildStepField({
     required String label,
     required TextEditingController ctrl,
     required String hint,
     required IconData icon,
     TextInputType? keyboardType,
+    String? errorText,
+    ValueChanged<String>? onChanged,
   }) {
+    final hasError = errorText != null && errorText.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1395,38 +1954,66 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
         TextField(
           controller: ctrl,
           keyboardType: keyboardType,
+          onChanged: onChanged,
           style: const TextStyle(fontSize: 13, color: Color(0xFF5A453A), fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: Colors.grey.shade400, fontWeight: FontWeight.w500),
-            prefixIcon: Icon(icon, size: 16, color: const Color(0xFF8B6B58)),
+            prefixIcon: Icon(icon, size: 16, color: hasError ? const Color(0xFFEF4444) : const Color(0xFF8B6B58)),
             filled: true,
             fillColor: const Color(0xFFFAF8F5),
             contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide.none,
+              borderSide: hasError ? const BorderSide(color: Color(0xFFEF4444), width: 1.5) : BorderSide.none,
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(24),
-              borderSide: BorderSide.none,
+              borderSide: hasError ? const BorderSide(color: Color(0xFFEF4444), width: 1.5) : BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(24),
-              borderSide: const BorderSide(color: Color(0xFF8B6B58), width: 1.5),
+              borderSide: BorderSide(
+                color: hasError ? const Color(0xFFEF4444) : const Color(0xFF8B6B58),
+                width: 1.5,
+              ),
             ),
           ),
         ),
+        if (hasError) ...[
+          const SizedBox(height: 5),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline_rounded, size: 13, color: Color(0xFFEF4444)),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(
+                    errorText,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Color(0xFFEF4444),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
 
   Widget _buildGenderCard(String gender, IconData icon) {
     final isSelected = _selectedGender == gender;
+    final hasError = _genderError != null && _genderError!.isNotEmpty;
     return _TapScaleButton(
       onTap: () {
         setState(() {
           _selectedGender = gender;
+          _genderError = null;
         });
       },
       child: AnimatedContainer(
@@ -1438,8 +2025,8 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
           border: Border.all(
             color: isSelected
                 ? const Color(0xFF8B6B58)
-                : const Color(0xFFE5D5C8).withValues(alpha: 0.5),
-            width: isSelected ? 1.5 : 1,
+                : (hasError ? const Color(0xFFEF4444) : const Color(0xFFE5D5C8).withValues(alpha: 0.5)),
+            width: isSelected ? 1.5 : (hasError ? 1.5 : 1),
           ),
         ),
         child: Row(
@@ -1448,7 +2035,9 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
             Icon(
               icon,
               size: 18,
-              color: isSelected ? const Color(0xFF8B6B58) : const Color(0xFF8B6B58).withValues(alpha: 0.5),
+              color: isSelected
+                  ? const Color(0xFF8B6B58)
+                  : (hasError ? const Color(0xFFEF4444).withValues(alpha: 0.7) : const Color(0xFF8B6B58).withValues(alpha: 0.5)),
             ),
             const SizedBox(width: 8),
             Text(
@@ -1488,12 +2077,23 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: 28),
+        const SizedBox(height: 18),
+
+        // ── Streamlined Animated Autofill Box ──
+        _buildAutofillBox(),
+        const SizedBox(height: 18),
+
         _buildStepField(
           label: 'Full Name *',
           ctrl: _nameCtrl,
           hint: 'John Doe',
           icon: Icons.person_outline_rounded,
+          errorText: _nameError,
+          onChanged: (val) {
+            if (_nameError != null && val.trim().isNotEmpty) {
+              setState(() => _nameError = null);
+            }
+          },
         ),
         const SizedBox(height: 14),
         Column(
@@ -1520,6 +2120,26 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
                 ),
               ],
             ),
+            if (_genderError != null && _genderError!.isNotEmpty) ...[
+              const SizedBox(height: 5),
+              Padding(
+                padding: const EdgeInsets.only(left: 12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline_rounded, size: 13, color: Color(0xFFEF4444)),
+                    const SizedBox(width: 4),
+                    Text(
+                      _genderError!,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFFEF4444),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 14),
@@ -1529,6 +2149,12 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
           hint: '+1 (555) 000-0000',
           icon: Icons.phone_outlined,
           keyboardType: TextInputType.phone,
+          errorText: _phoneError,
+          onChanged: (val) {
+            if (_phoneError != null && val.trim().isNotEmpty) {
+              setState(() => _phoneError = null);
+            }
+          },
         ),
         const SizedBox(height: 14),
         _buildStepField(
