@@ -10,6 +10,7 @@ import '../../../../core/constants/app_typography.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/projects/domain/entities/project_model.dart';
 import '../../../../features/projects/data/repositories/project_repository.dart';
+import '../../../../features/profile/domain/entities/user_model.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../shared/widgets/app_button.dart';
 import '../../../../services/github/github_service.dart';
@@ -17,6 +18,7 @@ import '../../../../services/github/github_sync_limiter.dart';
 import '../../../../features/dashboard/presentation/screens/dashboard_screen.dart'; // for userProfileProvider
 import '../../../../routes/route_names.dart';
 import '../../../../shared/widgets/custom_toast.dart';
+import '../widgets/link_skills_bottom_sheet.dart';
 
 // ── Provider ───────────────────────────────────────────────
 
@@ -152,7 +154,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
     final githubUrl = user.githubUrl;
     if (githubUrl.trim().isEmpty) {
-      _showMissingGitHubUrlDialog(context);
+      _showAddGitHubUrlDialog(user.uid);
       return;
     }
 
@@ -160,9 +162,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     if (username == null) {
       CustomToast.show(
         context,
-        message: 'Could not parse a valid GitHub username from your profile URL. Please verify your profile details.',
+        message: 'Could not parse a valid GitHub username from your profile URL. Please check your GitHub link.',
         type: ToastType.error,
       );
+      _showAddGitHubUrlDialog(user.uid);
       return;
     }
 
@@ -174,40 +177,50 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       barrierDismissible: false,
       builder: (dialogCtx) {
         dialogContext = dialogCtx;
-        return const Center(
-          child: Card(
-            elevation: 8,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(16)),
+        return Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+            decoration: BoxDecoration(
+              color: const Color(0xFF13111C),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
                     color: AppColors.accent,
-                    strokeWidth: 3.5,
+                    strokeWidth: 3,
                   ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Fetching GitHub Repositories...',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      color: AppColors.textPrimary,
-                    ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Fetching GitHub Repositories...',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: Colors.white,
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Connecting to api.github.com',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                    ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Connecting to api.github.com',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.white.withValues(alpha: 0.50),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -351,71 +364,303 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
     );
   }
 
-  void _showMissingGitHubUrlDialog(BuildContext context) {
+  void _showAddGitHubUrlDialog(String uid) {
+    final controller = TextEditingController();
+    String? inlineError;
+    bool isSaving = false;
+
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.border),
-        ),
-        title: Row(
-          children: [
-            const Icon(Icons.link_off_rounded, color: AppColors.warning, size: 24),
-            const SizedBox(width: 10),
-            const Text(
-              'GitHub URL Missing',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppColors.textPrimary,
+      barrierDismissible: true,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (dialogContext, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF13111C),
+              surfaceTintColor: Colors.transparent,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(22),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
               ),
-            ),
-          ],
-        ),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'No GitHub profile URL registered.',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 12),
-            Text(
-              'To sync your repositories, please add your GitHub profile URL to your Personal Information under the Profile tab.',
-              style: AppTypography.bodySmall,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(dialogCtx).pop(); // pop dialog
-              context.go(RouteNames.profile);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.accent,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Go to Profile'),
-          ),
-        ],
-      ),
+              titlePadding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              contentPadding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+              title: Row(
+                children: [
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: const Icon(Icons.code_rounded,
+                        color: AppColors.accent, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Connect GitHub',
+                          style: GoogleFonts.outfit(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          'Link your profile to fetch projects',
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: Colors.white.withValues(alpha: 0.50),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.of(dialogCtx).pop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white.withValues(alpha: 0.06),
+                      ),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 16,
+                        color: Colors.white.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 440,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Enter your GitHub profile URL or username. We will fetch your public repositories so you can choose which ones to add as projects.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.white.withValues(alpha: 0.70),
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      style: const TextStyle(color: Colors.white, fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: 'https://github.com/username or username',
+                        hintStyle: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.35),
+                            fontSize: 13),
+                        prefixIcon: Icon(
+                          Icons.link_rounded,
+                          color: AppColors.accent.withValues(alpha: 0.8),
+                          size: 18,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white.withValues(alpha: 0.04),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.10)),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                              color: AppColors.accent, width: 1.5),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                              color: AppColors.error, width: 1.0),
+                        ),
+                        focusedErrorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide: const BorderSide(
+                              color: AppColors.error, width: 1.5),
+                        ),
+                        errorText: inlineError,
+                      ),
+                      onChanged: (val) {
+                        if (inlineError != null) {
+                          setStateDialog(() => inlineError = null);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Icon(Icons.info_outline_rounded,
+                            size: 13,
+                            color: Colors.white.withValues(alpha: 0.40)),
+                        const SizedBox(width: 5),
+                        Text(
+                          'Example: github.com/johnsmith or johnsmith',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.white.withValues(alpha: 0.40),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: isSaving
+                                ? null
+                                : () => Navigator.of(dialogCtx).pop(),
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.60),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          flex: 2,
+                          child: GestureDetector(
+                            onTap: isSaving
+                                ? null
+                                : () async {
+                                    final text = controller.text.trim();
+                                    if (text.isEmpty) {
+                                      setStateDialog(() {
+                                        inlineError =
+                                            'Please enter your GitHub link or username';
+                                      });
+                                      return;
+                                    }
+
+                                    final parsedUser =
+                                        _parseGitHubUsername(text);
+                                    if (parsedUser == null) {
+                                      setStateDialog(() {
+                                        inlineError =
+                                            'Invalid GitHub URL or username format';
+                                      });
+                                      return;
+                                    }
+
+                                    final normalizedUrl = text.startsWith('http')
+                                        ? text
+                                        : 'https://github.com/$parsedUser';
+
+                                    setStateDialog(() => isSaving = true);
+
+                                    try {
+                                      await ref
+                                          .read(profileRepositoryProvider)
+                                          .updateUser(
+                                              uid, {'githubUrl': normalizedUrl});
+
+                                      if (dialogContext.mounted) {
+                                        Navigator.of(dialogCtx).pop();
+                                      }
+
+                                      if (mounted) {
+                                        CustomToast.show(
+                                          context,
+                                          message:
+                                              'GitHub connected! Fetching your projects...',
+                                          type: ToastType.success,
+                                        );
+                                        // Automatically trigger sync to fetch repos
+                                        _handleGitHubSync();
+                                      }
+                                    } catch (e) {
+                                      setStateDialog(() {
+                                        isSaving = false;
+                                        inlineError = 'Failed to save: $e';
+                                      });
+                                    }
+                                  },
+                            child: Container(
+                              height: 44,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF0052D4),
+                                    Color(0xFF1E5FF5),
+                                    Color(0xFF6FB1FC)
+                                  ],
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                ),
+                                borderRadius: BorderRadius.circular(14),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF0052D4)
+                                        .withValues(alpha: 0.4),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                              ),
+                              child: Center(
+                                child: isSaving
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.check_rounded,
+                                              color: Colors.white, size: 16),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            'Save & Connect',
+                                            style: GoogleFonts.outfit(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13.5,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
-  void _showRepoImportDialog(BuildContext context, List<GitHubRepo> repos, String uid) {
-    final selectedRepos = List<bool>.filled(repos.length, true); // Select all by default
+  void _showRepoImportDialog(
+      BuildContext context, List<GitHubRepo> repos, String uid) {
+    final selectedRepos =
+        List<bool>.filled(repos.length, true); // Select all by default
     bool selectAll = true;
 
     showDialog(
@@ -425,45 +670,73 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
         return StatefulBuilder(
           builder: (dialogContext, setStateDialog) {
             return AlertDialog(
-              backgroundColor: AppColors.surface,
+              backgroundColor: const Color(0xFF13111C),
               surfaceTintColor: Colors.transparent,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: const BorderSide(color: AppColors.border),
+                borderRadius: BorderRadius.circular(22),
+                side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
               ),
               title: Row(
                 children: [
-                  const Icon(Icons.code_rounded, color: AppColors.accent, size: 24),
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.30),
+                      ),
+                    ),
+                    child: const Icon(Icons.code_rounded,
+                        color: AppColors.accent, size: 20),
+                  ),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
                       'Import Repositories',
-                      style: TextStyle(
+                      style: GoogleFonts.outfit(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary,
+                        color: Colors.white,
                       ),
                     ),
                   ),
-                  Text(
-                    '${selectedRepos.where((s) => s).length}/${repos.length} selected',
-                    style: AppTypography.labelMedium.copyWith(
-                      color: AppColors.accent,
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.accent.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: AppColors.accent.withValues(alpha: 0.30),
+                      ),
+                    ),
+                    child: Text(
+                      '${selectedRepos.where((s) => s).length}/${repos.length} selected',
+                      style: GoogleFonts.outfit(
+                        color: AppColors.accent,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
               ),
               content: SizedBox(
-                width: 450,
+                width: 460,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Select the repositories you want to import as permanent projects. They will be saved to Firebase.',
-                      style: AppTypography.bodySmall,
+                      'Select the repositories you want to import as projects. They will be saved to your portfolio.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.white.withValues(alpha: 0.65),
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     // Select All Row
                     GestureDetector(
                       onTap: () {
@@ -475,17 +748,24 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                         });
                       },
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: AppColors.border),
+                          color: Colors.white.withValues(alpha: 0.04),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08)),
                         ),
                         child: Row(
                           children: [
                             Checkbox(
                               value: selectAll,
                               activeColor: AppColors.accent,
+                              checkColor: Colors.black,
+                              side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.3)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4)),
                               onChanged: (val) {
                                 setStateDialog(() {
                                   selectAll = val ?? false;
@@ -495,12 +775,12 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                 });
                               },
                             ),
-                            const Text(
+                            Text(
                               'Select All Repositories',
-                              style: TextStyle(
+                              style: GoogleFonts.outfit(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13,
-                                color: AppColors.textPrimary,
+                                color: Colors.white,
                               ),
                             ),
                           ],
@@ -513,16 +793,18 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                       child: Container(
                         constraints: const BoxConstraints(maxHeight: 300),
                         decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.border),
-                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.08)),
+                          borderRadius: BorderRadius.circular(14),
+                          color: Colors.white.withValues(alpha: 0.02),
                         ),
                         child: ListView.separated(
                           shrinkWrap: true,
                           padding: const EdgeInsets.symmetric(vertical: 4),
                           itemCount: repos.length,
-                          separatorBuilder: (_, __) => const Divider(
+                          separatorBuilder: (_, __) => Divider(
                             height: 1,
-                            color: AppColors.divider,
+                            color: Colors.white.withValues(alpha: 0.06),
                           ),
                           itemBuilder: (ctx, index) {
                             final repo = repos[index];
@@ -531,6 +813,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                             return CheckboxListTile(
                               value: isChecked,
                               activeColor: AppColors.accent,
+                              checkColor: Colors.black,
+                              side: BorderSide(
+                                  color: Colors.white.withValues(alpha: 0.3)),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(4)),
                               onChanged: (val) {
                                 setStateDialog(() {
                                   selectedRepos[index] = val ?? false;
@@ -539,10 +826,10 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               },
                               title: Text(
                                 repo.name,
-                                style: const TextStyle(
+                                style: GoogleFonts.outfit(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 14,
-                                  color: AppColors.textPrimary,
+                                  color: Colors.white,
                                 ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -550,12 +837,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                               subtitle: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (repo.description != null && repo.description!.isNotEmpty) ...[
+                                  if (repo.description != null &&
+                                      repo.description!.isNotEmpty) ...[
                                     const SizedBox(height: 3),
                                     Text(
                                       repo.description!,
-                                      style: AppTypography.caption.copyWith(
-                                        color: AppColors.textSecondary,
+                                      style: TextStyle(
+                                        fontSize: 11.5,
+                                        color:
+                                            Colors.white.withValues(alpha: 0.55),
                                       ),
                                       maxLines: 2,
                                       overflow: TextOverflow.ellipsis,
@@ -566,27 +856,35 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                     children: [
                                       if (repo.language != null) ...[
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: AppColors.accentContainer,
-                                            borderRadius: BorderRadius.circular(4),
+                                            color: AppColors.accent
+                                                .withValues(alpha: 0.12),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                           ),
                                           child: Text(
                                             repo.language!,
                                             style: const TextStyle(
                                               fontSize: 10,
-                                              fontWeight: FontWeight.w500,
+                                              fontWeight: FontWeight.w600,
                                               color: AppColors.accent,
                                             ),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
                                       ],
-                                      const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
-                                      const SizedBox(width: 2),
+                                      const Icon(Icons.star_rounded,
+                                          size: 13, color: Colors.amber),
+                                      const SizedBox(width: 3),
                                       Text(
                                         '${repo.stars}',
-                                        style: AppTypography.caption,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.white
+                                              .withValues(alpha: 0.7),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -603,11 +901,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogCtx).pop(),
-                  child: const Text(
+                  child: Text(
                     'Cancel',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: 0.60),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -615,24 +913,40 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   onTap: selectedRepos.any((s) => s)
                       ? () async {
                           Navigator.of(dialogCtx).pop(); // pop safely
-                          await _importSelectedRepos(repos, selectedRepos, uid);
+                          await _importSelectedRepos(
+                              repos, selectedRepos, uid);
                         }
                       : null,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 10),
                     decoration: BoxDecoration(
+                      gradient: selectedRepos.any((s) => s)
+                          ? const LinearGradient(
+                              colors: [Color(0xFF0052D4), Color(0xFF1E5FF5)],
+                            )
+                          : null,
                       color: selectedRepos.any((s) => s)
-                          ? AppColors.accent
-                          : AppColors.textDisabled,
-                      borderRadius: BorderRadius.circular(10),
+                          ? null
+                          : Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
                       boxShadow: selectedRepos.any((s) => s)
-                          ? AppColors.accentShadow
+                          ? [
+                              BoxShadow(
+                                color: const Color(0xFF0052D4)
+                                    .withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
                           : null,
                     ),
-                    child: const Text(
-                      'Import Selected',
-                      style: TextStyle(
-                        color: Colors.white,
+                    child: Text(
+                      'Import Selected (${selectedRepos.where((s) => s).length})',
+                      style: GoogleFonts.outfit(
+                        color: selectedRepos.any((s) => s)
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.4),
                         fontWeight: FontWeight.bold,
                         fontSize: 13,
                       ),
@@ -664,40 +978,50 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
       barrierDismissible: false,
       builder: (dialogCtx) {
         dialogContext = dialogCtx;
-        return const Center(
-          child: Card(
-            elevation: 8,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.all(Radius.circular(16)),
+        return Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 22),
+            decoration: BoxDecoration(
+              color: const Color(0xFF13111C),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
             ),
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(
+                  width: 32,
+                  height: 32,
+                  child: CircularProgressIndicator(
                     color: AppColors.accent,
-                    strokeWidth: 3.5,
+                    strokeWidth: 3,
                   ),
-                  SizedBox(height: 20),
-                  Text(
-                    'Importing Projects...',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                      color: AppColors.textPrimary,
-                    ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Importing Projects...',
+                  style: GoogleFonts.outfit(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    color: Colors.white,
                   ),
-                  SizedBox(height: 6),
-                  Text(
-                    'Saving repositories to Firestore',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                    ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Saving repositories to Firestore',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: Colors.white.withValues(alpha: 0.50),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -786,6 +1110,177 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildGitHubActionBar(UserModel? user) {
+    final hasGitHub = user != null && user.githubUrl.trim().isNotEmpty;
+    final username = hasGitHub ? _parseGitHubUsername(user.githubUrl) : null;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF13111C).withValues(alpha: 0.70),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: hasGitHub
+                ? AppColors.accent.withValues(alpha: 0.25)
+                : const Color(0xFFCBE349).withValues(alpha: 0.25),
+            width: 1.0,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: hasGitHub
+                  ? AppColors.accent.withValues(alpha: 0.05)
+                  : const Color(0xFFCBE349).withValues(alpha: 0.05),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: hasGitHub
+                    ? AppColors.accent.withValues(alpha: 0.12)
+                    : const Color(0xFFCBE349).withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: hasGitHub
+                      ? AppColors.accent.withValues(alpha: 0.28)
+                      : const Color(0xFFCBE349).withValues(alpha: 0.28),
+                ),
+              ),
+              child: Icon(
+                hasGitHub ? Icons.cloud_sync_rounded : Icons.add_link_rounded,
+                color: hasGitHub ? AppColors.accent : const Color(0xFFCBE349),
+                size: 18,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    hasGitHub
+                        ? 'Fetch projects from GitHub'
+                        : 'Add GitHub link to fetch projects',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    hasGitHub
+                        ? (username != null ? '@$username' : user.githubUrl)
+                        : 'Connect profile to import public repos',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.50),
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: hasGitHub
+                    ? (_isSyncing ? null : _handleGitHubSync)
+                    : () {
+                        final uid = user?.uid ??
+                            ref.read(currentUserProvider)?.uid;
+                        if (uid != null) {
+                          _showAddGitHubUrlDialog(uid);
+                        }
+                      },
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  decoration: BoxDecoration(
+                    gradient: hasGitHub
+                        ? const LinearGradient(
+                            colors: [Color(0xFF0052D4), Color(0xFF1E5FF5)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          )
+                        : null,
+                    color: hasGitHub
+                        ? null
+                        : const Color(0xFFCBE349).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: hasGitHub
+                          ? Colors.transparent
+                          : const Color(0xFFCBE349).withValues(alpha: 0.40),
+                      width: 1.0,
+                    ),
+                    boxShadow: hasGitHub
+                        ? [
+                            BoxShadow(
+                              color: const Color(0xFF0052D4)
+                                  .withValues(alpha: 0.35),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: _isSyncing && hasGitHub
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              hasGitHub
+                                  ? Icons.download_rounded
+                                  : Icons.add_rounded,
+                              size: 13,
+                              color: hasGitHub
+                                  ? Colors.white
+                                  : const Color(0xFFCBE349),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              hasGitHub ? 'Fetch' : 'Connect',
+                              style: GoogleFonts.outfit(
+                                color: hasGitHub
+                                    ? Colors.white
+                                    : const Color(0xFFCBE349),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -966,6 +1461,8 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
   @override
   Widget build(BuildContext context) {
     final projectsAsync = ref.watch(projectsProvider);
+    final userAsync = ref.watch(userProfileProvider);
+    final user = userAsync.valueOrNull;
     final filter = ref.watch(projectFilterProvider);
     final search = ref.watch(projectSearchProvider);
     final screenHeight = MediaQuery.of(context).size.height;
@@ -1219,6 +1716,9 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                   ),
                 ),
 
+                // GitHub Quick Action Bar
+                _buildGitHubActionBar(user),
+
                 // Projects List
                 Expanded(
                   child: projectsAsync.when(
@@ -1244,6 +1744,15 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                         return _EmptyProjects(
                           hasProjects: projects.isNotEmpty,
                           onAdd: () => _showAddSelectionBottomSheet(context),
+                          user: user,
+                          onFetchGitHub: _isSyncing ? null : _handleGitHubSync,
+                          onAddGitHub: () {
+                            final uid = user?.uid ??
+                                ref.read(currentUserProvider)?.uid;
+                            if (uid != null) {
+                              _showAddGitHubUrlDialog(uid);
+                            }
+                          },
                         );
                       }
 
@@ -1440,17 +1949,12 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
     final uid = ref.read(currentUserProvider)?.uid;
     if (uid == null) return;
 
-    showModalBottomSheet(
+    showLinkSkillsBottomSheet(
       context: context,
-      useRootNavigator: true,
-      backgroundColor: const Color(0xFF13111C),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      isScrollControlled: true,
-      builder: (context) {
-        return _LinkSkillsBottomSheetContent(uid: uid, project: project);
-      },
+      uid: uid,
+      projectTitle: project.title,
+      initialSkills: project.linkedSkills,
+      projectId: project.id,
     );
   }
 
@@ -1929,301 +2433,100 @@ class _ProjectCardState extends ConsumerState<_ProjectCard> {
   }
 }
 
-// ── Link Skills Bottom Sheet Content ──────────────────────────────
 
-class _LinkSkillsBottomSheetContent extends ConsumerStatefulWidget {
-  final String uid;
-  final ProjectModel project;
-
-  const _LinkSkillsBottomSheetContent({required this.uid, required this.project});
-
-  @override
-  ConsumerState<_LinkSkillsBottomSheetContent> createState() => _LinkSkillsBottomSheetContentState();
-}
-
-class _LinkSkillsBottomSheetContentState extends ConsumerState<_LinkSkillsBottomSheetContent> {
-  late List<String> _selectedSkills;
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedSkills = List<String>.from(widget.project.linkedSkills);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final profileRepo = ref.watch(profileRepositoryProvider);
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: profileRepo.watchSkills(widget.uid),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 200,
-            child: Center(child: CircularProgressIndicator(color: AppColors.accent)),
-          );
-        }
-
-        final allSkills = snapshot.data ?? [];
-        if (allSkills.isEmpty) {
-          return Container(
-            padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.psychology_rounded, size: 48, color: AppColors.textSecondary),
-                const SizedBox(height: 16),
-                const Text(
-                  'No Skills Found',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Please add skills in your Profile page first so you can link them to this project.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: const Text('Go Back', style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            ),
-          );
-        }
-
-        // Group skills by category
-        final groupedSkills = <String, List<String>>{};
-        for (final skill in allSkills) {
-          final cat = skill['category'] as String? ?? 'Other';
-          final name = skill['name'] as String? ?? '';
-          if (name.isNotEmpty) {
-            groupedSkills.putIfAbsent(cat, () => []).add(name);
-          }
-        }
-
-        return Container(
-          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Link Skills to Project',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.project.title,
-                          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxHeight: MediaQuery.of(context).size.height * 0.45,
-                ),
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: groupedSkills.entries.map((entry) {
-                      final cat = entry.key;
-                      final skills = entry.value;
-
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              cat,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.accent,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: skills.map((skill) {
-                                final isSelected = _selectedSkills.contains(skill);
-                                return FilterChip(
-                                  label: Text(skill),
-                                  selected: isSelected,
-                                  onSelected: (selected) {
-                                    setState(() {
-                                      if (selected) {
-                                        _selectedSkills.add(skill);
-                                      } else {
-                                        _selectedSkills.remove(skill);
-                                      }
-                                    });
-                                  },
-                                  selectedColor: AppColors.accentContainer,
-                                  checkmarkColor: AppColors.accent,
-                                  backgroundColor: AppColors.surfaceVariant,
-                                  labelStyle: TextStyle(
-                                    color: isSelected ? AppColors.accent : AppColors.textPrimary,
-                                    fontSize: 12,
-                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                                  ),
-                                  side: BorderSide(
-                                    color: isSelected ? AppColors.accent : AppColors.border,
-                                    width: isSelected ? 1.5 : 1,
-                                  ),
-                                );
-                              }).toList(),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: OutlinedButton.styleFrom(
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        try {
-                          await ref.read(projectRepositoryProvider).updateProject(
-                            widget.uid,
-                            widget.project.id,
-                            {'linkedSkills': _selectedSkills},
-                          );
-                          if (context.mounted) {
-                            Navigator.pop(context);
-                            CustomToast.show(
-                              context,
-                              message: 'Linked skills updated successfully!',
-                              type: ToastType.success,
-                            );
-                          }
-                        } catch (e) {
-                          if (context.mounted) {
-                            CustomToast.show(
-                              context,
-                              message: 'Failed to update skills: $e',
-                              type: ToastType.error,
-                            );
-                          }
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.accent,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text('Save Connections', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
 
 // ── Empty State ───────────────────────────────────────────
 
 class _EmptyProjects extends StatelessWidget {
   final bool hasProjects;
   final VoidCallback onAdd;
+  final UserModel? user;
+  final VoidCallback? onFetchGitHub;
+  final VoidCallback? onAddGitHub;
 
-  const _EmptyProjects({required this.hasProjects, required this.onAdd});
+  const _EmptyProjects({
+    required this.hasProjects,
+    required this.onAdd,
+    this.user,
+    this.onFetchGitHub,
+    this.onAddGitHub,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final hasGitHub = user != null && user!.githubUrl.trim().isNotEmpty;
+
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 76,
+              height: 76,
               decoration: BoxDecoration(
                 color: AppColors.accent.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.accent.withValues(alpha: 0.35)),
+                borderRadius: BorderRadius.circular(22),
+                border: Border.all(
+                  color: AppColors.accent.withValues(alpha: 0.35),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accent.withValues(alpha: 0.15),
+                    blurRadius: 18,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              child: const Icon(Icons.code_rounded,
-                  size: 32, color: AppColors.accent),
+              child: Icon(
+                hasProjects ? Icons.search_off_rounded : Icons.code_rounded,
+                size: 34,
+                color: AppColors.accent,
+              ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 18),
             Text(
               hasProjects
                   ? 'No projects match your search'
                   : AppStrings.noProjectsYet,
-              style: const TextStyle(
+              style: GoogleFonts.outfit(
                 color: Colors.white,
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
               ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            if (!hasProjects)
-              Text(
-                AppStrings.noProjectsYetSub,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.6),
-                  fontSize: 13,
-                ),
-                textAlign: TextAlign.center,
+            Text(
+              hasProjects
+                  ? 'Try searching for a different keyword or tech stack.'
+                  : 'Start building your portfolio by importing your GitHub repositories or adding custom work.',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.6),
+                fontSize: 13,
+                height: 1.4,
               ),
-            const SizedBox(height: 24),
-            if (!hasProjects)
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 28),
+            if (!hasProjects) ...[
+              // Primary Action: Fetch from GitHub or Add GitHub link
               GestureDetector(
-                onTap: onAdd,
+                onTap: hasGitHub ? onFetchGitHub : onAddGitHub,
                 child: Container(
                   width: double.infinity,
-                  constraints: const BoxConstraints(maxWidth: 240),
+                  constraints: const BoxConstraints(maxWidth: 290),
                   height: 48,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                      colors: [Color(0xFF0052D4), Color(0xFF1E5FF5), Color(0xFF6FB1FC)],
+                      colors: [
+                        Color(0xFF0052D4),
+                        Color(0xFF1E5FF5),
+                        Color(0xFF6FB1FC)
+                      ],
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
                     ),
@@ -2239,12 +2542,20 @@ class _EmptyProjects extends StatelessWidget {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.add, color: Colors.white, size: 16),
+                      Icon(
+                        hasGitHub
+                            ? Icons.cloud_download_rounded
+                            : Icons.add_link_rounded,
+                        color: Colors.white,
+                        size: 17,
+                      ),
                       const SizedBox(width: 8),
                       Text(
-                        'Add Work',
+                        hasGitHub
+                            ? 'Fetch projects from GitHub'
+                            : 'Add GitHub link to fetch projects',
                         style: GoogleFonts.outfit(
-                          fontSize: 15,
+                          fontSize: 13.5,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
                         ),
@@ -2253,6 +2564,41 @@ class _EmptyProjects extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(height: 12),
+
+              // Secondary Action: Add Project Manually
+              GestureDetector(
+                onTap: onAdd,
+                child: Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(maxWidth: 290),
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.add_rounded,
+                          color: Colors.white, size: 17),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Add Project Manually',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),

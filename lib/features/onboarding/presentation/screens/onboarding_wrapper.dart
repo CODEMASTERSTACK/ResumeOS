@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -1449,16 +1450,17 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
     }
 
     try {
-      final files = await FilePicker.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf'],
+        withData: true,
       );
 
-      if (files.isEmpty) {
+      if (result == null || result.files.isEmpty) {
         return; // User cancelled
       }
 
-      final file = files.first;
+      final file = result.files.first;
       if (file.extension?.toLowerCase() != 'pdf') {
         setState(() {
           _autofillError = 'Only genuine .pdf files are allowed.';
@@ -1472,7 +1474,12 @@ class _BasicDetailsStepState extends ConsumerState<_BasicDetailsStep> {
       });
 
       // 2. Read in-memory only (never stored to cloud)
-      final bytes = await file.readAsBytes();
+      final Uint8List bytes;
+      if (file.bytes != null) {
+        bytes = file.bytes!;
+      } else {
+        bytes = await file.xFile.readAsBytes();
+      }
 
       // 3. Security Check: File Size Limit (Max 5 MB)
       if (bytes.lengthInBytes > 5 * 1024 * 1024) {

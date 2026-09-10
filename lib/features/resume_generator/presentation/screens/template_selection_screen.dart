@@ -387,9 +387,11 @@ class _TemplateSelectionScreenState
           throw Exception('Low balance');
         }
 
-        // Deduct points
+        // Deduct points and increment total resumes counter
         transaction.update(userRef, {
           'points': currentPoints - 2.5,
+          'totalResumesCreated': FieldValue.increment(1),
+          'lastActiveAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
 

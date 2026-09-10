@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_strings.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../routes/route_names.dart';
@@ -15,7 +14,7 @@ import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
 import '../../../../shared/providers/firebase_providers.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../features/notifications/presentation/providers/notification_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 // ── Providers ─────────────────────────────────────────────
@@ -417,8 +416,10 @@ class _GreetingSection extends StatelessWidget {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                const _NotificationBadgeButton(),
+                const SizedBox(width: 10),
                 const _PointsIndicatorWidget(),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 GestureDetector(
                   onTap: () => context.push('/profile/settings'),
                   child: Container(
@@ -455,6 +456,71 @@ class _GreetingSection extends StatelessWidget {
     );
   }
 }
+
+// ── Notification Badge Button ──────────────────────────────
+
+class _NotificationBadgeButton extends ConsumerWidget {
+  const _NotificationBadgeButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
+
+    return GestureDetector(
+      onTap: () => context.push(RouteNames.notifications),
+      child: Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: unreadCount > 0
+                ? const Color(0xFFCBE349).withValues(alpha: 0.35)
+                : Colors.white.withValues(alpha: 0.08),
+            width: 1.0,
+          ),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(
+              unreadCount > 0
+                  ? Icons.notifications_active_rounded
+                  : Icons.notifications_none_rounded,
+              color: unreadCount > 0
+                  ? const Color(0xFFCBE349)
+                  : Colors.white,
+              size: 20,
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                top: 9,
+                right: 9,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: const Color(0xFFCBE349),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFFCBE349).withValues(alpha: 0.8),
+                        blurRadius: 6,
+                        spreadRadius: 1,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Points Indicator Widget ────────────────────────────────
 
 class _PointsIndicatorWidget extends ConsumerStatefulWidget {
   const _PointsIndicatorWidget();

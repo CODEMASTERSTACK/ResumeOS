@@ -48,6 +48,7 @@ class _AddEditResearchScreenState extends ConsumerState<AddEditResearchScreen> {
   List<ContributorInput> _contributors = [];
   bool _isLoading = false;
   bool _isEditing = false;
+  ProjectModel? _existingProject;
 
   final List<String> _months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -73,6 +74,7 @@ class _AddEditResearchScreenState extends ConsumerState<AddEditResearchScreen> {
         .getProject(uid, widget.projectId!);
     if (project != null && mounted) {
       setState(() {
+        _existingProject = project;
         _topicCtrl.text = project.title;
 
         // Parse duration
@@ -147,19 +149,31 @@ class _AddEditResearchScreenState extends ConsumerState<AddEditResearchScreen> {
             }).toList()
           : [];
 
-      final project = ProjectModel(
-        id: widget.projectId ?? const Uuid().v4(),
-        uid: uid,
-        title: _topicCtrl.text.trim(),
-        duration: durationStr,
-        bulletPoints: [
-          _bullet1Ctrl.text.trim(),
-          _bullet2Ctrl.text.trim(),
-          _bullet3Ctrl.text.trim(),
-        ],
-        isResearch: true,
-        contributors: mappedContributors,
-      );
+      final project = (_existingProject != null)
+          ? _existingProject!.copyWith(
+              title: _topicCtrl.text.trim(),
+              duration: durationStr,
+              bulletPoints: [
+                _bullet1Ctrl.text.trim(),
+                _bullet2Ctrl.text.trim(),
+                _bullet3Ctrl.text.trim(),
+              ],
+              isResearch: true,
+              contributors: mappedContributors,
+            )
+          : ProjectModel(
+              id: widget.projectId ?? const Uuid().v4(),
+              uid: uid,
+              title: _topicCtrl.text.trim(),
+              duration: durationStr,
+              bulletPoints: [
+                _bullet1Ctrl.text.trim(),
+                _bullet2Ctrl.text.trim(),
+                _bullet3Ctrl.text.trim(),
+              ],
+              isResearch: true,
+              contributors: mappedContributors,
+            );
 
       if (_isEditing) {
         await ref

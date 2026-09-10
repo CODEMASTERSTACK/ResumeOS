@@ -12,6 +12,8 @@ import '../../../../services/ai/gemini_service.dart';
 import '../../../../shared/widgets/custom_toast.dart';
 import 'package:uuid/uuid.dart';
 
+import '../widgets/link_skills_bottom_sheet.dart';
+
 class AddEditProjectScreen extends ConsumerStatefulWidget {
   final String? projectId;
 
@@ -30,7 +32,9 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
   final _liveCtrl = TextEditingController();
   final _techCtrl = TextEditingController();
 
+  ProjectModel? _existingProject;
   List<String> _technologies = [];
+  List<String> _linkedSkills = [];
   bool _isLoading = false;
   bool _isGeneratingAI = false;
   bool _isEditing = false;
@@ -52,11 +56,13 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
         .getProject(uid, widget.projectId!);
     if (project != null && mounted) {
       setState(() {
+        _existingProject = project;
         _titleCtrl.text = project.title;
         _descCtrl.text = project.description;
         _githubCtrl.text = project.githubRepo;
         _liveCtrl.text = project.liveUrl;
         _technologies = List.from(project.technologies);
+        _linkedSkills = List.from(project.linkedSkills);
       });
     }
   }
@@ -66,6 +72,34 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
     if (t.isNotEmpty && !_technologies.contains(t)) {
       setState(() => _technologies.add(t));
       _techCtrl.clear();
+    }
+  }
+
+  Future<void> _openLinkSkillsBottomSheet() async {
+    final uid = ref.read(currentUserProvider)?.uid;
+    if (uid == null) return;
+
+    final result = await showLinkSkillsBottomSheet(
+      context: context,
+      uid: uid,
+      projectTitle: _titleCtrl.text.trim().isNotEmpty
+          ? _titleCtrl.text.trim()
+          : 'Current Project',
+      initialSkills: _linkedSkills,
+      projectId: widget.projectId,
+      onSkillsUpdated: (updatedSkills) {
+        if (mounted) {
+          setState(() {
+            _linkedSkills = List.from(updatedSkills);
+          });
+        }
+      },
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _linkedSkills = List.from(result);
+      });
     }
   }
 
@@ -109,8 +143,6 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
     }
   }
 
-
-
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final uid = ref.read(currentUserProvider)?.uid;
@@ -118,15 +150,25 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
 
     setState(() => _isLoading = true);
     try {
-      final project = ProjectModel(
-        id: widget.projectId ?? const Uuid().v4(),
-        uid: uid,
-        title: _titleCtrl.text.trim(),
-        description: _descCtrl.text.trim(),
-        githubRepo: _githubCtrl.text.trim(),
-        liveUrl: _liveCtrl.text.trim(),
-        technologies: _technologies,
-      );
+      final project = (_existingProject != null)
+          ? _existingProject!.copyWith(
+              title: _titleCtrl.text.trim(),
+              description: _descCtrl.text.trim(),
+              githubRepo: _githubCtrl.text.trim(),
+              liveUrl: _liveCtrl.text.trim(),
+              technologies: _technologies,
+              linkedSkills: _linkedSkills,
+            )
+          : ProjectModel(
+              id: widget.projectId ?? const Uuid().v4(),
+              uid: uid,
+              title: _titleCtrl.text.trim(),
+              description: _descCtrl.text.trim(),
+              githubRepo: _githubCtrl.text.trim(),
+              liveUrl: _liveCtrl.text.trim(),
+              technologies: _technologies,
+              linkedSkills: _linkedSkills,
+            );
 
       if (_isEditing) {
         await ref
@@ -410,65 +452,449 @@ class _AddEditProjectScreenState extends ConsumerState<AddEditProjectScreen> {
                     ),
                   const SizedBox(height: 20),
 
-                  // Technologies
-                  _FormField(
-                    label: 'Technologies',
+                  // ── Linked Profile Skills Section ───────────────────
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF13111C).withValues(alpha: 0.70),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: _linkedSkills.isNotEmpty
+                            ? AppColors.accent.withValues(alpha: 0.35)
+                            : Colors.white.withValues(alpha: 0.08),
+                        width: 1.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _linkedSkills.isNotEmpty
+                              ? AppColors.accent.withValues(alpha: 0.06)
+                              : Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        // Card Header
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: AppColors.accent.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: AppColors.accent.withValues(alpha: 0.30),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.hub_rounded,
+                                color: AppColors.accent,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Linked Skills',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 7, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.accent.withValues(alpha: 0.15),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: AppColors.accent.withValues(alpha: 0.30),
+                                            width: 0.8,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '${_linkedSkills.length}',
+                                          style: GoogleFonts.outfit(
+                                            color: AppColors.accent,
+                                            fontWeight: FontWeight.w800,
+                                            fontSize: 11,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Profile skills mapped for AI resume tailoring',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.50),
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            // Link / Manage Skills button
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _openLinkSkillsBottomSheet,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: [
+                                        AppColors.accent.withValues(alpha: 0.20),
+                                        const Color(0xFF8B5CF6).withValues(alpha: 0.15),
+                                      ],
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppColors.accent.withValues(alpha: 0.45),
+                                      width: 1.0,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(
+                                        Icons.add_link_rounded,
+                                        size: 14,
+                                        color: AppColors.accent,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        _linkedSkills.isEmpty ? 'Link Skills' : 'Manage',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Skills Wrap or Empty Prompt
+                        if (_linkedSkills.isNotEmpty)
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: _linkedSkills.map((skill) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: AppColors.accent.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.accent.withValues(alpha: 0.28),
+                                    width: 1.0,
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.link_rounded,
+                                      size: 12,
+                                      color: AppColors.accent,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      skill,
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    GestureDetector(
+                                      onTap: () => setState(() => _linkedSkills.remove(skill)),
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white.withValues(alpha: 0.08),
+                                        ),
+                                        child: Icon(
+                                          Icons.close_rounded,
+                                          size: 11,
+                                          color: Colors.white.withValues(alpha: 0.70),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          )
+                        else
+                          GestureDetector(
+                            onTap: _openLinkSkillsBottomSheet,
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.02),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.06),
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.hub_outlined,
+                                    size: 26,
+                                    color: Colors.white.withValues(alpha: 0.25),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'No skills linked from your profile yet',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white.withValues(alpha: 0.70),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    'Tap here to link verified skills from your profile',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.40),
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── Technologies & Stack Section ───────────────────
+                  Container(
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF13111C).withValues(alpha: 0.70),
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Section Header
+                        Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E5FF5).withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFF6FB1FC).withValues(alpha: 0.30),
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.terminal_rounded,
+                                color: Color(0xFF6FB1FC),
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        'Technologies & Stack',
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15,
+                                          letterSpacing: -0.2,
+                                        ),
+                                      ),
+                                      if (_technologies.isNotEmpty) ...[
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 7, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF1E5FF5).withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                            border: Border.all(
+                                              color: const Color(0xFF6FB1FC).withValues(alpha: 0.30),
+                                              width: 0.8,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '${_technologies.length}',
+                                            style: GoogleFonts.outfit(
+                                              color: const Color(0xFF6FB1FC),
+                                              fontWeight: FontWeight.w800,
+                                              fontSize: 11,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Languages, libraries, and tools used in this project',
+                                    style: TextStyle(
+                                      color: Colors.white.withValues(alpha: 0.50),
+                                      fontSize: 11.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Tech Input Field + Add Button
                         Row(
                           children: [
                             Expanded(
                               child: TextField(
                                 controller: _techCtrl,
-                                style: const TextStyle(color: Colors.white),
-                                decoration: _inputStyle(hintText: 'Type tech and press Enter...'),
+                                style: const TextStyle(color: Colors.white, fontSize: 13.5),
+                                decoration: _inputStyle(
+                                  hintText: 'e.g., Flutter, Node.js, Docker...',
+                                  prefixIcon: Icon(
+                                    Icons.add_circle_outline_rounded,
+                                    color: Colors.white.withValues(alpha: 0.35),
+                                    size: 17,
+                                  ),
+                                ),
                                 onSubmitted: _addTech,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            GestureDetector(
-                              onTap: () => _addTech(_techCtrl.text),
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: BoxDecoration(
-                                  color: AppColors.accent,
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.accent.withValues(alpha: 0.25),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
+                            const SizedBox(width: 10),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () => _addTech(_techCtrl.text),
+                                borderRadius: BorderRadius.circular(14),
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: BoxDecoration(
+                                    gradient: const LinearGradient(
+                                      colors: [Color(0xFF0052D4), Color(0xFF1E5FF5)],
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
                                     ),
-                                  ],
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: const Color(0xFF0052D4).withValues(alpha: 0.35),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.add_rounded,
+                                    color: Colors.white,
+                                    size: 22,
+                                  ),
                                 ),
-                                child: const Icon(Icons.add,
-                                    color: Colors.black, size: 22),
                               ),
                             ),
                           ],
                         ),
+
+                        // Technologies Wrap
                         if (_technologies.isNotEmpty) ...[
                           const SizedBox(height: 12),
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
                             children: _technologies.map((tech) {
-                              return Chip(
-                                label: Text(tech),
-                                deleteIcon: const Icon(Icons.close, size: 14, color: AppColors.accent),
-                                onDeleted: () =>
-                                    setState(() => _technologies.remove(tech)),
-                                backgroundColor: AppColors.accent.withValues(alpha: 0.08),
-                                labelStyle: const TextStyle(
-                                  color: AppColors.accent,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                              return Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF1E5FF5).withValues(alpha: 0.10),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFF6FB1FC).withValues(alpha: 0.30),
+                                    width: 1.0,
+                                  ),
                                 ),
-                                side: BorderSide(
-                                    color: AppColors.accent.withValues(alpha: 0.20)),
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.code_rounded,
+                                      size: 12,
+                                      color: Color(0xFF6FB1FC),
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      tech,
+                                      style: GoogleFonts.outfit(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    GestureDetector(
+                                      onTap: () => setState(() => _technologies.remove(tech)),
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: Colors.white.withValues(alpha: 0.08),
+                                        ),
+                                        child: Icon(
+                                          Icons.close_rounded,
+                                          size: 11,
+                                          color: Colors.white.withValues(alpha: 0.70),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               );
                             }).toList(),
                           ),

@@ -22,6 +22,11 @@ class UserModel {
   final double points;
   final List<String> claimedMilestones;
   final String lastClaimedSunday;
+  final String fcmToken;
+  final int totalResumesCreated;
+  final DateTime? lastActiveAt;
+  final String appVersion;
+  final String platform;
 
   const UserModel({
     required this.uid,
@@ -44,6 +49,11 @@ class UserModel {
     this.points = 10.0,
     this.claimedMilestones = const [],
     this.lastClaimedSunday = '',
+    this.fcmToken = '',
+    this.totalResumesCreated = 0,
+    this.lastActiveAt,
+    this.appVersion = '',
+    this.platform = '',
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -73,6 +83,11 @@ class UserModel {
                 .toList() ??
             const [],
         lastClaimedSunday: json['lastClaimedSunday'] as String? ?? '',
+        fcmToken: json['fcmToken'] as String? ?? '',
+        totalResumesCreated: (json['totalResumesCreated'] as num? ?? 0).toInt(),
+        lastActiveAt: (json['lastActiveAt'] as Timestamp?)?.toDate(),
+        appVersion: json['appVersion'] as String? ?? '',
+        platform: json['platform'] as String? ?? '',
       );
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -100,6 +115,11 @@ class UserModel {
         'points': points,
         'claimedMilestones': claimedMilestones,
         'lastClaimedSunday': lastClaimedSunday,
+        'fcmToken': fcmToken,
+        'totalResumesCreated': totalResumesCreated,
+        if (lastActiveAt != null) 'lastActiveAt': Timestamp.fromDate(lastActiveAt!),
+        'appVersion': appVersion,
+        'platform': platform,
       };
 
   UserModel copyWith({
@@ -122,6 +142,8 @@ class UserModel {
     double? points,
     List<String>? claimedMilestones,
     String? lastClaimedSunday,
+    String? appVersion,
+    String? platform,
   }) =>
       UserModel(
         uid: uid ?? this.uid,
@@ -144,6 +166,11 @@ class UserModel {
         points: points ?? this.points,
         claimedMilestones: claimedMilestones ?? this.claimedMilestones,
         lastClaimedSunday: lastClaimedSunday ?? this.lastClaimedSunday,
+        fcmToken: fcmToken,
+        totalResumesCreated: totalResumesCreated,
+        lastActiveAt: lastActiveAt,
+        appVersion: appVersion ?? this.appVersion,
+        platform: platform ?? this.platform,
       );
 }
 

@@ -20,5 +20,11 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
     }
+
+    // Broadcast & general notifications accessible to authenticated users
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated();
+      allow write: if false; // Only admin service account writes via backend
+    }
   }
 }

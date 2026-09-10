@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../routes/route_names.dart';
@@ -54,32 +55,56 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _navigateAfterDelay() async {
-    await Future.delayed(const Duration(milliseconds: 2800));
+    // 1. Minimum aesthetic delay so brand splash animation plays smoothly
+    final minDelayFuture = Future.delayed(const Duration(milliseconds: 1400));
+
+    // 2. Resolve authenticated user deterministically
+    User? user = ref.read(currentUserProvider) ?? FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      try {
+        user = await FirebaseAuth.instance
+            .authStateChanges()
+            .first
+            .timeout(const Duration(milliseconds: 2500));
+      } catch (_) {
+        user = null;
+      }
+    }
+
+    await minDelayFuture;
     if (!mounted) return;
 
-    final user = ref.read(currentUserProvider);
     if (user == null) {
       context.go(RouteNames.login);
       return;
     }
 
-    // Check if user has completed onboarding
+    // 3. User is authenticated; check onboarding status
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .get();
-      final onboardingComplete =
-          doc.data()?['onboardingComplete'] as bool? ?? false;
+          .get()
+          .timeout(const Duration(seconds: 4));
 
       if (!mounted) return;
-      if (onboardingComplete) {
+
+      final data = doc.data();
+      final isEmailVerified = data?['isEmailVerified'] as bool? ?? true;
+      final onboardingComplete = data?['onboardingComplete'] as bool? ?? false;
+
+      if (!isEmailVerified) {
+        context.go(RouteNames.otpVerify);
+      } else if (onboardingComplete) {
         context.go(RouteNames.dashboard);
       } else {
         context.go(RouteNames.onboarding);
       }
     } catch (_) {
-      if (mounted) context.go(RouteNames.onboarding);
+      // In case of network timeout or offline mode, navigate authenticated user directly
+      if (mounted) {
+        context.go(RouteNames.dashboard);
+      }
     }
   }
 

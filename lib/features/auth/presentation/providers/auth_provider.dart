@@ -100,8 +100,10 @@ final authStateProvider = StreamProvider<User?>((ref) {
 });
 
 /// Current Firebase user (null if not authenticated)
+/// Falls back synchronously to FirebaseAuth.instance.currentUser during initial StreamProvider loading
 final currentUserProvider = Provider<User?>((ref) {
-  return ref.watch(authStateProvider).valueOrNull;
+  final asyncUser = ref.watch(authStateProvider);
+  return asyncUser.hasValue ? asyncUser.value : FirebaseAuth.instance.currentUser;
 });
 
 // ── Auth Notifier State ────────────────────────────────────

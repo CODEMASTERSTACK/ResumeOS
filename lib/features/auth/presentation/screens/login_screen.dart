@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -41,6 +40,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     _slide = Tween<Offset>(begin: const Offset(0, 0.03), end: Offset.zero)
         .animate(_fade);
     _ctrl.forward();
+
+    // Safety check: if user is already authenticated, forward immediately
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          _navigateOnSuccess();
+        }
+      }
+    });
 
     // Start high five prompt timer
     _startHighFiveTimer();
@@ -132,8 +141,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     if (raw.contains('wrong-password') || raw.contains('invalid-credential')) {
       return 'Incorrect email or password.';
     }
-    if (raw.contains('user-not-found'))
+    if (raw.contains('user-not-found')) {
       return 'No account found with that email.';
+    }
     if (raw.contains('email-already-in-use') ||
         raw.contains('account-exists-with-different-credential')) {
       return 'An account already exists with this email using a different sign-in method. Try logging in with your password or Google, or delete the old user in the Firebase Console.';
@@ -141,9 +151,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     if (raw.contains('weak-password')) {
       return 'Password must be at least 6 characters.';
     }
-    if (raw.contains('invalid-email'))
+    if (raw.contains('invalid-email')) {
       return 'Please enter a valid email address.';
-    if (raw.contains('network')) return 'Network error. Check your connection.';
+    }
+    if (raw.contains('network')) {
+      return 'Network error. Check your connection.';
+    }
     if (raw.contains('cancelled') || raw.contains('aborted')) {
       return 'Sign in was cancelled.';
     }
@@ -162,24 +175,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           ],
         ),
         backgroundColor: AppColors.error,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  void _showSuccess(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle_outline,
-                color: Colors.white, size: 18),
-            const SizedBox(width: 10),
-            Expanded(child: Text(msg)),
-          ],
-        ),
-        backgroundColor: AppColors.success,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),

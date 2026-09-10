@@ -34,6 +34,7 @@ import '../features/profile/presentation/screens/points_screen.dart';
 import '../features/profile/presentation/screens/profile_context_screen.dart';
 import '../features/jobs/presentation/screens/job_openings_screen.dart';
 import '../features/dashboard/presentation/screens/resume_guide_screen.dart';
+import '../features/notifications/presentation/screens/notifications_screen.dart';
 import '../shared/widgets/app_shell.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -43,6 +44,9 @@ class RouterTransitionNotifier extends ChangeNotifier {
   final Ref _ref;
 
   RouterTransitionNotifier(this._ref) {
+    _ref.listen(currentUserProvider, (_, __) {
+      notifyListeners();
+    });
     _ref.listen(authStateProvider, (_, __) {
       notifyListeners();
     });
@@ -86,6 +90,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (isAuthenticated) {
         final profileAsync = ref.read(userProfileProvider);
         final profile = profileAsync.valueOrNull;
+
+        // If authenticated user is on an entry auth screen (login or signup), redirect them away!
+        final isEntryAuthScreen = location == RouteNames.login || location == RouteNames.signup;
+
         if (profile != null) {
           final isUnverified = !profile.isEmailVerified;
           final isOnOtpVerify = location == RouteNames.otpVerify;
@@ -94,7 +102,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               return RouteNames.otpVerify;
             }
           } else {
-            if (isOnOtpVerify) {
+            if (isOnOtpVerify || isEntryAuthScreen) {
               return profile.onboardingComplete
                   ? RouteNames.dashboard
                   : RouteNames.onboarding;
@@ -106,10 +114,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               return RouteNames.onboarding;
             }
           }
+        } else if (isEntryAuthScreen) {
+          // If profile is still resolving from Firestore, forward away from login to dashboard
+          return RouteNames.dashboard;
         }
       }
 
-      // Let post-auth screens or splash handle the landing page redirect (dashboard vs onboarding)
       return null;
     },
     routes: [
@@ -189,6 +199,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => _slideTransition(
           state,
           const JobOpeningsScreen(),
+        ),
+      ),
+
+      // ── Notifications ─────────────────────────────────────
+      GoRoute(
+        path: RouteNames.notifications,
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => _slideTransition(
+          state,
+          const NotificationsScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/notification',
+        parentNavigatorKey: _rootNavigatorKey,
+        pageBuilder: (context, state) => _slideTransition(
+          state,
+          const NotificationsScreen(),
         ),
       ),
 

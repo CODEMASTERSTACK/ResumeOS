@@ -14,6 +14,9 @@ import '../../../../services/ai/ai_service.dart';
 import '../../../../services/ai/gemini_service.dart';
 import 'generate_screen.dart';
 
+import '../../../../features/profile/data/repositories/profile_repository.dart';
+import '../../domain/services/candidate_evaluation_service.dart';
+
 // ── Providers ─────────────────────────────────────────────
 
 final jdAnalysisProvider = FutureProvider<JdAnalysisResult?>((ref) async {
@@ -22,6 +25,55 @@ final jdAnalysisProvider = FutureProvider<JdAnalysisResult?>((ref) async {
   final ai = ref.read(geminiServiceImplProvider);
   final result = await ai.analyzeJobDescription(jd);
   return JdAnalysisResult.fromJson(result);
+});
+
+final candidateEvaluationProvider =
+    FutureProvider<CandidateScoreBreakdown?>((ref) async {
+  final uid = ref.watch(currentUserProvider)?.uid;
+  if (uid == null) return null;
+  final analysisAsync = ref.watch(jdAnalysisProvider);
+  final analysis = analysisAsync.valueOrNull;
+  if (analysis == null) return null;
+
+  final profileRepo = ref.read(profileRepositoryProvider);
+  final projectRepo = ref.read(projectRepositoryProvider);
+
+  final projects = await projectRepo.getAllProjects(uid);
+  final user = await profileRepo.getUser(uid);
+
+  // Fetch subcollections safely
+  List<Map<String, dynamic>> skills = [];
+  List<Map<String, dynamic>> experience = [];
+  List<Map<String, dynamic>> education = [];
+  List<Map<String, dynamic>> certs = [];
+
+  try {
+    skills = await profileRepo.watchSkills(uid).first;
+  } catch (_) {}
+  try {
+    experience = await profileRepo.watchExperience(uid).first;
+  } catch (_) {}
+  try {
+    education = await profileRepo.watchEducation(uid).first;
+  } catch (_) {}
+  try {
+    certs = await profileRepo.watchCertifications(uid).first;
+  } catch (_) {}
+
+  final profileSkillNames = skills
+      .map((s) => (s['name'] ?? '').toString())
+      .where((s) => s.isNotEmpty)
+      .toList();
+
+  return CandidateEvaluationService.evaluate(
+    analysis: analysis,
+    projects: projects,
+    profileSkills: profileSkillNames,
+    experiences: experience,
+    educations: education,
+    certifications: certs,
+    user: user,
+  );
 });
 
 final rankedProjectsProvider =
@@ -166,7 +218,12 @@ class AiAnalysisScreen extends ConsumerWidget {
                     ),
                   );
                 }
-                return _AnalysisResult(analysis: analysis, rankedAsync: rankedAsync);
+                final breakdownAsync = ref.watch(candidateEvaluationProvider);
+                return _AnalysisResult(
+                  analysis: analysis,
+                  rankedAsync: rankedAsync,
+                  breakdownAsync: breakdownAsync,
+                );
               },
             ),
           ),
@@ -491,18 +548,23 @@ class _OrbitPainter extends CustomPainter {
 class _AnalysisResult extends ConsumerStatefulWidget {
   final JdAnalysisResult analysis;
   final AsyncValue<List<(ProjectModel, double)>> rankedAsync;
+  final AsyncValue<CandidateScoreBreakdown?> breakdownAsync;
 
-  const _AnalysisResult({required this.analysis, required this.rankedAsync});
+  const _AnalysisResult({
+    required this.analysis,
+    required this.rankedAsync,
+    required this.breakdownAsync,
+  });
 
   @override
   ConsumerState<_AnalysisResult> createState() => _AnalysisResultState();
 }
 
 class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
-  int _activeTab = 0; // 0: Skills Matrix, 1: Company Profile, 2: Strategy
+  int _activeTab = 0; // 0: Match Breakdown, 1: Skills Matrix, 2: Strategy
 
   Widget _buildTabBar() {
-    final tabs = ['Skills Matrix', 'Strategy'];
+    final tabs = ['Match Breakdown', 'Skills Matrix', 'Strategy'];
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 24),
       padding: const EdgeInsets.all(4),
@@ -532,7 +594,7 @@ class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
                     tabs[i],
                     style: GoogleFonts.outfit(
                       color: isActive ? const Color(0xFFCBE349) : Colors.white60,
-                      fontSize: 12,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -542,6 +604,181 @@ class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
           );
         }),
       ),
+    );
+  }
+
+  Widget _buildBreakdownTab(CandidateScoreBreakdown breakdown) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Seniority & Career Context Pill
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.03),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                breakdown.isEarlyCareerAdjusted
+                    ? Icons.school_rounded
+                    : Icons.work_history_rounded,
+                color: const Color(0xFFCBE349),
+                size: 18,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      breakdown.seniorityVerdict.toUpperCase(),
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      breakdown.isEarlyCareerAdjusted
+                          ? 'Early career mode active — score balanced across your verified skills & projects'
+                          : 'Seniority calibrated against target role specifications',
+                      style: GoogleFonts.outfit(
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // 4 Pillars Card Breakdown
+        _BodySection(
+          label: 'ATS Evaluation Pillars',
+          trailing: 'Holistic 360° Score',
+          child: Column(
+            children: [
+              _PillarMeter(
+                label: 'Core Skills Match',
+                percent: breakdown.skillsPercentage,
+                weight: '${(breakdown.skillsWeight * 100).round()}% weight',
+                color: const Color(0xFF10B981),
+                subtitle: '${breakdown.matchedSkills.length} required skills verified in your profile',
+                icon: Icons.psychology_rounded,
+              ),
+              const SizedBox(height: 12),
+              _PillarMeter(
+                label: 'Project Portfolio Proof',
+                percent: breakdown.projectsPercentage,
+                weight: '${(breakdown.projectsWeight * 100).round()}% weight',
+                color: const Color(0xFF3B82F6),
+                subtitle: 'Evaluates GitHub links, live demos, and linked skills',
+                icon: Icons.folder_special_rounded,
+              ),
+              if (!breakdown.isEarlyCareerAdjusted) ...[
+                const SizedBox(height: 12),
+                _PillarMeter(
+                  label: 'Experience & Seniority',
+                  percent: breakdown.experiencePercentage,
+                  weight: '${(breakdown.experienceWeight * 100).round()}% weight',
+                  color: const Color(0xFFF59E0B),
+                  subtitle: 'Role relevance & tenure calibration',
+                  icon: Icons.history_edu_rounded,
+                ),
+                const SizedBox(height: 12),
+                _PillarMeter(
+                  label: 'Education & Credentials',
+                  percent: breakdown.credentialsPercentage,
+                  weight: '${(breakdown.credentialsWeight * 100).round()}% weight',
+                  color: const Color(0xFFEC4899),
+                  subtitle: 'Relevant degree & professional certifications',
+                  icon: Icons.verified_user_rounded,
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        const _Divider(),
+
+        // Actionable Recommendations
+        if (breakdown.gapRecommendations.isNotEmpty) ...[
+          _BodySection(
+            label: 'Actionable ATS Optimizations',
+            trailing: '${breakdown.gapRecommendations.length} recommendations',
+            child: Column(
+              children: breakdown.gapRecommendations.map((rec) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFCBE349).withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: const Color(0xFFCBE349).withValues(alpha: 0.15),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.tips_and_updates_rounded,
+                        color: Color(0xFFCBE349),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          rec,
+                          style: GoogleFonts.outfit(
+                            color: Colors.white.withValues(alpha: 0.85),
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w400,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+          const _Divider(),
+        ],
+
+        // Matched vs Missing Skills
+        if (breakdown.missingSkills.isNotEmpty) ...[
+          _BodySection(
+            label: 'Identified Skill Gaps',
+            trailing: '${breakdown.missingSkills.length} missing',
+            child: _InlineSkillTags(
+              skills: breakdown.missingSkills,
+              color: const Color(0xFFEF4444),
+            ),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        if (breakdown.matchedSkills.isNotEmpty) ...[
+          _BodySection(
+            label: 'Verified Matching Skills',
+            trailing: '${breakdown.matchedSkills.length} matched',
+            child: _InlineSkillTags(
+              skills: breakdown.matchedSkills,
+              color: const Color(0xFF10B981),
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -602,9 +839,20 @@ class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
     );
   }
 
-  Widget _buildTabContent() {
+  Widget _buildTabContent(CandidateScoreBreakdown? breakdown) {
     switch (_activeTab) {
       case 0:
+        if (breakdown != null) {
+          return _buildBreakdownTab(breakdown);
+        }
+        return const Center(
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: CircularProgressIndicator(color: Color(0xFFCBE349)),
+          ),
+        );
+
+      case 1:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -687,7 +935,7 @@ class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
           ],
         );
 
-      case 1:
+      case 2:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -748,8 +996,10 @@ class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
       loading: () => const _AnalyzingAnimation(),
       error: (e, _) => _ErrorState(message: e.toString(), onRetry: () {}),
       data: (ranked) {
+        final breakdown = widget.breakdownAsync.valueOrNull;
         final topScore = ranked.isNotEmpty ? ranked.first.$2 : 0.0;
-        final matchPct = (topScore * 100).round().clamp(0, 100);
+        final fallbackPct = (topScore * 100).round().clamp(0, 100);
+        final matchPct = breakdown != null ? breakdown.overallPercentage : fallbackPct;
 
         return SingleChildScrollView(
           physics: const BouncingScrollPhysics(),
@@ -757,7 +1007,10 @@ class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── HERO SCORE SECTION ─────────────────────────────────
-              _ScoreHero(percent: matchPct),
+              _ScoreHero(
+                percent: matchPct,
+                breakdown: breakdown,
+              ),
               const SizedBox(height: 24),
 
               // ── NAVIGATION TABS ─────────────────────────────────────
@@ -769,7 +1022,7 @@ class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildTabContent(),
+                    _buildTabContent(breakdown),
                     const SizedBox(height: 40),
 
                     // CTA
@@ -787,13 +1040,110 @@ class _AnalysisResultState extends ConsumerState<_AnalysisResult> {
   }
 }
 
+// ── Pillar Progress Meter ──────────────────────────────────
+
+class _PillarMeter extends StatelessWidget {
+  final String label;
+  final int percent;
+  final String weight;
+  final String subtitle;
+  final Color color;
+  final IconData icon;
+
+  const _PillarMeter({
+    required this.label,
+    required this.percent,
+    required this.weight,
+    required this.subtitle,
+    required this.color,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 16),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  style: GoogleFonts.outfit(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  weight,
+                  style: GoogleFonts.outfit(
+                    color: Colors.white54,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '$percent%',
+                style: GoogleFonts.outfit(
+                  color: color,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subtitle,
+            style: GoogleFonts.outfit(
+              color: Colors.white38,
+              fontSize: 11,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: (percent / 100.0).clamp(0.0, 1.0),
+              minHeight: 4,
+              backgroundColor: Colors.white.withValues(alpha: 0.06),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Score Hero — the visual anchor of the screen ──────────
-// No card. No border. Just the number, a thin arc, and a label.
-// Inspiration: Linear's metric displays, Apple Health, Stripe Dashboard.
 
 class _ScoreHero extends StatefulWidget {
   final int percent;
-  const _ScoreHero({required this.percent});
+  final CandidateScoreBreakdown? breakdown;
+  const _ScoreHero({
+    required this.percent,
+    this.breakdown,
+  });
 
   @override
   State<_ScoreHero> createState() => _ScoreHeroState();
@@ -828,6 +1178,9 @@ class _ScoreHeroState extends State<_ScoreHero>
   }
 
   String get _verdict {
+    if (widget.breakdown != null) {
+      return widget.breakdown!.verdictSubtitle;
+    }
     if (widget.percent >= 70) return 'Strong match for this role';
     if (widget.percent >= 40) return 'Good match — AI will optimise';
     return 'Partial match — AI highlights your strengths';
@@ -862,7 +1215,7 @@ class _ScoreHeroState extends State<_ScoreHero>
                   children: [
                     // Label
                     Text(
-                      'Match Score',
+                      widget.breakdown != null ? 'REALISTIC ATS MATCH' : 'MATCH SCORE',
                       style: GoogleFonts.outfit(
                         color: Colors.white38,
                         fontSize: 11,
@@ -879,7 +1232,7 @@ class _ScoreHeroState extends State<_ScoreHero>
                             text: '$displayPct',
                             style: GoogleFonts.outfit(
                               color: _scoreColor,
-                              fontSize: 72,
+                              fontSize: 68,
                               fontWeight: FontWeight.w900,
                               height: 0.95,
                               letterSpacing: -2,
@@ -889,7 +1242,7 @@ class _ScoreHeroState extends State<_ScoreHero>
                             text: '%',
                             style: GoogleFonts.outfit(
                               color: _scoreColor.withValues(alpha: 0.5),
-                              fontSize: 28,
+                              fontSize: 26,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -897,7 +1250,7 @@ class _ScoreHeroState extends State<_ScoreHero>
                       ),
                     ),
                     const SizedBox(height: 10),
-                    // Thin progress line — minimal, not a card
+                    // Thin progress line
                     SizedBox(
                       width: 160,
                       child: Stack(
@@ -934,7 +1287,7 @@ class _ScoreHeroState extends State<_ScoreHero>
 
               const SizedBox(width: 24),
 
-              // Right: arc indicator — clean, not a card
+              // Right: arc indicator
               SizedBox(
                 width: 80,
                 height: 80,
@@ -963,6 +1316,7 @@ class _ScoreHeroState extends State<_ScoreHero>
     );
   }
 }
+
 
 // Clean arc painter — just a thin stroke, no card
 class _ArcPainter extends CustomPainter {

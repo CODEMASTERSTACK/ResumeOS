@@ -94,6 +94,48 @@ class ProjectModel {
     return ProjectModel.fromJson({...data, 'id': doc.id});
   }
 
+  ProjectModel copyWith({
+    String? id,
+    String? uid,
+    String? title,
+    String? description,
+    String? githubRepo,
+    String? liveUrl,
+    List<String>? technologies,
+    List<String>? tags,
+    List<String>? bulletPoints,
+    String? aiSummary,
+    bool? isGithubSynced,
+    bool? isFeatured,
+    List<String>? linkedSkills,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+    bool? isResearch,
+    String? duration,
+    List<Contributor>? contributors,
+  }) {
+    return ProjectModel(
+      id: id ?? this.id,
+      uid: uid ?? this.uid,
+      title: title ?? this.title,
+      description: description ?? this.description,
+      githubRepo: githubRepo ?? this.githubRepo,
+      liveUrl: liveUrl ?? this.liveUrl,
+      technologies: technologies ?? this.technologies,
+      tags: tags ?? this.tags,
+      bulletPoints: bulletPoints ?? this.bulletPoints,
+      aiSummary: aiSummary ?? this.aiSummary,
+      isGithubSynced: isGithubSynced ?? this.isGithubSynced,
+      isFeatured: isFeatured ?? this.isFeatured,
+      linkedSkills: linkedSkills ?? this.linkedSkills,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      isResearch: isResearch ?? this.isResearch,
+      duration: duration ?? this.duration,
+      contributors: contributors ?? this.contributors,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'uid': uid,
         'title': title,
@@ -126,12 +168,33 @@ class ProjectModel {
     final lowerSkills = linkedSkills.map((s) => s.toLowerCase()).toList();
 
     for (final kw in keywords) {
-      final lower = kw.toLowerCase();
-      if (lowerTitle.contains(lower)) matches += 3;
-      if (lowerDesc.contains(lower)) matches += 2;
-      if (lowerTech.any((t) => t.contains(lower))) matches += 2;
-      if (lowerSkills.any((s) => s.contains(lower))) matches += 2;
+      final lower = kw.trim().toLowerCase();
+      if (lower.isEmpty) continue;
+
+      // Word boundary regex to prevent false positives (e.g., 'go' inside 'algorithm')
+      final escaped = RegExp.escape(lower);
+      final wordRegex = RegExp(r'(^|[\s,.\-_/])' + escaped + r'($|[\s,.\-_/])', caseSensitive: false);
+
+      if (wordRegex.hasMatch(lowerTitle)) {
+        matches += 3;
+      } else if (lowerTitle.contains(lower) && lower.length > 3) {
+        matches += 2;
+      }
+
+      if (wordRegex.hasMatch(lowerDesc)) {
+        matches += 2;
+      } else if (lowerDesc.contains(lower) && lower.length > 4) {
+        matches += 1;
+      }
+
+      if (lowerTech.any((t) => t == lower || wordRegex.hasMatch(t))) {
+        matches += 3;
+      }
+      if (lowerSkills.any((s) => s == lower || wordRegex.hasMatch(s))) {
+        matches += 3;
+      }
     }
-    return matches / (keywords.length * 3);
+    return (matches / (keywords.length * 3)).clamp(0.0, 1.0);
   }
 }
+
