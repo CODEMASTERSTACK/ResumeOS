@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'route_names.dart';
 import '../features/auth/presentation/providers/auth_provider.dart';
 import '../features/auth/presentation/screens/splash_screen.dart';
@@ -53,6 +54,9 @@ class RouterTransitionNotifier extends ChangeNotifier {
     _ref.listen(userProfileProvider, (_, __) {
       notifyListeners();
     });
+    FirebaseAuth.instance.authStateChanges().listen((_) {
+      notifyListeners();
+    });
   }
 }
 
@@ -69,7 +73,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: listenable,
     debugLogDiagnostics: true,
     redirect: (context, state) {
-      final user = ref.read(currentUserProvider);
+      final user = ref.read(currentUserProvider) ?? FirebaseAuth.instance.currentUser;
       final isAuthenticated = user != null;
       final location = state.uri.toString();
 
@@ -88,28 +92,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       if (isAuthenticated) {
-        final profileAsync = ref.read(userProfileProvider);
-        final profile = profileAsync.valueOrNull;
+        // If authenticated user is on an entry auth screen, redirect them away to dashboard
+        final isEntryAuthScreen = location == RouteNames.login ||
+            location == RouteNames.signup ||
+            location == RouteNames.otpVerify;
 
-        // If authenticated user is on an entry auth screen (login or signup), redirect them away!
-        final isEntryAuthScreen = location == RouteNames.login || location == RouteNames.signup;
-
-        if (profile != null) {
-          if (isEntryAuthScreen || location == RouteNames.otpVerify) {
-            return profile.onboardingComplete
-                ? RouteNames.dashboard
-                : RouteNames.onboarding;
-          }
-
-          final isOnOnboarding = location == RouteNames.onboarding ||
-              location.startsWith('/onboarding');
-          if (!profile.onboardingComplete && !isOnOnboarding) {
+        if (isEntryAuthScreen) {
+          final profileAsync = ref.read(userProfileProvider);
+          final profile = profileAsync.valueOrNull;
+          if (profile != null && !profile.onboardingComplete) {
             return RouteNames.onboarding;
           }
-        } else if (isEntryAuthScreen) {
-          // If profile is still resolving from Firestore, forward away from login to dashboard
           return RouteNames.dashboard;
         }
+
+        // Active app screens (/dashboard, /projects, /generate, /history, /profile)
+        // proceed uninterrupted!
       }
 
       return null;

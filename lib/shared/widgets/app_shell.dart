@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/app_strings.dart';
 import '../../routes/route_names.dart';
+import '../../services/cache/screen_persistence.dart';
 import 'custom_toast.dart';
 
 class AppShell extends StatelessWidget {
@@ -58,6 +59,11 @@ class AppShell extends StatelessWidget {
     final location = GoRouterState.of(context).uri.toString();
     final currentIndex = _currentIndex(location);
 
+    // Persist current active screen route
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ScreenPersistence.saveLastRoute(location);
+    });
+
     final hideNav = location == RouteNames.generate;
 
     return Scaffold(
@@ -69,7 +75,11 @@ class AppShell extends StatelessWidget {
           : _AppBottomNav(
               currentIndex: currentIndex,
               destinations: _destinations,
-              onTap: (index) => context.go(_destinations[index].route),
+              onTap: (index) {
+                final route = _destinations[index].route;
+                ScreenPersistence.saveLastRoute(route);
+                context.go(route);
+              },
             ),
     );
   }

@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../routes/route_names.dart';
+import '../../../../services/cache/screen_persistence.dart';
 import '../providers/auth_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../shared/utils/error_sanitizer.dart';
@@ -25,6 +26,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   late AnimationController _ctrl;
   late Animation<double> _fade;
   late Animation<Offset> _slide;
+  StreamSubscription<User?>? _authSubscription;
 
   // Timers and states for interactive bear high-five feature
   bool _askingForHighFive = false;
@@ -42,6 +44,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         .animate(_fade);
     _ctrl.forward();
 
+    // Active auth listener: if background authentication resolves while on login screen, forward immediately
+    _authSubscription = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user != null && mounted) {
+        _navigateOnSuccess();
+      }
+    });
+
     // Safety check: if user is already authenticated, forward immediately
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -58,6 +67,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
   @override
   void dispose() {
+    _authSubscription?.cancel();
     _ctrl.dispose();
     _highFiveTimer?.cancel();
     _highFiveResetTimer?.cancel();
@@ -140,6 +150,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       return;
     }
 
+    await ScreenPersistence.saveAuthUid(user.uid);
+    final savedRoute = await ScreenPersistence.getLastRoute();
+
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
@@ -151,6 +164,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       final isDeleted = (data['isDeleted'] as bool? ?? false) || (data['accountStatus'] == 'deleted');
       if (isDeleted) {
         await FirebaseAuth.instance.signOut();
+        await ScreenPersistence.clearAll();
         final reason = (data['deletionReason'] as String?)?.isNotEmpty == true
             ? data['deletionReason'] as String
             : 'Unauthorized activity';
@@ -175,6 +189,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         final isStillHeld = holdUntil == null || DateTime.now().isBefore(holdUntil);
         if (isStillHeld) {
           await FirebaseAuth.instance.signOut();
+          await ScreenPersistence.clearAll();
           final reason = (data['holdReason'] as String?)?.isNotEmpty == true
               ? data['holdReason'] as String
               : 'Detected unauthorized activity';
@@ -190,17 +205,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         }
       }
 
-      final onboardingComplete =
-          data['onboardingComplete'] as bool? ?? false;
+      // Mark onboarding complete in background to prevent ever locking user into onboarding
+      FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({'onboardingComplete': true}).catchError((_) {});
+
+      final targetRoute = (savedRoute != null &&
+              savedRoute.isNotEmpty &&
+              !savedRoute.contains('login') &&
+              !savedRoute.contains('splash') &&
+              !savedRoute.contains('otp') &&
+              !savedRoute.contains('account-deleted'))
+          ? savedRoute
+          : RouteNames.dashboard;
 
       if (!mounted) return;
-      if (onboardingComplete) {
-        context.go(RouteNames.dashboard);
-      } else {
-        context.go(RouteNames.onboarding);
-      }
+      context.go(targetRoute);
     } catch (_) {
-      if (mounted) context.go(RouteNames.onboarding);
+      if (mounted) {
+        final targetRoute = (savedRoute != null &&
+                savedRoute.isNotEmpty &&
+                !savedRoute.contains('login') &&
+                !savedRoute.contains('splash') &&
+                !savedRoute.contains('otp'))
+            ? savedRoute
+            : RouteNames.dashboard;
+        context.go(targetRoute);
+      }
     }
   }
 
@@ -362,104 +394,121 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         ),
       ),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFFFCFAF7),
         body: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFFCFAF7), // Soft premium warm top
-                Colors.white, // Clean white base
+                Color(0xFFFCFAF7), // Soft premium warm ivory top
+                Color(0xFFF9F6F0), // Clean warm base
               ],
             ),
           ),
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                 child: FadeTransition(
                   opacity: _fade,
                   child: SlideTransition(
                     position: _slide,
                     child: Container(
-                      width: screenWidth > 500 ? 450 : double.infinity,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 40),
+                      constraints: const BoxConstraints(maxWidth: 440),
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: screenWidth > 500 ? 36 : 24,
+                        vertical: screenWidth > 500 ? 36 : 28,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius:
-                            BorderRadius.circular(screenWidth > 500 ? 28 : 0),
-                        border: screenWidth > 500
-                            ? Border.all(
-                                color: const Color(0xFFF3EFEA), width: 1.5)
-                            : null,
-                        boxShadow: screenWidth > 500
-                            ? [
-                                BoxShadow(
-                                  color: const Color(0xFF5A453A)
-                                      .withValues(alpha: 0.04),
-                                  blurRadius: 32,
-                                  offset: const Offset(0, 12),
-                                ),
-                              ]
-                            : null,
+                        borderRadius: BorderRadius.circular(screenWidth > 500 ? 28 : 20),
+                        border: Border.all(
+                          color: const Color(0xFFF0EAE3),
+                          width: 1.2,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF5A453A).withValues(alpha: 0.04),
+                            blurRadius: 32,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
                       ),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Logo Monogram
-                          Text(
-                            'R.',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.playfairDisplay(
-                              fontSize: 72,
-                              fontWeight: FontWeight.w700,
-                              color: const Color(
-                                  0xFF8B6B58), // Signature brand brown
-                              letterSpacing: -2,
-                              height: 1.0,
-                            ),
+                          // 1. ResumeOS Brand Lockup (Refined R. ResumeOS)
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Text(
+                                'R.',
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF8B6B58),
+                                  height: 1.0,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'ResumeOS',
+                                style: GoogleFonts.playfairDisplay(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.2,
+                                  color: const Color(0xFF2D231E),
+                                  height: 1.0,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 6),
-                          // App Name
-                          Text(
-                            'ResumeOS',
-                            textAlign: TextAlign.center,
-                            style: GoogleFonts.playfairDisplay(
-                              fontSize: 24,
-                              fontStyle: FontStyle.italic,
-                              fontWeight: FontWeight.w600,
-                              color:
-                                  const Color(0xFF5A453A), // Dark slate-brown
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 28), // 24-32px spacing
 
+                          // 2. Clear Value Proposition
                           Text(
-                            'ANALYSE. CREATE. ACE',
-                            style: const TextStyle(
+                            'Build a resume that\ngets noticed.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.playfairDisplay(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF2D231E),
+                              height: 1.22,
+                              letterSpacing: -0.4,
+                            ),
+                          ),
+                          const SizedBox(height: 10), // 8-12px spacing
+
+                          // 3. Supporting Description
+                          Text(
+                            'Analyze the job. Tailor your resume.\nApply with confidence.',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
                               fontSize: 14,
-                              color: Color(0xFF8B6B58),
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.5,
+                              fontWeight: FontWeight.w400,
+                              color: const Color(0xFF7A6E65),
+                              height: 1.45,
+                              letterSpacing: -0.1,
                             ),
                           ),
-                          const SizedBox(height: 36),
+                          const SizedBox(height: 24), // 20-28px spacing
 
-                          // Interactive Bear Animation
+                          // 4. Subtle Supporting Mascot Element (~45% footprint reduction)
                           _InteractiveBear(
+                            compact: true,
                             coverEyes: false,
                             eyeShift: 0.0,
-                            showHi: true,
+                            showHi: false,
                             askingForHighFive: _askingForHighFive,
                             highFiveClicked: _highFiveClicked,
                             onHighFiveTapped: _onHighFiveTapped,
                           ),
-                          const SizedBox(height: 36),
+                          const SizedBox(height: 28), // 24-32px spacing
 
+                          // 5 & 6. Google Login CTA & Legal Links
                           _buildLandingButtons(isLoading),
                         ],
                       ),
@@ -477,48 +526,63 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   // SCREEN 1: Choose Auth Provider
   Widget _buildLandingButtons(bool isLoading) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        // Branded Google Button (pill, clean white with border and official branding)
+        // Branded Google Button (pill shape, 54px height, sentence-case)
         _TapScaleButton(
           onTap: isLoading ? null : _signInWithGoogle,
           child: Container(
             width: double.infinity,
-            height: 48,
+            height: 54, // within 52-58px
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFE5D5C8), width: 1.5),
+              borderRadius: BorderRadius.circular(27), // pill shape
+              border: Border.all(
+                color: const Color(0xFFE5DDD5),
+                width: 1.2,
+              ),
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF5A453A).withValues(alpha: 0.05),
-                  blurRadius: 6,
-                  offset: const Offset(0, 2),
+                  color: const Color(0xFF2D231E).withValues(alpha: 0.04),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
               ],
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CustomPaint(painter: _GooglePainter()),
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  'CONTINUE WITH GOOGLE',
-                  style: TextStyle(
-                    color: Color(0xFF5A453A),
-                    fontWeight: FontWeight.w800,
-                    fontSize: 13,
-                    letterSpacing: 0.5,
+                if (isLoading)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF8B6B58)),
+                    ),
+                  )
+                else ...[
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CustomPaint(painter: _GooglePainter()),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Continue with Google',
+                    style: GoogleFonts.inter(
+                      color: const Color(0xFF2D231E),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 15,
+                      letterSpacing: -0.1,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
         ),
-        const SizedBox(height: 36),
+        const SizedBox(height: 26), // 24-28px spacing
 
         // Active Legal Links
         _LegalLinks(),
@@ -536,6 +600,8 @@ class _InteractiveBear extends StatefulWidget {
   final bool highFiveClicked;
   final VoidCallback onHighFiveTapped;
 
+  final bool compact;
+
   const _InteractiveBear({
     required this.coverEyes,
     required this.eyeShift,
@@ -543,6 +609,7 @@ class _InteractiveBear extends StatefulWidget {
     required this.askingForHighFive,
     required this.highFiveClicked,
     required this.onHighFiveTapped,
+    this.compact = true,
   });
 
   @override
@@ -652,6 +719,45 @@ class _InteractiveBearState extends State<_InteractiveBear>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.compact) {
+      return GestureDetector(
+        onTap: widget.onHighFiveTapped,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: 110,
+          height: 100,
+          child: FittedBox(
+            fit: BoxFit.contain,
+            alignment: Alignment.center,
+            child: AnimatedBuilder(
+              animation: Listenable.merge([_breathingAnim, _clapAnim]),
+              builder: (context, child) {
+                final breathingVal = _breathingAnim.value;
+                final scaleY = (1.0 + breathingVal * 0.015) * _clapAnim.value;
+                final scaleX = (1.0 - breathingVal * 0.008) * _clapAnim.value;
+                final yTranslation = breathingVal * 2.5;
+
+                return Transform.translate(
+                  offset: Offset(0.0, yTranslation),
+                  child: Transform.scale(
+                    scaleX: scaleX,
+                    scaleY: scaleY,
+                    alignment: Alignment.bottomCenter,
+                    child: child,
+                  ),
+                );
+              },
+              child: SizedBox(
+                width: 160,
+                height: 155,
+                child: _buildBearContent(),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final showBubble =
         widget.askingForHighFive || widget.highFiveClicked || widget.showHi;
 
@@ -739,27 +845,38 @@ class _InteractiveBearState extends State<_InteractiveBear>
             child: AnimatedBuilder(
               animation: Listenable.merge([_breathingAnim, _clapAnim]),
               builder: (context, child) {
-                // Organic breathing squash & stretch combined with high five bounce scale
                 final breathingVal = _breathingAnim.value;
                 final scaleY = (1.0 + breathingVal * 0.015) * _clapAnim.value;
                 final scaleX = (1.0 - breathingVal * 0.008) * _clapAnim.value;
                 final yTranslation = breathingVal * 2.5;
 
-                return Transform(
-                  alignment: Alignment.bottomCenter,
-                  transform: Matrix4.identity()
-                    ..translate(0.0, yTranslation)
-                    ..scale(scaleX, scaleY),
-                  child: child,
+                return Transform.translate(
+                  offset: Offset(0.0, yTranslation),
+                  child: Transform.scale(
+                    scaleX: scaleX,
+                    scaleY: scaleY,
+                    alignment: Alignment.bottomCenter,
+                    child: child,
+                  ),
                 );
               },
               child: SizedBox(
                 width: 160,
                 height: 155,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
+                child: _buildBearContent(),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBearContent() {
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
                     // 1. Torso/Body of the bear at the bottom
                     Positioned(
                       bottom: 0,
@@ -1004,8 +1121,8 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                   child: Container(
                                     width: 34,
                                     height: 18,
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
                                         begin: Alignment.topCenter,
                                         end: Alignment.bottomCenter,
                                         colors: [
@@ -1013,7 +1130,7 @@ class _InteractiveBearState extends State<_InteractiveBear>
                                           Color(0xFF7E57C2),
                                         ],
                                       ),
-                                      borderRadius: const BorderRadius.only(
+                                      borderRadius: BorderRadius.only(
                                         topLeft: Radius.circular(20),
                                         topRight: Radius.circular(20),
                                       ),
@@ -1297,13 +1414,7 @@ class _InteractiveBearState extends State<_InteractiveBear>
                       ),
                     ),
                   ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+                );
   }
 }
 
@@ -1736,49 +1847,52 @@ class _LegalLinks extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          'By continue you agree to our',
-          style: TextStyle(
-            fontSize: 11,
-            color: Colors.grey.shade500,
-            fontWeight: FontWeight.w500,
+          'By continuing, you agree to our',
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            color: const Color(0xFF8C827A),
+            height: 1.4,
           ),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 4),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        const SizedBox(height: 3),
+        Wrap(
+          alignment: WrapAlignment.center,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             GestureDetector(
               onTap: () => context.push(RouteNames.terms),
-              child: const Text(
-                'Terms',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF5A453A),
-                  fontWeight: FontWeight.bold,
+              child: Text(
+                'Terms of Service',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xFF5A453A),
+                  fontWeight: FontWeight.w600,
                   decoration: TextDecoration.underline,
+                  decorationColor: const Color(0xFF8B6B58).withValues(alpha: 0.5),
                 ),
               ),
             ),
             Text(
-              ' & ',
-              style: TextStyle(
-                fontSize: 11,
-                color: Colors.grey.shade500,
-                fontWeight: FontWeight.w500,
+              ' and ',
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                color: const Color(0xFF8C827A),
               ),
             ),
             GestureDetector(
               onTap: () => context.push(RouteNames.privacy),
-              child: const Text(
+              child: Text(
                 'Privacy Policy',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF5A453A),
-                  fontWeight: FontWeight.bold,
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  color: const Color(0xFF5A453A),
+                  fontWeight: FontWeight.w600,
                   decoration: TextDecoration.underline,
+                  decorationColor: const Color(0xFF8B6B58).withValues(alpha: 0.5),
                 ),
               ),
             ),

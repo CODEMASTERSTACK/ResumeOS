@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../routes/route_names.dart';
+import '../../../../services/cache/screen_persistence.dart';
 import '../providers/auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -56,18 +57,26 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   Future<void> _navigateAfterDelay() async {
     // 1. Minimum aesthetic delay so brand splash animation plays smoothly
-    final minDelayFuture = Future.delayed(const Duration(milliseconds: 1400));
+    final minDelayFuture = Future.delayed(const Duration(milliseconds: 1200));
 
-    // 2. Resolve authenticated user deterministically
+    // 2. Check if a previously authenticated user UID was stored on this device
+    final savedUid = await ScreenPersistence.getAuthUid();
+    final savedRoute = await ScreenPersistence.getLastRoute();
+
+    // 3. Resolve authenticated user deterministically
     User? user = ref.read(currentUserProvider) ?? FirebaseAuth.instance.currentUser;
     if (user == null) {
       try {
+        // If we previously had an authenticated session, wait up to 4 seconds for Keystore decrypt
+        final timeoutDuration = savedUid != null
+            ? const Duration(milliseconds: 4000)
+            : const Duration(milliseconds: 1500);
         user = await FirebaseAuth.instance
             .authStateChanges()
-            .first
-            .timeout(const Duration(milliseconds: 2500));
+            .firstWhere((u) => u != null)
+            .timeout(timeoutDuration);
       } catch (_) {
-        user = null;
+        user = FirebaseAuth.instance.currentUser;
       }
     }
 
@@ -79,31 +88,59 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       return;
     }
 
-    // 3. User is authenticated; check onboarding status
+    // 4. Update saved UID
+    await ScreenPersistence.saveAuthUid(user.uid);
+
+    // 5. Determine target route (saved route if valid, or dashboard)
+    final targetRoute = (savedRoute != null &&
+            savedRoute.isNotEmpty &&
+            !savedRoute.contains('login') &&
+            !savedRoute.contains('splash') &&
+            !savedRoute.contains('otp') &&
+            !savedRoute.contains('account-deleted'))
+        ? savedRoute
+        : RouteNames.dashboard;
+
+    // 6. Check Firestore for deletion or hold status
     try {
       final doc = await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .get()
-          .timeout(const Duration(seconds: 4));
+          .timeout(const Duration(seconds: 3));
 
       if (!mounted) return;
 
       final data = doc.data();
-      final isEmailVerified = data?['isEmailVerified'] as bool? ?? true;
-      final onboardingComplete = data?['onboardingComplete'] as bool? ?? false;
+      final isDeleted = (data?['isDeleted'] as bool? ?? false) ||
+          (data?['accountStatus'] == 'deleted');
+      if (isDeleted) {
+        await FirebaseAuth.instance.signOut();
+        await ScreenPersistence.clearAll();
+        if (!mounted) return;
+        context.go(RouteNames.accountDeleted);
+        return;
+      }
 
+      final isEmailVerified = data?['isEmailVerified'] as bool? ?? true;
       if (!isEmailVerified) {
         context.go(RouteNames.otpVerify);
-      } else if (onboardingComplete) {
-        context.go(RouteNames.dashboard);
-      } else {
-        context.go(RouteNames.onboarding);
+        return;
       }
+
+      // Mark onboarding complete in background to prevent ever blocking user
+      if (data?['onboardingComplete'] != true) {
+        FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'onboardingComplete': true}).catchError((_) {});
+      }
+
+      context.go(targetRoute);
     } catch (_) {
-      // In case of network timeout or offline mode, navigate authenticated user directly
+      // Offline mode or network timeout fallback: navigate directly to targetRoute
       if (mounted) {
-        context.go(RouteNames.dashboard);
+        context.go(targetRoute);
       }
     }
   }

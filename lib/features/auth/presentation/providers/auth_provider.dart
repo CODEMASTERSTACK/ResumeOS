@@ -12,6 +12,7 @@ import '../../../../features/dashboard/presentation/screens/dashboard_screen.dar
 import '../../../../core/config/app_config.dart';
 import '../../../../services/telemetry/telemetry_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../../../services/cache/screen_persistence.dart';
 
 // ── Auth Repository ────────────────────────────────────────
 
@@ -86,7 +87,10 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> signOut() async {
-    await GoogleSignIn().signOut();
+    await ScreenPersistence.clearAll();
+    try {
+      await GoogleSignIn().signOut();
+    } catch (_) {}
     await _auth.signOut();
   }
 }
