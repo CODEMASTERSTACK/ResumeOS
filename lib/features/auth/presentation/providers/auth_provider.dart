@@ -9,6 +9,9 @@ import '../../../../services/github/github_service.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
 import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/dashboard/presentation/screens/dashboard_screen.dart';
+import '../../../../core/config/app_config.dart';
+import '../../../../services/telemetry/telemetry_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // ── Auth Repository ────────────────────────────────────────
 
@@ -96,7 +99,15 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 
 /// Auth state stream — drives redirect logic in GoRouter
 final authStateProvider = StreamProvider<User?>((ref) {
-  return ref.watch(authRepositoryProvider).authStateChanges;
+  final stream = ref.watch(authRepositoryProvider).authStateChanges;
+  return stream.map((user) {
+    if (user != null) {
+      TelemetryService.instance.setUser(uid: user.uid, email: user.email);
+    } else {
+      TelemetryService.instance.clearUser();
+    }
+    return user;
+  });
 });
 
 /// Current Firebase user (null if not authenticated)
@@ -162,6 +173,25 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> createAccount(String email, String password, String name) async {
     state = const AuthState(isLoading: true);
     try {
+      // Check if this email was previously deleted/archived
+      final emailMatches = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: email.trim())
+          .limit(1)
+          .get();
+      if (emailMatches.docs.isNotEmpty) {
+        final docData = emailMatches.docs.first.data();
+        final isDel = (docData['isDeleted'] as bool? ?? false) ||
+            (docData['accountStatus'] == 'deleted');
+        if (isDel) {
+          final reason = (docData['deletionReason'] as String?)?.isNotEmpty == true
+              ? docData['deletionReason'] as String
+              : 'Detected unauthorized activity and violation of platform terms.';
+          throw Exception(
+              'ACCOUNT_DELETED: Your account with this email (${email.trim()}) was deleted by our team for the reason: $reason. You cannot access your account or create an account with this email ID.');
+        }
+      }
+
       final cred = await _repo.createAccountWithEmail(email, password, name);
       final user = cred.user;
       if (user != null) {
@@ -295,20 +325,65 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (user == null) return;
 
     final profileRepo = _ref.read(profileRepositoryProvider);
-    try {
-      final existing = await profileRepo.getUser(user.uid);
-      if (existing == null) {
-        final newUser = UserModel(
-          uid: user.uid,
-          name: user.displayName ?? '',
-          email: user.email ?? '',
-          createdAt: DateTime.now(),
-        );
-        await profileRepo.createUser(newUser);
+    final existing = await profileRepo.getUser(user.uid);
+
+    if (existing != null) {
+      if (existing.isDeleted || existing.accountStatus == 'deleted') {
+        await _repo.signOut();
+        final reason = existing.deletionReason.isNotEmpty
+            ? existing.deletionReason
+            : 'Detected unauthorized activity and violation of platform terms.';
+        throw Exception(
+            'ACCOUNT_DELETED: Your account with this email (${existing.email.isNotEmpty ? existing.email : user.email}) was deleted by our team for the reason: $reason. You cannot access your account or create an account with this email ID.');
       }
-    } catch (e) {
-      // Log/print the error; DO NOT perform a write that could overwrite an existing profile document!
-      debugPrint('Error ensuring user profile exists: $e');
+
+      if (existing.accountStatus == 'hold') {
+        final isStillOnHold = existing.holdUntil == null ||
+            DateTime.now().isBefore(existing.holdUntil!);
+        if (isStillOnHold) {
+          await _repo.signOut();
+          final holdUntilStr = existing.holdUntil != null
+              ? ' until ${existing.holdUntil!.toLocal()}'
+              : ' indefinitely pending administrative review';
+          final reason = existing.holdReason.isNotEmpty
+              ? existing.holdReason
+              : 'Detected unauthorized activity.';
+          throw Exception(
+              'ACCOUNT_ON_HOLD: Your account has been placed on hold$holdUntilStr due to detected unauthorized activity. During this time, no activity is allowed. Reason: $reason.');
+        }
+      }
+    } else if (user.email != null && user.email!.isNotEmpty) {
+      // Check if an archived document exists with this email address
+      try {
+        final emailMatches = await FirebaseFirestore.instance
+            .collection('users')
+            .where('email', isEqualTo: user.email!.trim())
+            .limit(1)
+            .get();
+        if (emailMatches.docs.isNotEmpty) {
+          final docData = emailMatches.docs.first.data();
+          final isDel = (docData['isDeleted'] as bool? ?? false) ||
+              (docData['accountStatus'] == 'deleted');
+          if (isDel) {
+            await _repo.signOut();
+            final reason = (docData['deletionReason'] as String?)?.isNotEmpty == true
+                ? docData['deletionReason'] as String
+                : 'Detected unauthorized activity and violation of platform terms.';
+            throw Exception(
+                'ACCOUNT_DELETED: Your account with this email (${user.email}) was deleted by our team for the reason: $reason. You cannot access your account or create an account with this email ID.');
+          }
+        }
+      } catch (e) {
+        if (e.toString().contains('ACCOUNT_DELETED')) rethrow;
+      }
+
+      final newUser = UserModel(
+        uid: user.uid,
+        name: user.displayName ?? '',
+        email: user.email ?? '',
+        createdAt: DateTime.now(),
+      );
+      await profileRepo.createUser(newUser);
     }
   }
 
@@ -324,7 +399,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       final idToken = await user.getIdToken();
 
       final response = await http.post(
-        Uri.parse('https://smartresume-backend.kanasingh974.workers.dev/v1/auth/delete-account'),
+        Uri.parse(AppConfig.deleteAccountUrl),
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $idToken',

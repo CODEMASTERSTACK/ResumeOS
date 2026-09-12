@@ -95,24 +95,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         final isEntryAuthScreen = location == RouteNames.login || location == RouteNames.signup;
 
         if (profile != null) {
-          final isUnverified = !profile.isEmailVerified;
-          final isOnOtpVerify = location == RouteNames.otpVerify;
-          if (isUnverified) {
-            if (!isOnOtpVerify) {
-              return RouteNames.otpVerify;
-            }
-          } else {
-            if (isOnOtpVerify || isEntryAuthScreen) {
-              return profile.onboardingComplete
-                  ? RouteNames.dashboard
-                  : RouteNames.onboarding;
-            }
+          if (isEntryAuthScreen || location == RouteNames.otpVerify) {
+            return profile.onboardingComplete
+                ? RouteNames.dashboard
+                : RouteNames.onboarding;
+          }
 
-            final isOnOnboarding = location == RouteNames.onboarding ||
-                location.startsWith('/onboarding');
-            if (!profile.onboardingComplete && !isOnOnboarding) {
-              return RouteNames.onboarding;
-            }
+          final isOnOnboarding = location == RouteNames.onboarding ||
+              location.startsWith('/onboarding');
+          if (!profile.onboardingComplete && !isOnOnboarding) {
+            return RouteNames.onboarding;
           }
         } else if (isEntryAuthScreen) {
           // If profile is still resolving from Firestore, forward away from login to dashboard

@@ -15,6 +15,7 @@ import '../../../../features/profile/data/repositories/profile_repository.dart';
 import '../../../../features/profile/domain/entities/user_model.dart';
 import '../../../../shared/providers/firebase_providers.dart';
 import '../../../../features/notifications/presentation/providers/notification_provider.dart';
+import '../../../../core/config/app_config.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 // ── Providers ─────────────────────────────────────────────
@@ -99,8 +100,7 @@ final freshJobsProvider =
   // ── Primary: Adzuna India — via Cloudflare Worker proxy ────────────
   try {
     final uri = Uri.parse(
-      'https://smartresume-backend.kanasingh974.workers.dev/v1/jobs/india'
-      '?page=1&results_per_page=50',
+      '${AppConfig.jobsIndiaUrl}?page=1&results_per_page=50',
     );
 
     final res = await http.get(uri).timeout(const Duration(seconds: 14));
@@ -993,6 +993,50 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> with Singl
                     ),
                   ),
 
+                  // 3. App Logo on the right side under background image
+                  Positioned(
+                    top: 146,
+                    right: 24,
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.06),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.asset(
+                          'assets/images/icon.png',
+                          width: 36,
+                          height: 36,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF8B6B58),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              'R.',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
 
 
                   // 4. Overlapping Profile Avatar
@@ -1373,33 +1417,36 @@ class _GenerateHeroCardState extends ConsumerState<_GenerateHeroCard> with Singl
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  name,
-                                  style: const TextStyle(
-                                    color: Color(0xFF1E1C24),
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.4,
+                            Padding(
+                              padding: const EdgeInsets.only(right: 44),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    name,
+                                    style: const TextStyle(
+                                      color: Color(0xFF1E1C24),
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.4,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  title,
-                                  style: const TextStyle(
-                                    color: Color(0xFF8A8894),
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    title,
+                                    style: const TextStyle(
+                                      color: Color(0xFF8A8894),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                contactInfoWidget,
-                              ],
+                                  contactInfoWidget,
+                                ],
+                              ),
                             ),
                             const Spacer(),
                             bottomRowWidget,

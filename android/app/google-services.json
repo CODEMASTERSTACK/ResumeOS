@@ -23,6 +23,14 @@
           }
         },
         {
+          "client_id": "907333622939-142977f4o4v771heti0s43ucr9gjaje4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aicareer.ai_career_os",
+            "certificate_hash": "4420e2767319577e3d4afb365a6b9a6ea780e617"
+          }
+        },
+        {
           "client_id": "907333622939-k270fg4mkn75ul9fk1rek8vrjbteclsu.apps.googleusercontent.com",
           "client_type": 3
         }

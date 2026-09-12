@@ -9,6 +9,7 @@ import '../../../../routes/route_names.dart';
 import '../providers/auth_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../../shared/utils/error_sanitizer.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 // Restricting login to Google Sign-In only
 
@@ -109,32 +110,193 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   Future<void> _navigateOnSuccess() async {
     if (!mounted) return;
     final error = ref.read(authNotifierProvider).error;
-    if (error == null) {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
-        context.go(RouteNames.login);
+    if (error != null) {
+      final errStr = error.toString();
+      if (errStr.contains('ACCOUNT_DELETED:')) {
+        final msg = errStr.split('ACCOUNT_DELETED:').last.trim();
+        _showAccountStatusDialog(
+          isDeleted: true,
+          title: 'Account Deactivated',
+          message: msg,
+        );
         return;
       }
-      try {
-        final doc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        final onboardingComplete =
-            doc.data()?['onboardingComplete'] as bool? ?? false;
-
-        if (!mounted) return;
-        if (onboardingComplete) {
-          context.go(RouteNames.dashboard);
-        } else {
-          context.go(RouteNames.onboarding);
-        }
-      } catch (_) {
-        if (mounted) context.go(RouteNames.onboarding);
+      if (errStr.contains('ACCOUNT_ON_HOLD:')) {
+        final msg = errStr.split('ACCOUNT_ON_HOLD:').last.trim();
+        _showAccountStatusDialog(
+          isDeleted: false,
+          title: 'Account On Hold',
+          message: msg,
+        );
+        return;
       }
-    } else {
-      _showError(_friendlyError(error.toString()));
+      _showError(_friendlyError(errStr));
+      return;
     }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      context.go(RouteNames.login);
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final data = doc.data() ?? {};
+
+      // Check if account has been deleted
+      final isDeleted = (data['isDeleted'] as bool? ?? false) || (data['accountStatus'] == 'deleted');
+      if (isDeleted) {
+        await FirebaseAuth.instance.signOut();
+        final reason = (data['deletionReason'] as String?)?.isNotEmpty == true
+            ? data['deletionReason'] as String
+            : 'Unauthorized activity';
+        _showAccountStatusDialog(
+          isDeleted: true,
+          title: 'Account Deactivated',
+          message: 'Your account with this email (${user.email}) was deleted by our team for the reason: $reason. You cannot access your account or create an account with this email ID.',
+        );
+        return;
+      }
+
+      // Check if account is on hold
+      final isHold = data['accountStatus'] == 'hold';
+      if (isHold) {
+        DateTime? holdUntil;
+        final hu = data['holdUntil'];
+        if (hu is Timestamp) {
+          holdUntil = hu.toDate();
+        } else if (hu is String && hu.isNotEmpty) {
+          holdUntil = DateTime.tryParse(hu);
+        }
+        final isStillHeld = holdUntil == null || DateTime.now().isBefore(holdUntil);
+        if (isStillHeld) {
+          await FirebaseAuth.instance.signOut();
+          final reason = (data['holdReason'] as String?)?.isNotEmpty == true
+              ? data['holdReason'] as String
+              : 'Detected unauthorized activity';
+          final holdUntilStr = holdUntil != null
+              ? ' until ${holdUntil.toLocal().toString().split('.').first}'
+              : ' indefinitely pending administrative review';
+          _showAccountStatusDialog(
+            isDeleted: false,
+            title: 'Account On Hold',
+            message: 'Your account has been placed on hold$holdUntilStr due to detected unauthorized activity. During this time, no activity is allowed. Reason: $reason.',
+          );
+          return;
+        }
+      }
+
+      final onboardingComplete =
+          data['onboardingComplete'] as bool? ?? false;
+
+      if (!mounted) return;
+      if (onboardingComplete) {
+        context.go(RouteNames.dashboard);
+      } else {
+        context.go(RouteNames.onboarding);
+      }
+    } catch (_) {
+      if (mounted) context.go(RouteNames.onboarding);
+    }
+  }
+
+  void _showAccountStatusDialog({
+    required bool isDeleted,
+    required String title,
+    required String message,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF13111C),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(
+            color: isDeleted
+                ? const Color(0xFFF43F5E).withValues(alpha: 0.4)
+                : const Color(0xFFF59E0B).withValues(alpha: 0.4),
+            width: 1.2,
+          ),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              isDeleted ? Icons.block_rounded : Icons.pause_circle_filled_rounded,
+              color: isDeleted ? const Color(0xFFF43F5E) : const Color(0xFFF59E0B),
+              size: 26,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: isDeleted
+                    ? const Color(0xFFF43F5E).withValues(alpha: 0.08)
+                    : const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDeleted
+                      ? const Color(0xFFF43F5E).withValues(alpha: 0.2)
+                      : const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                ),
+              ),
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          if (!isDeleted)
+            TextButton(
+              onPressed: () async {
+                final uri = Uri.parse('mailto:support@resumeos.app?subject=Account%20Hold%20Inquiry');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri);
+                }
+              },
+              child: const Text(
+                'Contact Support',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDeleted ? const Color(0xFFF43F5E) : const Color(0xFFF59E0B),
+              foregroundColor: isDeleted ? Colors.white : Colors.black,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+            child: const Text('Understood', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
   }
 
   String _friendlyError(String raw) {

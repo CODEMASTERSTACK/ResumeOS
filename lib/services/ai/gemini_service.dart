@@ -3,13 +3,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/config/app_config.dart';
 import 'ai_service.dart';
 
 /// Gemini / OpenRouter Cloudflare API Gateway client service
 class GeminiService implements AIService {
   static const _gatewayUrl = String.fromEnvironment(
     'AI_GATEWAY_URL',
-    defaultValue: 'https://smartresume-backend.kanasingh974.workers.dev/v1/ai/generate',
+    defaultValue: AppConfig.aiGenerateUrl,
   );
 
   GeminiService();

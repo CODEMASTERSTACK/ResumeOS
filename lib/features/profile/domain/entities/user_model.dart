@@ -27,6 +27,11 @@ class UserModel {
   final DateTime? lastActiveAt;
   final String appVersion;
   final String platform;
+  final String accountStatus; // 'active', 'hold', 'deleted'
+  final String holdReason;
+  final DateTime? holdUntil;
+  final String deletionReason;
+  final bool isDeleted;
 
   const UserModel({
     required this.uid,
@@ -54,6 +59,11 @@ class UserModel {
     this.lastActiveAt,
     this.appVersion = '',
     this.platform = '',
+    this.accountStatus = 'active',
+    this.holdReason = '',
+    this.holdUntil,
+    this.deletionReason = '',
+    this.isDeleted = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
@@ -88,6 +98,17 @@ class UserModel {
         lastActiveAt: (json['lastActiveAt'] as Timestamp?)?.toDate(),
         appVersion: json['appVersion'] as String? ?? '',
         platform: json['platform'] as String? ?? '',
+        accountStatus: json['accountStatus'] as String? ??
+            ((json['isDeleted'] as bool? ?? false) ? 'deleted' : 'active'),
+        holdReason: json['holdReason'] as String? ?? '',
+        holdUntil: (json['holdUntil'] is Timestamp)
+            ? (json['holdUntil'] as Timestamp).toDate()
+            : (json['holdUntil'] != null && (json['holdUntil'] as String).isNotEmpty
+                ? DateTime.tryParse(json['holdUntil'] as String)
+                : null),
+        deletionReason: json['deletionReason'] as String? ?? '',
+        isDeleted: json['isDeleted'] as bool? ??
+            ((json['accountStatus'] as String? ?? '') == 'deleted'),
       );
 
   factory UserModel.fromFirestore(DocumentSnapshot doc) {
@@ -120,6 +141,11 @@ class UserModel {
         if (lastActiveAt != null) 'lastActiveAt': Timestamp.fromDate(lastActiveAt!),
         'appVersion': appVersion,
         'platform': platform,
+        'accountStatus': accountStatus,
+        'holdReason': holdReason,
+        if (holdUntil != null) 'holdUntil': holdUntil!.toIso8601String(),
+        'deletionReason': deletionReason,
+        'isDeleted': isDeleted,
       };
 
   UserModel copyWith({
@@ -144,6 +170,11 @@ class UserModel {
     String? lastClaimedSunday,
     String? appVersion,
     String? platform,
+    String? accountStatus,
+    String? holdReason,
+    DateTime? holdUntil,
+    String? deletionReason,
+    bool? isDeleted,
   }) =>
       UserModel(
         uid: uid ?? this.uid,
@@ -171,6 +202,11 @@ class UserModel {
         lastActiveAt: lastActiveAt,
         appVersion: appVersion ?? this.appVersion,
         platform: platform ?? this.platform,
+        accountStatus: accountStatus ?? this.accountStatus,
+        holdReason: holdReason ?? this.holdReason,
+        holdUntil: holdUntil ?? this.holdUntil,
+        deletionReason: deletionReason ?? this.deletionReason,
+        isDeleted: isDeleted ?? this.isDeleted,
       );
 }
 

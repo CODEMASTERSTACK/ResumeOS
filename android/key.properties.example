@@ -1,0 +1,10 @@
+# Instructions for Android Release Keystore:
+# 1. Generate a keystore file using keytool (run this command in terminal):
+#    keytool -genkey -v -keystore android/app/upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+# 2. Copy this file to android/key.properties and replace the values below with your credentials:
+# 3. Add android/key.properties and upload-keystore.jks to .gitignore so they are never committed to public git!
+
+storePassword=YOUR_STORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=upload-keystore.jks

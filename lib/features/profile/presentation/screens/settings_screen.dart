@@ -4,6 +4,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+import 'dart:io' show Platform;
+import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import '../../../../core/config/app_config.dart';
 import '../../../../shared/providers/firebase_providers.dart';
 import '../../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../../routes/route_names.dart';
@@ -764,7 +770,26 @@ class SettingsScreen extends ConsumerWidget {
                         ),
                       );
 
-                      await ref
+                      // Gather rich user & device context
+                      final authUser = ref.read(currentUserProvider);
+                      final userName = (authUser?.displayName != null && authUser!.displayName!.isNotEmpty)
+                          ? authUser.displayName!
+                          : 'User';
+                      final userEmail = authUser?.email ?? '';
+                      String appVersion = '1.0.0+1';
+                      try {
+                        final pkg = await PackageInfo.fromPlatform();
+                        appVersion = '${pkg.version}+${pkg.buildNumber}';
+                      } catch (_) {}
+                      final platformStr = Platform.isAndroid ? 'android' : (Platform.isIOS ? 'ios' : 'unknown');
+
+                      String? fcmToken;
+                      try {
+                        fcmToken = await FirebaseMessaging.instance.getToken();
+                      } catch (_) {}
+
+                      // 1. Save to user's private subcollection
+                      final localDoc = await ref
                           .read(firestoreProvider)
                           .collection('users')
                           .doc(uid)
@@ -773,7 +798,31 @@ class SettingsScreen extends ConsumerWidget {
                         'description': desc,
                         'createdAt': FieldValue.serverTimestamp(),
                         'status': 'pending',
+                        'userName': userName,
+                        'userEmail': userEmail,
+                        'appVersion': appVersion,
+                        'platform': platformStr,
                       });
+
+                      // 2. Dispatch to Centralized Admin Backend endpoint
+                      try {
+                        await http.post(
+                          Uri.parse(AppConfig.submitReportUrl),
+                          headers: {'Content-Type': 'application/json'},
+                          body: jsonEncode({
+                            'reportId': localDoc.id,
+                            'uid': uid,
+                            'userName': userName,
+                            'userEmail': userEmail,
+                            'description': desc,
+                            'appVersion': appVersion,
+                            'platform': platformStr,
+                            'fcmToken': fcmToken,
+                          }),
+                        );
+                      } catch (apiErr) {
+                        debugPrint('[ReportIssue] Non-fatal backend dispatch notice: $apiErr');
+                      }
 
                       scaffoldMessenger.clearSnackBars();
 
@@ -799,7 +848,7 @@ class SettingsScreen extends ConsumerWidget {
                               ],
                             ),
                             content: Text(
-                              "Your issue has been reported and we'll look forward to solving it in the meantime.",
+                              "Your issue has been reported directly to the admin team. When an admin replies, you'll receive a notification on your device.",
                               style: GoogleFonts.outfit(
                                 color: Colors.white70,
                                 fontSize: 13,

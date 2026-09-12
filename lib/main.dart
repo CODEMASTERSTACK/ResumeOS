@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,19 +6,76 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'core/theme/app_theme.dart';
+import 'core/network/offline_banner_overlay.dart';
+import 'core/widgets/version_check_gate.dart';
+import 'core/widgets/account_status_gate.dart';
 import 'firebase_options.dart';
 import 'routes/app_router.dart';
 import 'services/notifications/notification_service.dart';
+import 'services/telemetry/telemetry_service.dart';
 
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ── Global Error Boundary & Crashlytics Integration ───────
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    TelemetryService.instance.recordError(
+      details.exception,
+      details.stack,
+      fatal: true,
+    );
+    debugPrint('[FlutterError] ${details.exceptionAsString()}');
+  };
+
+  PlatformDispatcher.instance.onError = (error, stack) {
+    TelemetryService.instance.recordError(
+      error,
+      stack,
+      fatal: true,
+    );
+    debugPrint('[UncaughtAsyncError] $error\n$stack');
+    return true; // Handled gracefully
+  };
+
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    return Material(
+      color: const Color(0xFF0F172A),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.info_outline_rounded, color: Color(0xFFCBE349), size: 36),
+              const SizedBox(height: 12),
+              const Text(
+                'Something unexpected happened',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Please restart or return to the previous screen.',
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 12),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  };
+
   // ── Firebase ──────────────────────────────────────────────
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Initialize Crashlytics & Error Telemetry
+  await TelemetryService.instance.initialize();
 
   // Set background messaging handler
   FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
@@ -114,6 +172,15 @@ class _AiCareerOsAppState extends ConsumerState<AiCareerOsApp> {
       theme: AppTheme.lightTheme,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
       routerConfig: router,
+      builder: (context, child) {
+        return VersionCheckGate(
+          child: AccountStatusGate(
+            child: OfflineBannerOverlay(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
+        );
+      },
     );
   }
 }
